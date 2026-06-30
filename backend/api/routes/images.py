@@ -1,0 +1,354 @@
+from __future__ import annotations
+
+from pathlib import Path
+
+from flask import jsonify, request, send_file, send_from_directory
+
+from backend import image_artifacts
+from backend import image_overlay
+from backend import image_templates
+from backend import config
+from backend.api.blueprint import api_bp
+from backend.api.helpers import reject_client, reject_run_id
+from backend.integrations import openai_chat
+
+
+def _safe_template_id(raw: str | None) -> str:
+    value = str(raw or image_templates.DEFAULT_TEMPLATE_ID).strip()
+    if not value or ".." in value or "/" in value or "\\" in value:
+        return image_templates.DEFAULT_TEMPLATE_ID
+    return value
+
+
+def _png_response(path, *, filename: str, attachment: bool = False):
+    resp = send_file(
+        path,
+        mimetype="image/png",
+        as_attachment=attachment,
+        download_name=filename if attachment else None,
+    )
+    resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
+    return resp
+
+
+@api_bp.get("/clients/<client_id>/runs/<run_id>/images")
+def list_run_images(client_id: str, run_id: str):
+    bad = reject_client(client_id)
+    if bad:
+        return bad
+    bad_run = reject_run_id(run_id)
+    if bad_run:
+        return bad_run
+    idx = image_artifacts.load_image_index(client_id, run_id)
+    if not idx:
+        return jsonify(images=[], selected_primary=None, image_meta={})
+    return jsonify(
+        images=idx.images,
+        selected_primary=idx.selected_primary,
+        image_meta=idx.meta or {},
+    )
+
+
+@api_bp.post("/clients/<client_id>/runs/<run_id>/images/select")
+def select_run_image(client_id: str, run_id: str):
+    bad = reject_client(client_id)
+    if bad:
+        return bad
+    bad_run = reject_run_id(run_id)
+    if bad_run:
+        return bad_run
+    body = request.get_json(silent=True) or {}
+    filename = body.get("filename") or ""
+    try:
+        idx = image_artifacts.select_primary_image(client_id, run_id, str(filename))
+    except ValueError as e:
+        return jsonify(detail=str(e)), 400
+    return jsonify(
+        images=idx.images,
+        selected_primary=idx.selected_primary,
+        image_meta=idx.meta or {},
+    )
+
+
+@api_bp.post("/clients/<client_id>/runs/<run_id>/images/upload")
+def upload_run_image(client_id: str, run_id: str):
+    bad = reject_client(client_id)
+    if bad:
+        return bad
+    bad_run = reject_run_id(run_id)
+    if bad_run:
+        return bad_run
+    body = request.get_json(silent=True) or {}
+    image_b64 = body.get("image_base64")
+    if not image_b64:
+        return jsonify(detail="image_base64 is required"), 400
+    set_primary = body.get("set_primary", True)
+    if not isinstance(set_primary, bool):
+        set_primary = str(set_primary).lower() in ("1", "true", "yes")
+    try:
+        idx = image_artifacts.add_uploaded_image_from_base64(
+            client_id,
+            run_id,
+            image_base64=str(image_b64),
+            set_primary=set_primary,
+        )
+    except ValueError as e:
+        return jsonify(detail=str(e)), 400
+    except RuntimeError as e:
+        return jsonify(detail=str(e)), 502
+    return jsonify(
+        images=idx.images,
+        selected_primary=idx.selected_primary,
+        image_meta=idx.meta or {},
+    )
+
+
+@api_bp.post("/clients/<client_id>/runs/<run_id>/images/regenerate")
+def regenerate_run_image(client_id: str, run_id: str):
+    bad = reject_client(client_id)
+    if bad:
+        return bad
+    bad_run = reject_run_id(run_id)
+    if bad_run:
+        return bad_run
+    body = request.get_json(silent=True) or {}
+    style_key = str(body.get("style_key") or "").strip()
+    if not style_key:
+        return jsonify(detail="style_key is required"), 400
+    from backend import social_image_generation
+
+    try:
+        idx = social_image_generation.regenerate_style(client_id, run_id, style_key)
+    except ValueError as e:
+        return jsonify(detail=str(e)), 400
+    except RuntimeError as e:
+        return jsonify(detail=str(e)), 502
+    return jsonify(
+        images=idx.images,
+        selected_primary=idx.selected_primary,
+        image_meta=idx.meta or {},
+    )
+
+
+@api_bp.post("/clients/<client_id>/runs/<run_id>/images/delete")
+def delete_run_image(client_id: str, run_id: str):
+    bad = reject_client(client_id)
+    if bad:
+        return bad
+    bad_run = reject_run_id(run_id)
+    if bad_run:
+        return bad_run
+    body = request.get_json(silent=True) or {}
+    filename = body.get("filename") or ""
+    try:
+        idx = image_artifacts.delete_generated_image(client_id, run_id, str(filename))
+    except ValueError as e:
+        return jsonify(detail=str(e)), 400
+    return jsonify(
+        images=idx.images,
+        selected_primary=idx.selected_primary,
+        image_meta=idx.meta or {},
+    )
+
+
+@api_bp.get("/clients/<client_id>/runs/<run_id>/images/generated/<filename>")
+def get_generated_image(client_id: str, run_id: str, filename: str):
+    bad = reject_client(client_id)
+    if bad:
+        return bad
+    bad_run = reject_run_id(run_id)
+    if bad_run:
+        return bad_run
+    try:
+        path = image_artifacts.generated_image_path(client_id, run_id, filename)
+    except ValueError as e:
+        return jsonify(detail=str(e)), 400
+    if not path.is_file():
+        return jsonify(detail="image not found"), 404
+    return _png_response(path, filename=filename)
+
+
+@api_bp.get("/clients/<client_id>/runs/<run_id>/images/formats")
+def get_formats_index(client_id: str, run_id: str):
+    bad = reject_client(client_id)
+    if bad:
+        return bad
+    bad_run = reject_run_id(run_id)
+    if bad_run:
+        return bad_run
+    data = image_artifacts.load_formats_index(client_id, run_id)
+    return jsonify(data or {})
+
+
+@api_bp.get("/clients/<client_id>/runs/<run_id>/images/formats/<filename>")
+def get_formatted_image(client_id: str, run_id: str, filename: str):
+    bad = reject_client(client_id)
+    if bad:
+        return bad
+    bad_run = reject_run_id(run_id)
+    if bad_run:
+        return bad_run
+    try:
+        path = image_artifacts.format_image_path(client_id, run_id, filename)
+    except ValueError as e:
+        return jsonify(detail=str(e)), 400
+    if not path.is_file():
+        return jsonify(detail="image not found"), 404
+    attachment = request.args.get("download") in ("1", "true", "yes")
+    return _png_response(path, filename=filename, attachment=attachment)
+
+
+OVERLAY_TEXT_SYSTEM = """You write short, punchy text overlays for social media images.
+Given the client brief, return ONLY the overlay headline text (max 8 words).
+No quotes, no hashtags, no explanation — just the text to print on the image."""
+
+
+@api_bp.get("/clients/<client_id>/runs/<run_id>/images/overlay")
+def get_image_overlay(client_id: str, run_id: str):
+    bad = reject_client(client_id)
+    if bad:
+        return bad
+    bad_run = reject_run_id(run_id)
+    if bad_run:
+        return bad_run
+    overlay = image_overlay.load_overlay(client_id, run_id)
+    return jsonify(overlay=overlay or image_overlay.DEFAULT_OVERLAY)
+
+
+@api_bp.put("/clients/<client_id>/runs/<run_id>/images/overlay")
+def put_image_overlay(client_id: str, run_id: str):
+    bad = reject_client(client_id)
+    if bad:
+        return bad
+    bad_run = reject_run_id(run_id)
+    if bad_run:
+        return bad_run
+    body = request.get_json(silent=True) or {}
+    raw = body.get("overlay")
+    if not isinstance(raw, dict):
+        return jsonify(detail="overlay object is required"), 400
+    try:
+        saved = image_overlay.save_overlay(client_id, run_id, raw)
+    except (TypeError, ValueError) as e:
+        return jsonify(detail=str(e)), 400
+    return jsonify(overlay=saved)
+
+
+@api_bp.post("/clients/<client_id>/runs/<run_id>/images/overlay/suggest-text")
+def suggest_overlay_text(client_id: str, run_id: str):
+    bad = reject_client(client_id)
+    if bad:
+        return bad
+    bad_run = reject_run_id(run_id)
+    if bad_run:
+        return bad_run
+    from backend import artifacts
+
+    profile = ""
+    angle = ""
+    try:
+        profile = artifacts.load_artifact(client_id, run_id, "client_profile_topic")
+    except Exception:
+        pass
+    try:
+        angle = artifacts.load_artifact(client_id, run_id, "content_angle_intent")
+    except Exception:
+        pass
+    user_msg = (
+        "---CLIENT PROFILE---\n"
+        f"{profile.strip()}\n\n"
+        "---ANGLE / INTENT---\n"
+        f"{angle.strip()}\n"
+    )
+    try:
+        text = openai_chat.chat_complete(
+            OVERLAY_TEXT_SYSTEM,
+            user_msg,
+            step_label="Overlay text suggest",
+            max_tokens=60,
+            temperature=0.8,
+        )
+    except Exception as e:
+        return jsonify(detail=str(e)), 502
+    cleaned = " ".join(text.strip().splitlines()[0].split())[:120]
+    return jsonify(text=cleaned)
+
+
+@api_bp.get("/clients/<client_id>/templates")
+def list_social_templates(client_id: str):
+    bad = reject_client(client_id)
+    if bad:
+        return bad
+    templates = image_templates.list_client_templates(client_id)
+    return jsonify(templates=templates)
+
+
+@api_bp.get("/clients/<client_id>/runs/<run_id>/images/template")
+def get_image_template(client_id: str, run_id: str):
+    bad = reject_client(client_id)
+    if bad:
+        return bad
+    bad_run = reject_run_id(run_id)
+    if bad_run:
+        return bad_run
+    try:
+        template = image_templates.ensure_run_template(
+            client_id,
+            run_id,
+            template_id=_safe_template_id(request.args.get("template_id")),
+        )
+    except RuntimeError as e:
+        return jsonify(detail=str(e)), 404
+    return jsonify(template=template)
+
+
+@api_bp.put("/clients/<client_id>/runs/<run_id>/images/template")
+def put_image_template(client_id: str, run_id: str):
+    bad = reject_client(client_id)
+    if bad:
+        return bad
+    bad_run = reject_run_id(run_id)
+    if bad_run:
+        return bad_run
+    body = request.get_json(silent=True) or {}
+    try:
+        template = image_templates.save_template_layout(client_id, run_id, body)
+    except RuntimeError as e:
+        return jsonify(detail=str(e)), 404
+    return jsonify(template=template)
+
+
+@api_bp.post("/clients/<client_id>/runs/<run_id>/images/template/apply")
+def apply_image_template(client_id: str, run_id: str):
+    bad = reject_client(client_id)
+    if bad:
+        return bad
+    bad_run = reject_run_id(run_id)
+    if bad_run:
+        return bad_run
+    try:
+        formats = image_templates.apply_run_template_to_formats(client_id, run_id)
+    except RuntimeError as e:
+        return jsonify(detail=str(e)), 400
+    return jsonify(formats=formats)
+
+
+@api_bp.get("/clients/<client_id>/templates/<template_id>/assets/<filename>")
+def get_social_template_asset_for_template(client_id: str, template_id: str, filename: str):
+    bad = reject_client(client_id)
+    if bad:
+        return bad
+    tpl = _safe_template_id(template_id)
+    fn = str(filename or "").strip()
+    if not fn or ".." in fn or "/" in fn or "\\" in fn:
+        return jsonify(detail="invalid filename"), 400
+    root = Path(config.CLIENTS_DIR) / client_id / "templates" / tpl / "assets"
+    path = root / fn
+    if not path.is_file():
+        return jsonify(detail="asset not found"), 404
+    return send_from_directory(root, fn)
+
+
+@api_bp.get("/clients/<client_id>/templates/social_post/assets/<filename>")
+def get_social_template_asset(client_id: str, filename: str):
+    return get_social_template_asset_for_template(client_id, "social_post", filename)

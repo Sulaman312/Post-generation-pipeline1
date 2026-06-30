@@ -1,0 +1,128 @@
+.social-run-input-shell .social-run-input-card {
+  padding: 0;
+  overflow: hidden;
+}
+
+.social-run-input-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 20px 0;
+}
+
+.social-run-input-kicker {
+  margin: 6px 0 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  line-height: 1.35;
+}
+
+.social-run-input-edit-btn {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.social-run-input-body {
+  padding: 16px 20px 20px;
+}
+
+.social-run-idea-formatted {
+  padding: 16px 18px;
+  background: var(--panel-soft);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.social-run-idea-title {
+  margin: 0 0 12px;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.35;
+  color: var(--text);
+}
+
+.social-run-idea-subhead {
+  margin: 14px 0 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.social-run-idea-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0 0 6px;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--text);
+}
+
+.social-run-idea-check-mark {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.social-run-idea-line {
+  margin: 0 0 8px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+.social-run-idea-gap {
+  height: 8px;
+}
+
+.social-run-details-section {
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+
+.social-run-details-eyebrow {
+  margin-bottom: 10px;
+}
+
+.social-run-details-text {
+  margin: 0;
+  padding: 12px 14px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text);
+  background: var(--panel-soft);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  white-space: pre-wrap;
+}
+
+.social-run-details-empty {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.social-run-input-form {
+  padding: 12px 20px 20px;
+}
+
+.social-run-input-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
