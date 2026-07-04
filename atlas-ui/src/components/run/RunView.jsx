@@ -20,6 +20,7 @@ import { copyFormattedMarkdown } from "../../utils/markdownExport";
 import { PIPELINE_MARKDOWN_CLASS } from "../../constants/markdownPreview";
 import { splitFinalOutput } from "../../utils/parseFinalOutput";
 import { isImageFile, readImageFileAsBase64 } from "../../utils/readImageFile";
+import PublishPlatformControls from "./PublishPlatformControls";
 
 const AUTOSAVE_MS = 1000;
 
@@ -209,6 +210,7 @@ export default function RunView({
           <OutputPanel
             client={client}
             runId={runId}
+            run={run}
             step={activeStep}
             manualInputs={run?.manual_inputs}
             targetWordCount={run?.target_word_count}
@@ -369,6 +371,7 @@ function InputPanel({
 function OutputPanel({
   client,
   runId,
+  run,
   step,
   manualInputs,
   targetWordCount,
@@ -387,6 +390,26 @@ function OutputPanel({
   onGoToNextStep,
 }) {
   const showInlineRun = (pipelineId || "article") === "social_media";
+  const showPublishControls =
+    showInlineRun &&
+    step.key === "publish" &&
+    !inlineRunning &&
+    !running &&
+    status !== "running";
+
+  const publishControls = showPublishControls ? (
+    <PublishPlatformControls
+      client={client}
+      runId={runId}
+      run={run}
+      stepKey={step.key}
+      topic={topic}
+      statuses={statuses}
+      pipelineId={pipelineId}
+      onRunUpdated={onRunComplete}
+      toast={toast}
+    />
+  ) : null;
 
   async function handleInlineRun() {
     if (!showInlineRun) return;
@@ -418,57 +441,66 @@ function OutputPanel({
 
   if (inlineRunning || running || status === "running") {
     return (
-      <div className="run-artifact-shell">
-        <div className="run-artifact-card">
-          <div className="run-artifact-body">
-            <div className="empty-state empty-state-inline">
-              <span className="spinner" /> Generating{" "}
-              {step.label.toLowerCase()}…
+      <>
+        {publishControls}
+        <div className="run-artifact-shell">
+          <div className="run-artifact-card">
+            <div className="run-artifact-body">
+              <div className="empty-state empty-state-inline">
+                <span className="spinner" /> Generating{" "}
+                {step.label.toLowerCase()}…
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      </>
     );
   }
   if (status !== "done") {
     return (
-      <div className="run-artifact-shell">
-        <div className="run-artifact-card">
-          <div className="run-artifact-body">
-            <div className="empty-state empty-state-inline">
-              No output yet. Use{" "}
-              <strong style={{ color: "var(--text)" }}>Run</strong> or{" "}
-              <strong style={{ color: "var(--text)" }}>Re-run</strong> beside this
-              step in the sidebar.
-              {showInlineRun ? (
-                <div style={{ marginTop: 12 }}>
-                  <button
-                    type="button"
-                    className="btn btn-primary"
-                    onClick={handleInlineRun}
-                  >
-                    ▶ Run this step
-                  </button>
-                </div>
-              ) : null}
+      <>
+        {publishControls}
+        <div className="run-artifact-shell">
+          <div className="run-artifact-card">
+            <div className="run-artifact-body">
+              <div className="empty-state empty-state-inline">
+                No output yet. Use{" "}
+                <strong style={{ color: "var(--text)" }}>Run</strong> or{" "}
+                <strong style={{ color: "var(--text)" }}>Re-run</strong> beside this
+                step in the sidebar.
+                {showInlineRun ? (
+                  <div style={{ marginTop: 12 }}>
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      onClick={handleInlineRun}
+                    >
+                      ▶ Run this step
+                    </button>
+                  </div>
+                ) : null}
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      </>
     );
   }
   return (
-    <ArtifactView
-      client={client}
-      runId={runId}
-      stepName={step.key}
-      manualInputs={manualInputs}
-      targetWordCount={targetWordCount}
-      toast={toast}
-      headerEditKey={headerEditKey}
-      useHeaderEdit
-      onSaveAndContinue={onGoToNextStep}
-    />
+    <>
+      {publishControls}
+      <ArtifactView
+        client={client}
+        runId={runId}
+        stepName={step.key}
+        manualInputs={manualInputs}
+        targetWordCount={targetWordCount}
+        toast={toast}
+        headerEditKey={headerEditKey}
+        useHeaderEdit
+        onSaveAndContinue={onGoToNextStep}
+      />
+    </>
   );
 }
 
@@ -651,7 +683,6 @@ function ArtifactView({
           <ArtifactFormattedPreview
             structured={structuredOnly}
             content={content}
-            showFullSource={stepName === "content_angle_intent"}
           />
         )
       : null;
@@ -1322,6 +1353,13 @@ function clientLabelFromId(client) {
     .replace(/\b\w/g, (m) => m.toUpperCase());
 }
 
+function stripReviewHeading(markdown) {
+  return String(markdown || "").replace(
+    /^\s*#{1,2}\s+(?:QA\s+Checklist|Quality\s+assurance\s+check\s+list)\s*\n+/i,
+    ""
+  );
+}
+
 function SocialPostReviewPreview({ client, runId, reviewContent, toast }) {
   const [captions, setCaptions] = useState({});
   const [formats, setFormats] = useState({});
@@ -1359,12 +1397,16 @@ function SocialPostReviewPreview({ client, runId, reviewContent, toast }) {
   return (
     <div className="social-review">
       <section className="social-review-checklist">
-        <Markdown text={reviewContent} className={PIPELINE_MARKDOWN_CLASS} />
+        <h2 className="social-review-section-title">Quality assurance check list</h2>
+        <Markdown
+          text={stripReviewHeading(reviewContent)}
+          className={PIPELINE_MARKDOWN_CLASS}
+        />
       </section>
       <section className="social-review-platforms" aria-label="Platform feed previews">
         <div className="social-review-head">
           <div>
-            <div className="social-review-title">Platform preview</div>
+            <h2 className="social-review-section-title">Platform preview</h2>
             <div className="social-review-subtitle">
               Feed-style previews using the final exported image and caption.
             </div>
@@ -1382,14 +1424,18 @@ function SocialPostReviewPreview({ client, runId, reviewContent, toast }) {
                 ? api.formattedImageUrl(client, runId, info.filename, cacheKey)
                 : "";
               return (
-                <PlatformPostCard
-                  key={platform.key}
-                  platform={platform}
-                  brand={brand}
-                  client={client}
-                  caption={captions[platform.key] || ""}
-                  imageUrl={imageUrl}
-                />
+                <div key={platform.key} className="social-preview-column">
+                  <div className={`social-preview-label social-preview-label--${platform.tone}`}>
+                    {platform.title}
+                  </div>
+                  <PlatformPostCard
+                    platform={platform}
+                    brand={brand}
+                    client={client}
+                    caption={captions[platform.key] || ""}
+                    imageUrl={imageUrl}
+                  />
+                </div>
               );
             })}
           </div>
@@ -1521,169 +1567,97 @@ function TemplatePlacementPanel({ client, runId, toast }) {
   const [outputs, setOutputs] = useState([]);
   const [templates, setTemplates] = useState([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
-  const [template, setTemplate] = useState(null);
-  const [drag, setDrag] = useState(null);
-  const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [applying, setApplying] = useState(false);
   const [downloading, setDownloading] = useState(false);
+
+  const syncFromFormats = useCallback((idx) => {
+    setCacheKey(idx?.generated_at || "");
+    const raw = idx?.outputs || {};
+    setOutputs(
+      Object.entries(raw)
+        .map(([platformKey, info]) => ({
+          key: platformKey,
+          label: info?.label
+            ? `${info.label} (${info.width}×${info.height})`
+            : platformKey,
+          filename: info?.filename || "",
+          width: Number(info?.width || 1),
+          height: Number(info?.height || 1),
+        }))
+        .filter((o) => o.filename)
+    );
+    const tid = idx?.template?.template_id || "";
+    if (tid) setSelectedTemplateId(tid);
+  }, []);
+
+  const applyTemplate = useCallback(
+    async (templateId) => {
+      await api.getImageTemplate(client, runId, templateId);
+      const res = await api.applyImageTemplate(client, runId);
+      const formats = res?.formats || res;
+      syncFromFormats(formats);
+      return formats;
+    },
+    [client, runId, syncFromFormats]
+  );
 
   useEffect(() => {
     let cancelled = false;
     async function load() {
+      setLoading(true);
       try {
         const [idx, list] = await Promise.all([
           api.getFormatsIndex(client, runId),
           api.listImageTemplates(client),
         ]);
         if (cancelled) return;
-        setCacheKey(idx?.generated_at || "");
         const available = Array.isArray(list) ? list : [];
         setTemplates(available);
-        const firstTemplateId = available[0]?.id || "social_post";
-        setSelectedTemplateId(firstTemplateId);
-        const tpl = await api.getImageTemplate(client, runId, firstTemplateId);
-        if (cancelled) return;
-        const raw = idx?.outputs || {};
-        setOutputs(
-          Object.entries(raw)
-            .map(([platformKey, info]) => ({
-              key: platformKey,
-              label: info?.label
-                ? `${info.label} (${info.width}×${info.height})`
-                : platformKey,
-              filename: info?.filename || "",
-              baseFilename: info?.base_filename || info?.filename || "",
-              width: Number(info?.width || 1),
-              height: Number(info?.height || 1),
-            }))
-            .filter((o) => o.filename)
-        );
-        setTemplate(tpl);
+        const templateId =
+          idx?.template?.template_id || available[0]?.id || "social_post";
+        setSelectedTemplateId(templateId);
+        if (!idx?.template_applied) {
+          await applyTemplate(templateId);
+        } else {
+          syncFromFormats(idx);
+        }
       } catch (e) {
         toast?.(e?.message || String(e), { variant: "error", duration: 9000 });
+      } finally {
+        if (!cancelled) setLoading(false);
       }
     }
     load();
     return () => {
       cancelled = true;
     };
-  }, [client, runId, toast]);
+  }, [client, runId, toast, applyTemplate, syncFromFormats]);
 
   async function changeTemplate(templateId) {
-    if (!templateId || templateId === selectedTemplateId || saving || downloading) return;
-    setSelectedTemplateId(templateId);
+    if (!templateId || templateId === selectedTemplateId || applying || downloading) return;
+    setApplying(true);
     try {
-      const tpl = await api.getImageTemplate(client, runId, templateId);
-      setTemplate(tpl);
-      toast?.("Template loaded.", { variant: "success", duration: 2500 });
-    } catch (e) {
-      toast?.(e?.message || String(e), { variant: "error", duration: 9000 });
-    }
-  }
-
-  function updateLayer(platformKey, layer, x, y) {
-    setTemplate((prev) => {
-      if (!prev) return prev;
-      const formats = { ...(prev.formats || {}) };
-      const fmt = { ...(formats[platformKey] || {}) };
-      fmt[layer] = {
-        ...(fmt[layer] || {}),
-        x: Math.max(0, Math.round(x)),
-        y: Math.max(0, Math.round(y)),
-      };
-      if (layer === "card" && fmt.text) {
-        const dx = Math.round(x) - Number((formats[platformKey]?.card || {}).x || 0);
-        const dy = Math.round(y) - Number((formats[platformKey]?.card || {}).y || 0);
-        fmt.text = {
-          ...fmt.text,
-          x: Math.max(0, Math.round(Number(fmt.text.x || 0) + dx)),
-          y: Math.max(0, Math.round(Number(fmt.text.y || 0) + dy)),
-        };
-      }
-      formats[platformKey] = fmt;
-      return { ...prev, formats };
-    });
-  }
-
-  function startDrag(e, platform, layer, output) {
-    const frame = e.currentTarget.closest("[data-template-frame]");
-    if (!frame) return;
-    const rect = frame.getBoundingClientRect();
-    const fmt = template?.formats?.[platform] || {};
-    const cfg = fmt[layer] || {};
-    setDrag({
-      platform,
-      layer,
-      width: output.width,
-      height: output.height,
-      rect,
-      startClientX: e.clientX,
-      startClientY: e.clientY,
-      startX: Number(cfg.x || 0),
-      startY: Number(cfg.y || 0),
-    });
-    e.currentTarget.setPointerCapture?.(e.pointerId);
-  }
-
-  useEffect(() => {
-    if (!drag) return undefined;
-    function onMove(e) {
-      const sx = drag.width / Math.max(1, drag.rect.width);
-      const sy = drag.height / Math.max(1, drag.rect.height);
-      const x = drag.startX + (e.clientX - drag.startClientX) * sx;
-      const y = drag.startY + (e.clientY - drag.startClientY) * sy;
-      updateLayer(drag.platform, drag.layer, x, y);
-    }
-    function onUp() {
-      setDrag(null);
-    }
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", onUp);
-    return () => {
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onUp);
-    };
-  }, [drag]);
-
-  async function saveAndApply() {
-    if (!template || saving) return;
-    setSaving(true);
-    try {
-      await api.saveImageTemplate(client, runId, template);
-      const res = await api.applyImageTemplate(client, runId);
-      const key = res?.formats?.generated_at || Date.now();
-      setCacheKey(String(key));
-      toast?.("Template applied to exports.", { variant: "success", duration: 3500 });
+      await applyTemplate(templateId);
+      setSelectedTemplateId(templateId);
+      toast?.("Template applied.", { variant: "success", duration: 2500 });
     } catch (e) {
       toast?.(e?.message || String(e), { variant: "error", duration: 9000 });
     } finally {
-      setSaving(false);
+      setApplying(false);
     }
   }
 
   async function downloadImages() {
-    if (downloading || saving || !template || !outputs.length) return;
+    if (downloading || applying || !outputs.length) return;
     setDownloading(true);
     try {
-      await api.saveImageTemplate(client, runId, template);
-      const res = await api.applyImageTemplate(client, runId);
-      const key = String(res?.formats?.generated_at || Date.now());
-      const freshOutputs = Object.entries(res?.formats?.outputs || {})
-        .map(([platformKey, info]) => ({
-          key: platformKey,
-          filename: info?.filename || "",
-        }))
-        .filter((o) => o.filename);
-      const downloadOutputs = freshOutputs.length ? freshOutputs : outputs;
-      setCacheKey(key);
-      for (const output of downloadOutputs) {
+      for (const output of outputs) {
         if (output.filename) {
-          await api.downloadFormattedImage(client, runId, output.filename, key);
+          await api.downloadFormattedImage(client, runId, output.filename, cacheKey);
         }
       }
-      toast?.("Template applied and images downloaded.", {
-        variant: "success",
-        duration: 3500,
-      });
+      toast?.("Images downloaded.", { variant: "success", duration: 3500 });
     } catch (e) {
       toast?.(e?.message || String(e), { variant: "error", duration: 9000 });
     } finally {
@@ -1691,7 +1665,15 @@ function TemplatePlacementPanel({ client, runId, toast }) {
     }
   }
 
-  if (!template || !outputs.length) {
+  if (loading) {
+    return (
+      <div className="step4-shell">
+        <div className="step4-empty-hint">Applying client template…</div>
+      </div>
+    );
+  }
+
+  if (!outputs.length) {
     return (
       <div className="step4-shell">
         <div className="step4-empty-hint">
@@ -1701,15 +1683,13 @@ function TemplatePlacementPanel({ client, runId, toast }) {
     );
   }
 
-  const lines = template?.headline?.lines || [];
-
   return (
     <div className="template-panel">
       <div className="template-panel-head">
         <div>
-          <div className="template-panel-title">Place client template</div>
+          <div className="template-panel-title">Client template applied</div>
           <div className="template-panel-subtitle">
-            Drag the logo or text card on each platform image.
+            Branded exports for Instagram, LinkedIn, and Facebook.
           </div>
         </div>
         <div className="template-panel-actions">
@@ -1719,7 +1699,7 @@ function TemplatePlacementPanel({ client, runId, toast }) {
               className="template-select"
               value={selectedTemplateId}
               onChange={(e) => changeTemplate(e.target.value)}
-              disabled={saving || downloading || templates.length <= 1}
+              disabled={applying || downloading || templates.length <= 1}
             >
               {templates.length ? (
                 templates.map((tpl) => (
@@ -1736,34 +1716,16 @@ function TemplatePlacementPanel({ client, runId, toast }) {
             type="button"
             className="btn btn-secondary btn-sm"
             onClick={downloadImages}
-            disabled={downloading || saving}
+            disabled={downloading || applying}
           >
             {downloading ? "Downloading..." : "Download images"}
-          </button>
-          <button
-            type="button"
-            className="btn btn-primary btn-sm"
-            onClick={saveAndApply}
-            disabled={saving}
-          >
-            {saving ? "Applying..." : "Save & apply"}
           </button>
         </div>
       </div>
 
       <div className="template-grid">
         {outputs.map((o) => {
-          const fmt = template.formats?.[o.key] || {};
-          const importedLayers = Array.isArray(fmt.layers) ? fmt.layers : null;
-          const logo = fmt.logo || {};
-          const card = fmt.card || {};
-          const text = fmt.text || {};
-          const url = api.formattedImageUrl(
-            client,
-            runId,
-            importedLayers ? o.filename : o.baseFilename || o.filename,
-            cacheKey
-          );
+          const url = api.formattedImageUrl(client, runId, o.filename, cacheKey);
           return (
             <div className="template-card" key={o.key}>
               <div className="template-card-title">{o.label}</div>
@@ -1772,48 +1734,7 @@ function TemplatePlacementPanel({ client, runId, toast }) {
                 data-template-frame
                 style={{ aspectRatio: `${o.width} / ${o.height}` }}
               >
-                <img src={url} alt={o.filename} />
-                {!importedLayers ? (
-                  <>
-                    <button
-                      type="button"
-                      className="template-logo-layer"
-                      style={{
-                        left: `${(Number(logo.x || 0) / o.width) * 100}%`,
-                        top: `${(Number(logo.y || 0) / o.height) * 100}%`,
-                        width: `${(Number(logo.width || 1) / o.width) * 100}%`,
-                      }}
-                      onPointerDown={(e) => startDrag(e, o.key, "logo", o)}
-                      title="Drag logo"
-                    >
-                      <img src={api.clientLogoUrl(client)} alt="" />
-                    </button>
-                    <button
-                      type="button"
-                      className="template-text-card-layer"
-                      style={{
-                        left: `${(Number(card.x || 0) / o.width) * 100}%`,
-                        top: `${(Number(card.y || 0) / o.height) * 100}%`,
-                        width: `${(Number(card.width || 1) / o.width) * 100}%`,
-                        height: `${(Number(card.height || 1) / o.height) * 100}%`,
-                        borderRadius: `${Math.max(4, Number(card.radius || 16) / 3)}px`,
-                        background: card.fill || "#111827",
-                        opacity: card.opacity ?? 0.88,
-                      }}
-                      onPointerDown={(e) => startDrag(e, o.key, "card", o)}
-                      title="Drag text card"
-                    >
-                      <span
-                        style={{
-                          fontSize: `${Math.max(10, (Number(text.fontSize || 36) / o.width) * 620)}px`,
-                        }}
-                      >
-                        <strong>{lines[0]?.text || "Build with AI"}</strong>
-                        <em>{lines[1]?.text || "Fast and efficient"}</em>
-                      </span>
-                    </button>
-                  </>
-                ) : null}
+                <img src={url} alt={o.filename} loading="lazy" />
               </div>
             </div>
           );

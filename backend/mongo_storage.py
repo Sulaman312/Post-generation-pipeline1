@@ -85,13 +85,19 @@ def _connect():
     return _files, _bucket
 
 
+def _is_hydration_temp(path: Path) -> bool:
+    return path.name.endswith(".mongo-tmp") or (
+        path.name.startswith(".") and path.name.endswith(".tmp")
+    )
+
+
 def _relative_files(root: Path) -> dict[str, Path]:
     if not root.is_dir():
         return {}
     rows: dict[str, Path] = {}
     for path in root.rglob("*"):
         if path.is_file() and not path.is_symlink():
-            if path.name.startswith(".") and path.name.endswith(".tmp"):
+            if _is_hydration_temp(path):
                 continue
             rel = path.relative_to(root).as_posix()
             if rel and not rel.startswith("../"):
@@ -137,10 +143,22 @@ def hydrate_cache(*, clear: bool = True) -> int:
             target.parent.mkdir(parents=True, exist_ok=True)
             temp = target.with_name(f".{target.name}.mongo-tmp")
             stream = bucket.open_download_stream(doc["gridfs_id"])
-            with temp.open("wb") as handle:
-                while chunk := stream.read(1024 * 1024):
-                    handle.write(chunk)
-            os.replace(temp, target)
+            try:
+                with temp.open("wb") as handle:
+                    while chunk := stream.read(1024 * 1024):
+                        handle.write(chunk)
+                os.replace(temp, target)
+            except Exception:
+                temp.unlink(missing_ok=True)
+                raise
+            finally:
+                stream.close()
+
+        for leftover in root.rglob("*.mongo-tmp"):
+            try:
+                leftover.unlink()
+            except OSError:
+                pass
 
         rows = _relative_files(root)
         _snapshot = _stat_snapshot(rows)

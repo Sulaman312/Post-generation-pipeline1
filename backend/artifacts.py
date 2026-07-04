@@ -8,10 +8,14 @@ import shutil
 import threading
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 from . import config
+from .run_record import normalize_run_record_fields
 
 logger = logging.getLogger(__name__)
+
+_UNSET = object()
 
 
 def _write_json_atomic(path: Path, payload: dict) -> None:
@@ -50,27 +54,31 @@ _BUILTIN_SPECS: list[dict[str, str]] = [
         "placeholder": "## Company overview\n- Company name:\n- What you sell:\n- Key differentiators:\n",
     },
     {
-        "filename": "writing_guidelines.md",
-        "title": "Writing guidelines",
-        "description": "Tone, banned hype, preferred phrasing, and structure expectations.",
-        "placeholder": (
-            "## Voice\n"
-            "- Tone:\n"
-            "- Reading level:\n\n"
-            "## Format (pipeline-enforced)\n"
-            "Sentence case headings, BLUF under every H2/H3, max 30 words per sentence, "
-            "max 4 sentences per paragraph, no em dashes, 2–3 inline CTAs at H2 breaks.\n\n"
-            "## Avoid\n"
-            "- …\n\n"
-            "## Preferred words\n"
-            "- …\n"
-        ),
+        "filename": "brand_voice.md",
+        "title": "Brand voice",
+        "description": "Tone, personality, and phrasing rules for captions and post copy.",
+        "placeholder": "# Brand voice\n\n## Tone\n- \n\n## Personality\n- \n\n## Words to use\n- \n\n## Words to avoid\n- \n",
     },
     {
         "filename": "image_style.md",
-        "title": "Image style guide",
-        "description": "Client-specific visual rules for AI image prompt generation.",
-        "placeholder": "# Image Style Guide\n",
+        "title": "Generalized image prompt template",
+        "description": (
+            "Editable brand template for Step 3. When present, the user's post idea is "
+            "appended as CONTENT TOPIC and ChatGPT produces on-brand image prompts."
+        ),
+        "placeholder": (
+            "You are a prompt engineer specializing in AI image generation for [YOUR INDUSTRY] "
+            "brands. I run [COMPANY NAME] that [WHAT YOU DO].\n\n"
+            "I will give you a CONTENT TOPIC. Your job is to write image-generation prompts "
+            "in this exact visual style:\n\n"
+            "STYLE REFERENCE:\n"
+            "- (palette, lighting, mood, composition, props, things to avoid)\n\n"
+            "For each topic, output:\n"
+            "1. A short content angle/caption idea (2-3 sentences)\n"
+            "2. A full image generation prompt (150-250 words)\n"
+            "3. One alternate camera angle/variation\n\n"
+            "Wait for me to give you the topic before generating anything."
+        ),
     },
 ]
 
@@ -116,18 +124,6 @@ def _builtin_specs_by_filename() -> dict[str, dict]:
         row["builtin"] = True
         row["removable"] = False
         out[row["filename"]] = row
-    for fn in config.pipeline_context_filenames_ordered():
-        if fn in out:
-            continue
-        label = config.CONTEXT_FILE_LABELS.get(fn, fn)
-        out[fn] = {
-            "filename": fn,
-            "title": label,
-            "description": f"Pipeline context — {label}.",
-            "placeholder": f"# {label}\n",
-            "builtin": True,
-            "removable": False,
-        }
     return out
 
 
@@ -156,13 +152,9 @@ def workspace_artifact_specs(client_id: str) -> list[dict]:
         }
     ordered: list[dict] = []
     seen: set[str] = set()
-    for fn in config.pipeline_context_filenames_ordered():
-        if fn in by_fn:
-            ordered.append(by_fn[fn])
-            seen.add(fn)
     for spec in _BUILTIN_SPECS:
         fn = spec["filename"]
-        if fn not in seen and fn in by_fn:
+        if fn in by_fn:
             ordered.append(by_fn[fn])
             seen.add(fn)
     for fn, spec in sorted(by_fn.items()):
@@ -568,6 +560,11 @@ def save_run_manifest(
     step_timings: dict | None = None,
     context_summary: str | None = None,
     step_errors: dict | None = None,
+    post_status: str | None = None,
+    platforms: list[str] | None = None,
+    scheduled_at: Any = _UNSET,
+    platform_schedules: Any = _UNSET,
+    published_results: list | None = None,
 ) -> None:
     run_dir = get_run_dir(client_id, run_id)
     manifest_path = run_dir / "run_manifest.json"
@@ -631,6 +628,19 @@ def save_run_manifest(
     errors = step_errors if step_errors is not None else prev_step_errors
     if errors:
         payload["step_errors"] = errors
+
+    record_seed = normalize_run_record_fields(prev)
+    if post_status is not None:
+        record_seed["status"] = post_status
+    if platforms is not None:
+        record_seed["platforms"] = platforms
+    if scheduled_at is not _UNSET:
+        record_seed["scheduled_at"] = scheduled_at
+    if platform_schedules is not _UNSET:
+        record_seed["platform_schedules"] = platform_schedules
+    if published_results is not None:
+        record_seed["published_results"] = published_results
+    payload.update(normalize_run_record_fields(record_seed))
     _write_json_atomic(manifest_path, payload)
 
 
@@ -695,11 +705,12 @@ def ensure_run_manifest(client_id: str, run_id: str) -> dict | None:
     data = {
         "client_id": client_id,
         "run_id": run_id,
-        "pipeline_id": "article",
+        "pipeline_id": "social_media",
         "topic": _infer_topic_from_run_dir(run_dir),
         "statuses": _infer_statuses_from_run_dir(run_dir),
         "timestamp": datetime.now().isoformat(),
         "archived": False,
+        **normalize_run_record_fields({}),
     }
     _write_json_atomic(manifest_path, data)
     return data

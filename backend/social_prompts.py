@@ -74,34 +74,29 @@ Output markdown only — no intro or outro paragraphs outside the four sections.
 Do NOT wrap the response in code fences.
 """
 
-CLIENT_IMAGE_PROMPT_SYSTEM = """You write image-generation prompts for OpenAI Images.
+CLIENT_IMAGE_FROM_TEMPLATE_SYSTEM = """You are an expert prompt engineer for AI image generation.
 The user message contains:
-1) A workspace artifact summary
-2) The user's post idea
-3) The client profile and chosen content angle
-4) A client-specific IMAGE STYLE GUIDE
+1) A client-specific generalized prompt template (brand, style rules, output format)
+2) A CONTENT TOPIC to apply to that template
 
-Use the IMAGE STYLE GUIDE as the controlling visual direction. Do not create generic style variants.
-Generate prompts that are ready for an image model and suitable for a square social master image that
-will later be cropped/formatted for Instagram, LinkedIn, and Facebook.
+Follow the template instructions exactly. The topic is provided at the end — produce the outputs now.
+Do not ask the user to wait or provide the topic again.
 
-Return markdown with EXACTLY these headings in this order:
+If the template does not specify an output format, return markdown with EXACTLY these sections:
 
 ## Caption angle
-(2-3 sentences matching the client voice and topic)
+(2-3 sentences matching the brand voice and topic)
 
 ## Primary image prompt
-(150-250 words, highly detailed, client-specific, image-model-ready)
+(150-250 words, highly detailed, image-model-ready, square composition)
 
 ## Alternate image prompt
-(80-180 words, same topic and style guide, different camera angle/framing/variation)
+(80-180 words, same topic and style, different camera angle or framing)
 
 Rules:
-- Follow all "avoid" instructions from the image style guide.
-- Keep prompts self-contained; include key brand visual constraints directly in each prompt.
-- Do not include readable text, logos, watermarks, or UI mockups in generated images unless the style guide explicitly asks for labels.
-- Preserve negative space for later template text/logo overlay where appropriate.
-- Output markdown only — no intro or outro paragraphs outside the three sections.
+- Keep image prompts self-contained with all brand visual constraints embedded.
+- Do not include readable text, logos, or watermarks unless the template explicitly allows them.
+- Output markdown only — no intro or outro outside the requested sections.
 - Do NOT wrap the response in code fences.
 """
 
@@ -139,6 +134,7 @@ Check the draft package for:
 2) Seasonal relevance (timely + consistent)
 3) Audience specificity (targets one customer type)
 
+Start with the heading: # Quality assurance check list
 Return a markdown checklist with pass/fail and 1–2 fix suggestions if failed.
 """
 

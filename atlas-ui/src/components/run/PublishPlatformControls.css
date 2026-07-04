@@ -1,0 +1,249 @@
+.publish-platform-controls {
+  margin: 0 0 10px;
+  padding: 14px 16px;
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 10px;
+  background: #fff;
+}
+
+.ppc-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.ppc-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text, #111827);
+}
+
+.ppc-sync {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 12px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary, #475569);
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+}
+
+.ppc-sync input {
+  position: absolute;
+  inset: 0 auto auto 0;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.ppc-sync-box {
+  width: 16px;
+  height: 16px;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  background: #fff;
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  pointer-events: none;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+
+.ppc-sync-box::after {
+  content: "";
+  width: 8px;
+  height: 5px;
+  border-left: 2px solid transparent;
+  border-bottom: 2px solid transparent;
+  transform: translateY(-1px) rotate(-45deg);
+}
+
+.ppc-sync input:checked + .ppc-sync-box {
+  background: #fff;
+  border-color: #cbd5e1;
+}
+
+.ppc-sync input:checked + .ppc-sync-box::after {
+  border-left-color: #10b981;
+  border-bottom-color: #10b981;
+}
+
+.ppc-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.ppc-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-bottom: 1px solid #f1f5f9;
+  background: #fff;
+}
+
+.ppc-row:last-child {
+  border-bottom: none;
+}
+
+.ppc-row--on {
+  background: #fafbfc;
+}
+
+.ppc-switch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.ppc-switch-input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  pointer-events: none;
+}
+
+.ppc-switch-track {
+  width: 36px;
+  height: 20px;
+  border-radius: 999px;
+  background: #e5e7eb;
+  position: relative;
+  transition: background 0.15s ease;
+}
+
+.ppc-switch-track::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12);
+  transition: transform 0.15s ease;
+}
+
+.ppc-switch-input:checked + .ppc-switch-track {
+  background: #10b981;
+}
+
+.ppc-switch-input:checked + .ppc-switch-track::after {
+  transform: translateX(16px);
+}
+
+.ppc-switch-input:disabled + .ppc-switch-track {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.ppc-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text, #111827);
+  min-width: 0;
+}
+
+.ppc-schedule {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  min-width: 0;
+  text-align: right;
+}
+
+.ppc-schedule-text {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary, #475569);
+  white-space: nowrap;
+}
+
+.ppc-schedule-text--muted {
+  color: var(--text-muted, #94a3b8);
+}
+
+.ppc-schedule-btn {
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 5px 10px;
+  background: #fff;
+  color: var(--text-secondary, #475569);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+
+.ppc-schedule-btn:hover:not(:disabled) {
+  background: #f9fafb;
+  border-color: #cbd5e1;
+  color: var(--text, #111827);
+}
+
+.ppc-schedule-btn:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.publish-platform-hint {
+  margin: 10px 0 0;
+  color: #b45309;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.publish-platform-empty,
+.publish-platform-note,
+.publish-platform-loading {
+  margin: 0;
+  color: var(--text-muted, #64748b);
+  font-size: 12px;
+}
+
+.publish-platform-loading {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.publish-platform-empty code {
+  font-size: 11px;
+}
+
+.publish-platform-note {
+  margin-top: 10px;
+}
+
+@media (max-width: 720px) {
+  .ppc-row {
+    grid-template-columns: auto 1fr;
+    grid-template-rows: auto auto;
+  }
+
+  .ppc-schedule {
+    grid-column: 2;
+    justify-content: flex-start;
+    text-align: left;
+  }
+}

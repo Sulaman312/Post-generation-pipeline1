@@ -39,6 +39,10 @@ def upgrade_manifest(manifest: dict) -> tuple[dict, bool]:
         out["statuses"] = ordered
         changed = True
 
+    from backend.run_record import upgrade_run_record
+
+    out, record_changed = upgrade_run_record(out)
+    changed = changed or record_changed
     return out, changed
 
 

@@ -20,7 +20,11 @@ from . import social_prompts
 
 from .context_summary import generate_context_summary
 
-from .integrations import openai_chat
+from .integrations import linkedin_api, meta_graph, openai_chat
+
+from . import social_channels
+
+from .run_record import normalize_platforms, normalize_published_results
 
 
 
@@ -92,6 +96,25 @@ def _image_style_block(client_id: str) -> str:
         return ""
 
     return path.read_text(encoding="utf-8").strip()
+
+
+def _content_topic_block(manifest: dict) -> str:
+    """Full post idea/title for the generalized image prompt template."""
+    manual = manifest.get("manual_inputs")
+    manual = manual if isinstance(manual, dict) else None
+    if manual:
+        para = (manual.get("paragraph") or "").strip()
+        details = (manual.get("additional_details") or "").strip()
+        if para and details:
+            return f"{para}\n\n{details}"
+        if para:
+            return para
+        if details:
+            return details
+    topic = (manifest.get("topic") or "").strip()
+    if topic:
+        return topic
+    return _user_idea_block(manifest)
 
 
 
@@ -206,61 +229,35 @@ def run_step_3_image_prompt(
     step_name = "image_prompt"
 
     manifest = _load_manifest(client_id, run_id)
-
-    angle = (previous_artifact or "").strip() or artifacts.load_artifact(
-
-        client_id, run_id, "content_angle_intent"
-
-    )
-
-    profile = artifacts.load_artifact(client_id, run_id, "client_profile_topic")
-
-    context = _context_block(client_id, run_id)
-
-    user_msg = (
-
-        "---WORKSPACE ARTIFACT SUMMARY---\n"
-
-        f"{context}\n"
-
-        "---END WORKSPACE ARTIFACT SUMMARY---\n\n"
-
-        "---USER IDEA---\n"
-
-        f"{_user_idea_block(manifest)}\n"
-
-        "---END USER IDEA---\n\n"
-
-        "---CLIENT PROFILE---\n"
-
-        f"{profile.strip()}\n\n"
-
-        "---ANGLE / INTENT---\n"
-
-        f"{angle.strip()}\n"
-
-    )
-
     image_style = _image_style_block(client_id)
 
     if image_style:
-
+        topic = _content_topic_block(manifest)
         user_msg = (
-
-            f"{user_msg}\n\n"
-
-            "---IMAGE STYLE GUIDE---\n"
-
-            f"{image_style}\n"
-
-            "---END IMAGE STYLE GUIDE---\n"
-
+            f"{image_style}\n\n"
+            "---CONTENT TOPIC---\n"
+            f"{topic}\n"
+            "---END CONTENT TOPIC---"
         )
-
-        system_msg = social_prompts.CLIENT_IMAGE_PROMPT_SYSTEM
-
+        system_msg = social_prompts.CLIENT_IMAGE_FROM_TEMPLATE_SYSTEM
     else:
-
+        angle = (previous_artifact or "").strip() or artifacts.load_artifact(
+            client_id, run_id, "content_angle_intent"
+        )
+        profile = artifacts.load_artifact(client_id, run_id, "client_profile_topic")
+        context = _context_block(client_id, run_id)
+        user_msg = (
+            "---WORKSPACE ARTIFACT SUMMARY---\n"
+            f"{context}\n"
+            "---END WORKSPACE ARTIFACT SUMMARY---\n\n"
+            "---USER IDEA---\n"
+            f"{_user_idea_block(manifest)}\n"
+            "---END USER IDEA---\n\n"
+            "---CLIENT PROFILE---\n"
+            f"{profile.strip()}\n\n"
+            "---ANGLE / INTENT---\n"
+            f"{angle.strip()}\n"
+        )
         system_msg = social_prompts.IMAGE_PROMPT_SYSTEM
 
     out = _chat(system_msg, user_msg, step_label="Social Step 3")
@@ -385,15 +382,23 @@ def run_step_7_image_template(client_id: str, run_id: str, previous_artifact: st
         run_id,
         template_id=template_id,
     )
+    applied = image_templates.apply_run_template_to_formats(client_id, run_id)
     lines = (saved.get("headline") or {}).get("lines") or []
     headline_lines = [
         f"- {str(line.get('text') or '').strip()} ({str(line.get('weight') or 'normal')})"
         for line in lines
         if isinstance(line, dict) and str(line.get("text") or "").strip()
     ]
+    export_lines = []
+    for key, info in (applied.get("outputs") or {}).items():
+        if isinstance(info, dict):
+            export_lines.append(
+                f"- {info.get('label') or key}: {info.get('filename') or ''} "
+                f"({info.get('width')}×{info.get('height')})"
+            )
 
     out = (
-        "Image template:\n\n"
+        "Image template applied:\n\n"
         f"- Input image: {idx.selected_primary}\n"
         f"- Template: {saved.get('template_name') or saved.get('template_id')}\n"
         f"- Source: `{saved.get('source_template')}`\n"
@@ -401,8 +406,9 @@ def run_step_7_image_template(client_id: str, run_id: str, previous_artifact: st
         "- Headline text:\n"
         + "\n".join(headline_lines)
         + "\n\n"
-        "Output: saved run template metadata at `images/template.json`.\n\n"
-        "Output: template ready for placement. Use this step's preview panel to move assets and apply the template.\n"
+        "Branded platform exports:\n"
+        + ("\n".join(export_lines) if export_lines else "- (none)")
+        + "\n"
     )
 
     return _save_md(client_id, run_id, step_name, out)
@@ -506,7 +512,7 @@ def run_step_6_image_formats(client_id: str, run_id: str, previous_artifact: str
         + "\n".join(export_lines)
         + "\n\n"
         "Overlay: Not applied in this step.\n"
-        "Template: Not applied yet. Continue to Step 6.\n"
+        "Template: Applied automatically in Step 6.\n"
     )
 
     return _save_md(client_id, run_id, step_name, out)
@@ -644,6 +650,364 @@ def run_step_9_review_checklist(
     out = _chat(social_prompts.REVIEW_CHECKLIST_SYSTEM, user_msg, step_label="Social Step 9")
 
     return _save_md(client_id, run_id, step_name, out.strip() + "\n")
+
+
+
+
+
+def _split_captions_by_channel(captions_md: str) -> dict[str, str]:
+
+    sections = {
+
+        "instagram": "## Instagram",
+
+        "linkedin": "## LinkedIn",
+
+        "facebook": "## Facebook",
+
+    }
+
+    result = {key: "" for key in sections}
+
+    current: str | None = None
+
+    buffer: list[str] = []
+
+    for line in (captions_md or "").splitlines():
+
+        stripped = line.strip()
+
+        matched = None
+
+        for key, heading in sections.items():
+
+            if stripped.lower() == heading.lower():
+
+                matched = key
+
+                break
+
+        if matched is not None:
+
+            if current is not None:
+
+                result[current] = "\n".join(buffer).strip()
+
+            current = matched
+
+            buffer = []
+
+            continue
+
+        if current is not None:
+
+            buffer.append(line)
+
+    if current is not None:
+
+        result[current] = "\n".join(buffer).strip()
+
+    return result
+
+
+
+
+
+def _channel_export_image_path(client_id: str, run_id: str, channel_key: str):
+
+    formats = image_artifacts.load_formats_index(client_id, run_id) or {}
+
+    outputs = formats.get("outputs") or {}
+
+    info = outputs.get(channel_key)
+
+    filename = ""
+
+    if isinstance(info, dict):
+
+        filename = str(info.get("filename") or "").strip()
+
+    if not filename:
+
+        ch = social_channels.CHANNEL_BY_KEY.get(channel_key) or {}
+
+        filename = str(ch.get("filename") or "").strip()
+
+    if not filename:
+
+        raise RuntimeError(f"No exported image filename recorded for {channel_key!r}")
+
+    return image_artifacts.format_image_path(client_id, run_id, filename)
+
+
+
+
+
+def run_step_publish(client_id: str, run_id: str, previous_artifact: str = "") -> str:
+
+    step_name = "publish"
+
+    manifest = _load_manifest(client_id, run_id)
+
+    selected = set(normalize_platforms(manifest.get("platforms"), allow_empty=True))
+
+    captions_md = artifacts.load_artifact(client_id, run_id, "captions")
+
+    caption_by_channel = _split_captions_by_channel(captions_md)
+
+    lines = ["Publish results:", ""]
+
+    published_results: list[dict] = []
+
+    any_published = False
+
+    any_failed = False
+
+    channel_specs = (
+
+        (
+
+            "facebook",
+
+            "Facebook",
+
+            lambda: bool(
+
+                (config.META_PAGE_ACCESS_TOKEN or "").strip()
+
+                and (config.META_PAGE_ID or "").strip()
+
+            ),
+
+            meta_graph.publish_facebook_post,
+
+        ),
+
+        (
+
+            "instagram",
+
+            "Instagram",
+
+            lambda: bool(
+
+                (config.META_IG_USER_ID or "").strip()
+
+                and (config.META_PAGE_ACCESS_TOKEN or "").strip()
+
+            ),
+
+            meta_graph.publish_instagram_post,
+
+        ),
+
+        (
+
+            "linkedin",
+
+            "LinkedIn",
+
+            lambda: bool(
+
+                (config.LINKEDIN_ACCESS_TOKEN or "").strip()
+
+                and (config.LINKEDIN_ORG_URN or "").strip()
+
+            ),
+
+            linkedin_api.publish_linkedin_post,
+
+        ),
+
+    )
+
+    for channel_key, label, is_connected, publish_fn in channel_specs:
+
+        lines.append(f"## {label}")
+
+        if channel_key not in selected:
+
+            lines.append("- Status: Skipped — not selected")
+
+            published_results.append(
+
+                {
+
+                    "platform": channel_key,
+
+                    "status": "skipped",
+
+                    "published_at": None,
+
+                    "post_url": None,
+
+                    "error": None,
+
+                }
+
+            )
+
+            lines.append("")
+
+            continue
+
+        if not is_connected():
+
+            lines.append("- Status: Skipped — not connected")
+
+            published_results.append(
+
+                {
+
+                    "platform": channel_key,
+
+                    "status": "skipped",
+
+                    "published_at": None,
+
+                    "post_url": None,
+
+                    "error": "not connected",
+
+                }
+
+            )
+
+            lines.append("")
+
+            continue
+
+        try:
+
+            image_path = _channel_export_image_path(client_id, run_id, channel_key)
+
+            if not image_path.is_file():
+
+                raise RuntimeError(f"Exported image not found: {image_path.name}")
+
+            caption = caption_by_channel.get(channel_key, "").strip()
+
+            post_id = publish_fn(str(image_path), caption)
+
+            lines.append("- Status: Posted")
+
+            lines.append(f"- Post id: {post_id}")
+
+            published_results.append(
+
+                {
+
+                    "platform": channel_key,
+
+                    "status": "published",
+
+                    "published_at": datetime.now().isoformat(),
+
+                    "post_url": None,
+
+                    "error": None,
+
+                }
+
+            )
+
+            any_published = True
+
+        except Exception as exc:
+
+            logger.exception("Publish to %s failed", label)
+
+            lines.append("- Status: Failed")
+
+            lines.append(f"- Error: {exc}")
+
+            published_results.append(
+
+                {
+
+                    "platform": channel_key,
+
+                    "status": "failed",
+
+                    "published_at": None,
+
+                    "post_url": None,
+
+                    "error": str(exc),
+
+                }
+
+            )
+
+            any_failed = True
+
+        lines.append("")
+
+    content = _save_md(client_id, run_id, step_name, "\n".join(lines).strip() + "\n")
+
+    manifest = _load_manifest(client_id, run_id)
+
+    if manifest:
+
+        if any_published:
+
+            post_status = "published"
+
+        elif any_failed:
+
+            post_status = "failed"
+
+        else:
+
+            post_status = manifest.get("status") or "draft"
+
+        artifacts.save_run_manifest(
+
+            client_id,
+
+            run_id,
+
+            manifest.get("topic") or "untitled",
+
+            manifest.get("statuses") or {},
+
+            pipeline_id=manifest.get("pipeline_id"),
+
+            manual_inputs=manifest.get("manual_inputs")
+
+            if isinstance(manifest.get("manual_inputs"), dict)
+
+            else None,
+
+            step_timings=manifest.get("step_timings")
+
+            if isinstance(manifest.get("step_timings"), dict)
+
+            else None,
+
+            context_summary=manifest.get("context_summary")
+
+            if isinstance(manifest.get("context_summary"), str)
+
+            else None,
+
+            step_errors=manifest.get("step_errors")
+
+            if isinstance(manifest.get("step_errors"), dict)
+
+            else None,
+
+            post_status=post_status,
+
+            platforms=manifest.get("platforms"),
+
+            scheduled_at=None if any_published else manifest.get("scheduled_at"),
+
+            published_results=normalize_published_results(published_results),
+
+        )
+
+    return content
 
 
 

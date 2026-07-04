@@ -2,6 +2,7 @@ from flask import Response, jsonify, request
 
 from backend import config
 from backend import mongo_storage
+from backend.publishing import connected_platform_rows
 from backend.api.blueprint import api_bp
 
 
@@ -18,6 +19,7 @@ def health():
         service="ContentFlow API",
         persistence="mongodb" if mongo_storage.enabled() else "filesystem",
         database=config.MONGODB_DB if mongo_storage.enabled() else None,
+        connected_platforms=connected_platform_rows(),
     )
 
 

@@ -56,6 +56,13 @@ export const SOCIAL_PIPELINE_STEPS = [
     matrixCol: "QA",
     index: 8,
   },
+  {
+    key: "publish",
+    label: "Publish to channels",
+    matrixLabel: "Publish",
+    matrixCol: "PB",
+    index: 9,
+  },
 ];
 
 export const SOCIAL_PIPELINE_STEP_KEYS = SOCIAL_PIPELINE_STEPS.map((s) => s.key);

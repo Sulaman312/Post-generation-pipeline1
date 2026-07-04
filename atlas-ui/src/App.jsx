@@ -5,6 +5,7 @@ import ClientsGrid from "./components/workspace/ClientsGrid";
 import ClientHome from "./components/workspace/ClientHome";
 import RunView from "./components/run/RunView";
 import SocialStepMatrixScreen from "./components/run/SocialStepMatrixScreen";
+import PostStatusScreen from "./components/run/PostStatusScreen";
 import SocialPipelineBoard from "./components/workspace/SocialPipelineBoard";
 import { ToastProvider } from "./context/ToastContext";
 import { CONTENTFLOW_LOGO } from "./constants/brand";
@@ -121,6 +122,12 @@ function App() {
     setArtifactFilename(null);
   }
 
+  function goToPostStatus() {
+    setRunId(null);
+    setWorkspaceView("post_status");
+    setArtifactFilename(null);
+  }
+
   function goToArtifacts() {
     setRunId(null);
     setWorkspaceView("artifacts");
@@ -181,6 +188,7 @@ function App() {
         onWorkspaceViewChange={handleWorkspaceViewChange}
         onGoToSocialBoard={goToSocialBoard}
         onGoToSocialMatrix={goToSocialMatrix}
+        onGoToPostStatus={goToPostStatus}
         onGoToArtifacts={goToArtifacts}
         activePipeline="social"
         lockedPipeline="social"
@@ -204,6 +212,12 @@ function App() {
             onOpenRun={openRun}
             onClientDeleted={handleClientDeleted}
             onBackToBoard={() => setWorkspaceView("overview")}
+          />
+        ) : !runId && workspaceView === "post_status" ? (
+          <PostStatusScreen
+            client={client}
+            onOpenRun={openRun}
+            onClientDeleted={handleClientDeleted}
           />
         ) : !runId && workspaceView === "overview" ? (
           <SocialPipelineBoard

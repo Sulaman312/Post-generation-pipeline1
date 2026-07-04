@@ -18,6 +18,7 @@ STEP_RUNNERS = {
     "image_template": social_steps.run_step_7_image_template,
     "captions": social_steps.run_step_8_captions,
     "review_checklist": social_steps.run_step_9_review_checklist,
+    "publish": social_steps.run_step_publish,
 }
 
 STEP_ORDER = list(STEP_RUNNERS.keys())

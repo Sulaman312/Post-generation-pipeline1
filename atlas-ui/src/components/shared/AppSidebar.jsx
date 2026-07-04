@@ -15,6 +15,7 @@ import {
   socialRunTitle,
 } from "../../utils/socialRunTopic";
 import {
+  formatStepMetaSubtitle,
   formatStepStatusWithDuration,
   resolveStepTiming,
 } from "../../utils/formatStepDuration";
@@ -80,7 +81,7 @@ function IconMatrix(props) {
   );
 }
 
-function IconPipelines(props) {
+function IconPostStatus(props) {
   return (
     <svg
       className="sb-nav-icon"
@@ -93,7 +94,9 @@ function IconPipelines(props) {
       aria-hidden
       {...props}
     >
-      <path d="M4 6h6v4H4zM14 6h6v4h-6zM4 14h6v4H4zM14 14h6v4h-6z" />
+      <rect x="3" y="4" width="18" height="17" rx="2" />
+      <path d="M8 2.5v3M16 2.5v3M3 9.5h18" />
+      <path d="M8 14h.01M12 14h.01M16 14h.01M8 17.5h.01M12 17.5h.01" />
     </svg>
   );
 }
@@ -175,21 +178,9 @@ function SidebarSection({ collapsed, title, children, className = "" }) {
   );
 }
 
-function WorkspaceHomeNav({
-  collapsed,
-  workspaceView,
-  onGoToPipeline,
-  onGoToArtifacts,
-}) {
+function WorkspaceHomeNav({ collapsed, workspaceView, onGoToArtifacts }) {
   return (
     <SidebarSection collapsed={collapsed} title="Workspace">
-      <NavItem
-        collapsed={collapsed}
-        icon={<IconPipelines />}
-        label="Pipeline"
-        active={workspaceView !== "artifacts"}
-        onClick={onGoToPipeline}
-      />
       <NavItem
         collapsed={collapsed}
         icon={<IconArtifacts />}
@@ -205,7 +196,6 @@ function ContentPipelineNav({
   collapsed,
   workspaceView,
   activePipeline,
-  onGoToPipeline,
   onGoToEditorial,
   onGoToMatrix,
   onGoToArtifacts,
@@ -214,13 +204,6 @@ function ContentPipelineNav({
 
   return (
     <SidebarSection collapsed={collapsed} title="Content pipeline">
-      <NavItem
-        collapsed={collapsed}
-        icon={<IconPipelines />}
-        label="Pipeline"
-        active={activePipeline === null && workspaceView !== "artifacts"}
-        onClick={onGoToPipeline}
-      />
       <NavItem
         collapsed={collapsed}
         icon={<IconEditorial />}
@@ -250,21 +233,14 @@ function SocialPipelineNav({
   collapsed,
   workspaceView,
   activePipeline,
-  onGoToPipeline,
   onGoToSocialBoard,
   onGoToSocialMatrix,
+  onGoToPostStatus,
   onGoToArtifacts,
 }) {
   const inSocial = activePipeline === "social";
   return (
     <SidebarSection collapsed={collapsed} title="Social pipeline">
-      <NavItem
-        collapsed={collapsed}
-        icon={<IconPipelines />}
-        label="Pipeline"
-        active={activePipeline === null && workspaceView !== "artifacts"}
-        onClick={onGoToPipeline}
-      />
       <NavItem
         collapsed={collapsed}
         icon={<IconEditorial />}
@@ -278,6 +254,13 @@ function SocialPipelineNav({
         label="Step matrix"
         active={inSocial && workspaceView === "matrix"}
         onClick={onGoToSocialMatrix}
+      />
+      <NavItem
+        collapsed={collapsed}
+        icon={<IconPostStatus />}
+        label="Post status"
+        active={inSocial && workspaceView === "post_status"}
+        onClick={onGoToPostStatus}
       />
       <NavItem
         collapsed={collapsed}
@@ -370,6 +353,7 @@ function CollapsedRunProgress({ steps, statuses, activeStepKey }) {
 
 function StepRailDot({ status, active, isRunningThis }) {
   const showDoneTick = status === "done" && !isRunningThis;
+  const showPlayHint = status === "pending" && !active && !isRunningThis;
   return (
     <span
       className={[
@@ -379,6 +363,7 @@ function StepRailDot({ status, active, isRunningThis }) {
         isRunningThis ? "sb-step-dot--running" : "",
         status === "error" ? "sb-step-dot--error" : "",
         status === "skipped" ? "sb-step-dot--skipped" : "",
+        showPlayHint ? "sb-step-dot--pending" : "",
       ]
         .filter(Boolean)
         .join(" ")}
@@ -394,6 +379,10 @@ function StepRailDot({ status, active, isRunningThis }) {
             strokeLinejoin="round"
           />
         </svg>
+      ) : isRunningThis ? (
+        <span className="spinner spinner--sm sb-step-dot-spinner" aria-hidden />
+      ) : showPlayHint ? (
+        <IconPlayStep className="sb-step-dot-play" />
       ) : null}
     </span>
   );
@@ -465,8 +454,8 @@ export default function AppSidebar({
   onGoToMatrix,
   onGoToSocialBoard,
   onGoToSocialMatrix,
+  onGoToPostStatus,
   onGoToArtifacts,
-  onGoToPipeline,
   activePipeline = null,
   lockedPipeline = null,
   logoVersion = 0,
@@ -542,8 +531,8 @@ export default function AppSidebar({
             onGoToMatrix={onGoToMatrix}
             onGoToSocialBoard={onGoToSocialBoard}
             onGoToSocialMatrix={onGoToSocialMatrix}
+            onGoToPostStatus={onGoToPostStatus}
             onGoToArtifacts={onGoToArtifacts}
-            onGoToPipeline={onGoToPipeline}
           />
         ) : (
           <RunNavSection
@@ -563,7 +552,7 @@ export default function AppSidebar({
 
       <div className="sb-foot">
         {!collapsed ? (
-          <span>ContentFlow • 8 steps</span>
+          <span>ContentFlow • {stepsForPipeline().length} steps</span>
         ) : runId ? null : (
           <span className="sb-foot-expand-hint" title="Expand sidebar" aria-hidden>
             ···
@@ -594,8 +583,8 @@ function ClientNavSection({
   onGoToMatrix,
   onGoToSocialBoard,
   onGoToSocialMatrix,
+  onGoToPostStatus,
   onGoToArtifacts,
-  onGoToPipeline,
 }) {
   const navPipeline = activePipeline ?? lockedPipeline;
 
@@ -604,7 +593,6 @@ function ClientNavSection({
       <WorkspaceHomeNav
         collapsed={collapsed}
         workspaceView={workspaceView}
-        onGoToPipeline={onGoToPipeline}
         onGoToArtifacts={onGoToArtifacts}
       />
     );
@@ -615,9 +603,9 @@ function ClientNavSection({
         collapsed={collapsed}
         workspaceView={workspaceView}
         activePipeline={activePipeline}
-        onGoToPipeline={onGoToPipeline}
         onGoToSocialBoard={onGoToSocialBoard}
         onGoToSocialMatrix={onGoToSocialMatrix}
+        onGoToPostStatus={onGoToPostStatus}
         onGoToArtifacts={onGoToArtifacts}
       />
     );
@@ -627,7 +615,6 @@ function ClientNavSection({
       collapsed={collapsed}
       workspaceView={workspaceView}
       activePipeline={activePipeline}
-      onGoToPipeline={onGoToPipeline}
       onGoToEditorial={onGoToEditorial}
       onGoToMatrix={onGoToMatrix}
       onGoToArtifacts={onGoToArtifacts}
@@ -916,6 +903,11 @@ function RunNavSection({
               resolvedTiming,
               Date.now()
             );
+            const metaSubtitle = formatStepMetaSubtitle(
+              s,
+              resolvedTiming,
+              Date.now()
+            );
             const timingTitle = resolvedTiming?.client
               ? "Duration measured in this browser session"
               : resolvedTiming?.inferred && resolvedTiming?.duration_ms
@@ -932,8 +924,7 @@ function RunNavSection({
             ]
               .filter(Boolean)
               .join(" ");
-            const { label: stepStatusText, detail: statusDetail } =
-              splitStepStatus(statusText);
+            const { detail: statusDetail } = splitStepStatus(statusText);
             const rowCls = [
               "sb-step-row",
               isLast ? "sb-step-row--last" : "",
@@ -987,8 +978,11 @@ function RunNavSection({
                           }
                           title={
                             s === "done"
-                              ? `Re-run ${step.label}`
+                              ? "Re-run this step"
                               : `Run ${step.label}`
+                          }
+                          data-tip={
+                            s === "done" ? "Re-run this step" : undefined
                           }
                           onClick={(e) => handleRunStep(step.key, e)}
                         >
@@ -1045,20 +1039,17 @@ function RunNavSection({
                       <div className="sb-step-label">
                         <span className="sb-step-name">{step.label}</span>
                       </div>
-                      <div className="sb-step-meta" title={timingTitle}>
-                        <span className={`sb-step-badge sb-step-badge--${s}`}>
-                          {stepStatusText}
-                        </span>
-                        {statusDetail ? (
-                          <span className="sb-step-duration">{statusDetail}</span>
-                        ) : null}
-                      </div>
+                      {metaSubtitle || statusDetail ? (
+                        <div className="sb-step-meta" title={timingTitle}>
+                          <span className="sb-step-duration">
+                            {metaSubtitle || statusDetail}
+                          </span>
+                        </div>
+                      ) : null}
                     </span>
                   ) : null}
                   {!collapsed && isRunningThis ? (
                     <span className="spinner sb-step-spinner" />
-                  ) : !collapsed ? (
-                    <span className="sb-step-trail" aria-hidden />
                   ) : null}
                 </button>
                 </div>

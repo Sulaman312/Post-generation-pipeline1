@@ -83,6 +83,41 @@ def _extract_section(markdown: str, label: str) -> str:
     return ""
 
 
+def _heading_matches(label: str, target: str) -> bool:
+    if not target:
+        return False
+    return target == label or target in label or label in target
+
+
+def _extract_numbered_section(markdown: str, label: str) -> str:
+    """Extract body under a numbered heading like `2. Full image-generation prompt`."""
+    target = _normalize_heading(label)
+    if not target:
+        return ""
+    pattern = re.compile(
+        r"^(\d+\.)\s+(.+?)\s*$([\s\S]*?)(?=^\d+\.\s+|\Z)",
+        re.MULTILINE,
+    )
+    for match in pattern.finditer(markdown):
+        heading = _normalize_heading(match.group(2))
+        if _heading_matches(heading, target):
+            body = (match.group(3) or "").strip()
+            body = re.sub(r"^#+\s.*$", "", body, flags=re.MULTILINE).strip()
+            return body
+    return ""
+
+
+def _extract_by_aliases(markdown: str, aliases: tuple[str, ...]) -> str:
+    for alias in aliases:
+        body = _extract_section(markdown, alias)
+        if body:
+            return body
+        body = _extract_numbered_section(markdown, alias)
+        if body:
+            return body
+    return ""
+
+
 def _master_prompt_fallback(markdown: str) -> str:
     text = (markdown or "").strip()
     if not text:
@@ -122,14 +157,27 @@ def parse_style_prompts(markdown: str) -> list[dict[str, str]]:
     """Return one prompt dict per preset, in stable order."""
     md = (markdown or "").strip()
     client_style_results: list[dict[str, str]] = []
+    primary_aliases = (
+        "Primary image prompt",
+        "Full image-generation prompt",
+        "Full image generation prompt",
+    )
+    alternate_aliases = (
+        "Alternate image prompt",
+        "Alternate camera angle / variation",
+        "Alternate camera angle",
+    )
     for preset in CLIENT_STYLE_PRESETS:
-        prompt = _extract_section(md, preset["label"])
+        if preset["key"] == "primary":
+            prompt = _extract_by_aliases(md, primary_aliases)
+        elif preset["key"] == "alternate":
+            prompt = _extract_by_aliases(md, alternate_aliases)
+        else:
+            prompt = _extract_by_aliases(md, (preset["label"], preset["key"].replace("_", " ")))
+        if not prompt:
+            prompt = _extract_section(md, preset["label"])
         if not prompt:
             prompt = _extract_section(md, preset["key"].replace("_", " "))
-        if not prompt and preset["key"] == "primary":
-            prompt = _extract_section(md, "Full image-generation prompt")
-            if not prompt:
-                prompt = _extract_section(md, "Full image generation prompt")
         if prompt:
             client_style_results.append(
                 {
@@ -138,8 +186,13 @@ def parse_style_prompts(markdown: str) -> list[dict[str, str]]:
                     "prompt": prompt.strip(),
                 }
             )
-    if client_style_results:
+    # Require both image prompts; caption-only output is not enough for Step 4.
+    has_primary = any(r["style_key"] == "primary" for r in client_style_results)
+    has_alternate = any(r["style_key"] == "alternate" for r in client_style_results)
+    if has_primary and has_alternate:
         return client_style_results
+    if client_style_results:
+        client_style_results.clear()
 
     results: list[dict[str, str]] = []
 

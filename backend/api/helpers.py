@@ -10,6 +10,7 @@ from backend import artifacts
 from backend import config
 from backend.social_pipeline import STEP_ORDER
 from backend.pipelines import resolve_pipeline_id, upgrade_manifest
+from backend.run_record import default_run_record_fields, run_record_api_fields
 
 _RUN_ID_PATTERN = re.compile(r"^[a-zA-Z0-9._-]+$")
 
@@ -55,6 +56,7 @@ def load_manifest(client_id: str, run_id: str) -> dict:
         return {
             "topic": "",
             "statuses": {name: "pending" for name in STEP_ORDER},
+            **default_run_record_fields(),
         }
     try:
         raw = json.loads(manifest_path.read_text(encoding="utf-8"))
@@ -62,10 +64,12 @@ def load_manifest(client_id: str, run_id: str) -> dict:
         return {
             "topic": "",
             "statuses": {name: "pending" for name in STEP_ORDER},
+            **default_run_record_fields(),
         }
 
     data, changed = upgrade_manifest(raw)
     if changed:
+        record = run_record_api_fields(data)
         artifacts.save_run_manifest(
             client_id,
             run_id,
@@ -81,6 +85,11 @@ def load_manifest(client_id: str, run_id: str) -> dict:
             context_summary=data.get("context_summary")
             if isinstance(data.get("context_summary"), str)
             else None,
+            post_status=record["status"],
+            platforms=record["platforms"],
+            scheduled_at=record["scheduled_at"],
+            platform_schedules=record["platform_schedules"],
+            published_results=record["published_results"],
         )
     return data
 

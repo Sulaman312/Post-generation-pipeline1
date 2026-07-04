@@ -352,3 +352,19 @@ def get_social_template_asset_for_template(client_id: str, template_id: str, fil
 @api_bp.get("/clients/<client_id>/templates/social_post/assets/<filename>")
 def get_social_template_asset(client_id: str, filename: str):
     return get_social_template_asset_for_template(client_id, "social_post", filename)
+
+# TEMP — remove after testing
+@api_bp.get("/_test/ig-post")
+def _test_ig_post():
+    import tempfile
+    from PIL import Image, ImageDraw
+    from backend.integrations import meta_graph
+    img = Image.new("RGBA", (1080, 1350), (24, 90, 200, 255))  # PNG w/ alpha, like the pipeline
+    ImageDraw.Draw(img).text((60, 60), "IG publish test", fill=(255, 255, 255, 255))
+    tmp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
+    img.save(tmp.name, "PNG")
+    try:
+        media_id = meta_graph.publish_instagram_post(tmp.name, "Automated test post ✅")
+        return jsonify(ok=True, media_id=media_id)
+    except Exception as e:
+        return jsonify(ok=False, error=str(e)), 500

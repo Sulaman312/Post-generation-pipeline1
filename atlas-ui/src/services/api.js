@@ -14,7 +14,7 @@ const envUrlRaw =
 function resolveApiBase() {
   if (envUrlRaw) return envUrlRaw.replace(/\/$/, "");
   if (process.env.NODE_ENV === "development") {
-    return "http://127.0.0.1:8000";
+    return "http://127.0.0.1:8001";
   }
   return DEFAULT_BASE;
 }
@@ -492,6 +492,66 @@ export async function updateSocialRunManualInputs(clientId, runId, manual_inputs
       }),
     }
   );
+}
+
+/** Update target publish platforms for a run (persists immediately). */
+export async function updateRunPlatforms(clientId, runId, platforms) {
+  return request(
+    `/clients/${encodeURIComponent(clientId)}/runs/${encodeURIComponent(runId)}`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ platforms }),
+    }
+  );
+}
+
+/** Schedule a run for future publishing (persists immediately). */
+export async function scheduleRun(clientId, runId, payload) {
+  const body =
+    typeof payload === "string"
+      ? { scheduled_at: payload }
+      : payload && typeof payload === "object"
+        ? { ...payload }
+        : {};
+
+  if (!body.scheduled_at && body.platform_schedules && typeof body.platform_schedules === "object") {
+    const times = Object.values(body.platform_schedules).filter(
+      (value) => typeof value === "string" && value.trim()
+    );
+    if (times.length) {
+      body.scheduled_at = times.sort()[0];
+    }
+  }
+
+  const path = `/clients/${encodeURIComponent(clientId)}/runs/${encodeURIComponent(runId)}`;
+  try {
+    return await request(`${path}/schedule`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  } catch (e) {
+    const msg = e?.message || String(e);
+    if (!msg.includes("(404)")) throw e;
+    return request(path, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  }
+}
+
+export async function getConnectedPlatforms() {
+  try {
+    const data = await request("/publishing/connected-platforms");
+    return data.platforms ?? [];
+  } catch (e) {
+    const msg = e?.message || String(e);
+    if (!msg.includes("(404)")) throw e;
+    const health = await request("/health");
+    return health.connected_platforms ?? [];
+  }
 }
 
 export async function unarchiveRun(clientId, runId) {

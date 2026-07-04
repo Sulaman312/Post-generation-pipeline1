@@ -2,12 +2,12 @@ import Markdown from "../shared/Markdown";
 import { PIPELINE_MARKDOWN_CLASS } from "../../constants/markdownPreview";
 
 /**
- * Structured preview plus full markdown so no pipeline content is hidden.
+ * Structured preview when available; otherwise full markdown.
  */
 export default function ArtifactFormattedPreview({
   structured = null,
   content = "",
-  showFullSource = true,
+  showFullSource = false,
 }) {
   const hasStructured = Boolean(structured);
   const hasContent = Boolean(String(content || "").trim());

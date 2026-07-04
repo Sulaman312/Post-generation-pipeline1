@@ -21,17 +21,41 @@ export const WORKSPACE_ARTIFACT_SPECS = [
       "## Company overview\n- Company name:\n- What you sell:\n- Key differentiators:\n",
   },
   {
-    filename: "writing_guidelines.md",
-    title: "Writing guidelines",
-    description:
-      "Tone, banned hype, preferred phrasing, and structure expectations.",
+    filename: "brand_voice.md",
+    title: "Brand voice",
+    description: "Tone, personality, and phrasing rules for captions and post copy.",
     placeholder:
-      "## Voice\n- Tone:\n- Reading level:\n\n## Format (pipeline-enforced)\n" +
-      "Sentence case headings, BLUF under every H2/H3, max 30 words per sentence, " +
-      "max 4 sentences per paragraph, no em dashes, 2–3 inline CTAs at H2 breaks.\n\n" +
-      "## Avoid\n- …\n\n## Preferred words\n- …\n",
+      "# Brand voice\n\n## Tone\n- \n\n## Personality\n- \n\n## Words to use\n- \n\n## Words to avoid\n- \n",
+  },
+  {
+    filename: "image_style.md",
+    title: "Generalized image prompt template",
+    description:
+      "Editable brand template for Step 3. When present, the user's post idea is appended as CONTENT TOPIC and ChatGPT produces on-brand image prompts.",
+    placeholder:
+      "You are a prompt engineer specializing in AI image generation for [YOUR INDUSTRY] brands. I run [COMPANY NAME] that [WHAT YOU DO].\n\n" +
+      "I will give you a CONTENT TOPIC. Your job is to write image-generation prompts in this exact visual style:\n\n" +
+      "STYLE REFERENCE:\n" +
+      "- (palette, lighting, mood, composition, props, things to avoid)\n\n" +
+      "For each topic, output:\n" +
+      "1. A short content angle/caption idea (2-3 sentences)\n" +
+      "2. A full image generation prompt (150-250 words)\n" +
+      "3. One alternate camera angle/variation\n\n" +
+      "Wait for me to give you the topic before generating anything.",
   },
 ];
+
+const SOCIAL_BUILTIN_FILENAMES = new Set(
+  WORKSPACE_ARTIFACT_SPECS.map((spec) => spec.filename)
+);
+
+function filterSocialWorkspaceArtifacts(rows) {
+  return rows.filter(
+    (row) =>
+      row?.filename &&
+      (row.custom || SOCIAL_BUILTIN_FILENAMES.has(row.filename))
+  );
+}
 
 function ContextArtifactEditor({ client, spec, toast, variant = "card" }) {
   const [draft, setDraft] = useState("");
@@ -187,7 +211,7 @@ function ContextArtifactEditor({ client, spec, toast, variant = "card" }) {
             <span>
               {" "}
               · Markdown
-              {isCustom ? " · custom artifact" : " · used by the content pipeline"}
+              {isCustom ? " · custom artifact" : " · used by the social pipeline"}
             </span>
           </div>
         </>
@@ -318,7 +342,7 @@ export function WorkspaceArtifactPicker({
     setError(null);
     try {
       const rows = await api.listWorkspaceArtifacts(client);
-      const ok = rows.filter((r) => r?.filename);
+      const ok = filterSocialWorkspaceArtifacts(rows);
       const next = ok.length ? ok : WORKSPACE_ARTIFACT_SPECS;
       setSpecs(next);
       onSpecsChange?.(next);
@@ -365,8 +389,8 @@ export function WorkspaceArtifactPicker({
     <div className="artifact-picker-wrap">
       <div className="artifact-picker-toolbar">
         <p className="artifacts-page-lede">
-          Markdown reference files for this workspace. Pipeline steps use the
-          built-in context files; custom artifacts are for your team’s notes.
+          Markdown reference files for this workspace. Built-in files feed the
+          social post pipeline; custom artifacts are for your team’s notes.
         </p>
         {!adding ? (
           <button

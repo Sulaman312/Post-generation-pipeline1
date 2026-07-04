@@ -58,6 +58,23 @@ except ValueError:
 # Figma — optional importer for client social templates
 FIGMA_ACCESS_TOKEN = (os.getenv("FIGMA_ACCESS_TOKEN") or "").strip() or None
 
+# Meta Graph — Facebook Page + Instagram publishing
+META_APP_ID = (os.getenv("META_APP_ID") or "").strip() or None
+META_APP_SECRET = (os.getenv("META_APP_SECRET") or "").strip() or None
+META_REDIRECT_URI = (os.getenv("META_REDIRECT_URI") or "").strip() or None
+META_USER_ACCESS_TOKEN = (os.getenv("META_USER_ACCESS_TOKEN") or "").strip() or None
+META_PAGE_ACCESS_TOKEN = (os.getenv("META_PAGE_ACCESS_TOKEN") or "").strip() or None
+META_PAGE_ID = (os.getenv("META_PAGE_ID") or "").strip() or None
+META_IG_USER_ID = (os.getenv("META_IG_USER_ID") or "").strip() or None
+
+# LinkedIn — Community Management API publishing
+LINKEDIN_CLIENT_ID = (os.getenv("LINKEDIN_CLIENT_ID") or "").strip() or None
+LINKEDIN_CLIENT_SECRET = (os.getenv("LINKEDIN_CLIENT_SECRET") or "").strip() or None
+LINKEDIN_REDIRECT_URI = (os.getenv("LINKEDIN_REDIRECT_URI") or "").strip() or None
+LINKEDIN_ACCESS_TOKEN = (os.getenv("LINKEDIN_ACCESS_TOKEN") or "").strip() or None
+LINKEDIN_ORG_URN = (os.getenv("LINKEDIN_ORG_URN") or "").strip() or None
+LINKEDIN_PERSON_URN = (os.getenv("LINKEDIN_PERSON_URN") or "").strip() or None
+
 # Perplexity Sonar (optional — Step `serp_research` uses manual placeholder if unset)
 PERPLEXITY_API_KEY = (os.getenv("PERPLEXITY_API_KEY") or "").strip() or None
 PERPLEXITY_MODEL = (os.getenv("PERPLEXITY_MODEL") or "sonar").strip() or "sonar"
