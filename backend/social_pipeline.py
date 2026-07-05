@@ -8,6 +8,7 @@ Binary image outputs will live under `clients/<client_id>/runs/<run_id>/images/`
 from __future__ import annotations
 
 from . import social_steps
+from .publish_runner import run_step_publish
 
 STEP_RUNNERS = {
     "client_profile_topic": social_steps.run_step_1_client_profile_topic,
@@ -18,7 +19,7 @@ STEP_RUNNERS = {
     "image_template": social_steps.run_step_7_image_template,
     "captions": social_steps.run_step_8_captions,
     "review_checklist": social_steps.run_step_9_review_checklist,
-    "publish": social_steps.run_step_publish,
+    "publish": run_step_publish,
 }
 
 STEP_ORDER = list(STEP_RUNNERS.keys())

@@ -156,7 +156,10 @@
 }
 
 .matrix-input-title {
-  display: block;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
   font-size: 15px;
   font-weight: 400;
   color: var(--text);
@@ -166,6 +169,12 @@
   word-break: normal;
   overflow-wrap: break-word;
   white-space: normal;
+}
+
+.matrix-input-card-main:hover .matrix-input-title {
+  display: block;
+  -webkit-line-clamp: unset;
+  overflow: visible;
 }
 
 .matrix-input-meta {

@@ -33,10 +33,6 @@ export function defaultRunRecordFields() {
  * @property {string|null} error
  */
 
-/**
- * @param {object|null|undefined} run
- * @returns {{ status: string, platforms: string[], scheduled_at: string|null, published_results: PublishedResult[] }}
- */
 export function runRecordFromRun(run) {
   const base = defaultRunRecordFields();
   if (!run || typeof run !== "object") return base;
@@ -63,4 +59,43 @@ export function runRecordFromRun(run) {
       ? run.published_results
       : base.published_results,
   };
+}
+
+/** True when selected platforms have a future schedule and are not yet published. */
+export function platformPublishResult(record, platform) {
+  return (record?.published_results || []).find((row) => row?.platform === platform) || null;
+}
+
+export function isPlatformPublished(record, platform) {
+  return platformPublishResult(record, platform)?.status === "published";
+}
+
+export function isPlatformRetryable(record, platform) {
+  const status = platformPublishResult(record, platform)?.status;
+  return status === "skipped" || status === "failed";
+}
+
+export function unpublishedSelectedPlatforms(record, platforms = null) {
+  const selected = platforms ?? record?.platforms ?? [];
+  return selected.filter((platform) => !isPlatformPublished(record, platform));
+}
+
+export function hasPendingSchedule(record, platforms = null) {
+  const selected = platforms ?? record?.platforms ?? [];
+  if (!selected.length) return false;
+
+  const schedules = record?.platform_schedules || {};
+  const now = Date.now();
+
+  for (const platform of selected) {
+    if (isPlatformPublished(record, platform)) continue;
+    if (isPlatformRetryable(record, platform)) continue;
+
+    const iso = schedules[platform] || record?.scheduled_at;
+    if (!iso) continue;
+    const when = Date.parse(iso);
+    if (!Number.isNaN(when) && when > now) return true;
+  }
+
+  return false;
 }

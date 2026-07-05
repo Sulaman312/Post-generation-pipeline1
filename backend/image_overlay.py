@@ -9,7 +9,7 @@ import sys
 import textwrap
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont
 
@@ -173,7 +173,7 @@ def compute_crop_box(
 def compute_fit_placement(
     src_w: int, src_h: int, target_w: int, target_h: int
 ) -> tuple[int, int, int, int]:
-    """Return (paste_left, paste_top, paste_w, paste_h) to fit the full source in target."""
+    """Return (paste_left, paste_top, paste_w, paste_h) — full source, never cropped."""
     scale = min(float(target_w) / float(src_w), float(target_h) / float(src_h))
     paste_w = max(1, int(round(src_w * scale)))
     paste_h = max(1, int(round(src_h * scale)))
@@ -182,16 +182,30 @@ def compute_fit_placement(
     return (paste_left, paste_top, paste_w, paste_h)
 
 
-def _fit_canvas_with_blurred_fill(
+def compute_fit_placement_in_band(
+    src_w: int,
+    src_h: int,
+    target_w: int,
+    band_top: int,
+    band_bottom: int,
+) -> tuple[int, int, int, int]:
+    """Fit the source inside a horizontal band (e.g. below a template header)."""
+    band_top = max(0, int(band_top))
+    band_bottom = max(band_top + 1, int(band_bottom))
+    band_h = band_bottom - band_top
+    paste_left, _rel_top, paste_w, paste_h = compute_fit_placement(
+        src_w, src_h, target_w, band_h
+    )
+    paste_top = band_top + _rel_top
+    return (paste_left, paste_top, paste_w, paste_h)
+
+
+def _blurred_cover_background(
     base: Image.Image,
     target_w: int,
     target_h: int,
-) -> tuple[Image.Image, tuple[int, int, int, int]]:
-    """Center-fit the full image on a blurred cover-fill background."""
+) -> Image.Image:
     src_w, src_h = base.size
-    placement = compute_fit_placement(src_w, src_h, target_w, target_h)
-    paste_left, paste_top, paste_w, paste_h = placement
-
     cover_scale = max(float(target_w) / src_w, float(target_h) / src_h)
     cover_w = max(1, int(round(src_w * cover_scale)))
     cover_h = max(1, int(round(src_h * cover_scale)))
@@ -201,11 +215,29 @@ def _fit_canvas_with_blurred_fill(
     canvas = cover.crop(
         (crop_left, crop_top, crop_left + target_w, crop_top + target_h)
     )
-
     blur_radius = max(10, min(target_w, target_h) // 28)
     canvas = canvas.filter(ImageFilter.GaussianBlur(radius=blur_radius))
-    canvas = ImageEnhance.Brightness(canvas).enhance(0.82)
+    return ImageEnhance.Brightness(canvas).enhance(0.82)
 
+
+def _fit_canvas_with_blurred_fill(
+    base: Image.Image,
+    target_w: int,
+    target_h: int,
+    *,
+    content_band: tuple[int, int] | None = None,
+) -> tuple[Image.Image, tuple[int, int, int, int]]:
+    """Scale the entire source image inside the frame; blurred fill in empty margins."""
+    if content_band is not None:
+        band_top, band_bottom = content_band
+        placement = compute_fit_placement_in_band(
+            *base.size, target_w, band_top, band_bottom
+        )
+    else:
+        placement = compute_fit_placement(*base.size, target_w, target_h)
+    paste_left, paste_top, paste_w, paste_h = placement
+
+    canvas = _blurred_cover_background(base, target_w, target_h)
     sharp = base.resize((paste_w, paste_h), Image.LANCZOS)
     canvas.paste(sharp, (paste_left, paste_top))
     return canvas, placement
@@ -429,6 +461,97 @@ def overlay_for_fit(
     return remapped if has_visible_overlay(remapped) else None
 
 
+def _edge_row_color(image: Image.Image) -> tuple[int, int, int]:
+    row = image.crop((0, image.size[1] - 1, image.size[0], image.size[1]))
+    sample = row.resize((1, 1), Image.LANCZOS)
+    return sample.getpixel((0, 0))
+
+
+def export_for_brand_template(
+    base: Image.Image,
+    target_w: int,
+    target_h: int,
+    content_band: tuple[int, int] | None = None,
+) -> Image.Image:
+    """Stack layout: contain the full photo above the footer, never crop or cover it."""
+    photo_h = target_h
+    if content_band is not None:
+        photo_h = max(1, min(target_h, int(content_band[1])))
+
+    src_w, src_h = base.size
+    paste_left, paste_top, paste_w, paste_h = compute_fit_placement(
+        src_w, src_h, target_w, photo_h
+    )
+
+    bg = _edge_row_color(base)
+    canvas = Image.new("RGB", (target_w, target_h), bg)
+    scaled = base.resize((paste_w, paste_h), Image.LANCZOS)
+    canvas.paste(scaled, (paste_left, paste_top))
+    return canvas
+
+
+TEMPLATE_EXPORT_POLICY = "template_stack_contain_v12"
+
+
+def render_branded_channel_exports(
+    base: Image.Image,
+    *,
+    content_band_for: Callable[[dict[str, str | int]], tuple[int, int] | None],
+    post_render: Callable[[Image.Image, dict[str, str | int]], Image.Image] | None = None,
+) -> dict[str, Image.Image]:
+    """Export platform images: photo underlay + brand template on top."""
+    from . import social_channels
+
+    out: dict[str, Image.Image] = {}
+    for ch in social_channels.SOCIAL_CHANNELS:
+        band = content_band_for(ch)
+        rendered = export_for_brand_template(
+            base,
+            int(ch["width"]),
+            int(ch["height"]),
+            band,
+        )
+        if post_render is not None:
+            rendered = post_render(rendered, ch)
+        out[str(ch["key"])] = rendered
+    return out
+
+
+EXPORT_RESIZE_POLICY = "contain_blur_v4"
+
+
+def export_resize_mode() -> str:
+    """Always contain — crop mode is disabled for platform exports."""
+    return "fit"
+
+
+def render_channel_exports(
+    base: Image.Image,
+    overlay: dict[str, Any] | None,
+    *,
+    logo_path: Path | None = None,
+    post_render: Callable[[Image.Image, dict[str, str | int]], Image.Image] | None = None,
+) -> dict[str, Image.Image]:
+    """Export one image per social channel using the active resize policy."""
+    from . import social_channels
+
+    mode = export_resize_mode()
+    out: dict[str, Image.Image] = {}
+    for ch in social_channels.SOCIAL_CHANNELS:
+        rendered = export_formatted_image(
+            base,
+            overlay,
+            logo_path=logo_path,
+            target_w=int(ch["width"]),
+            target_h=int(ch["height"]),
+            resize_mode=mode,
+        )
+        if post_render is not None:
+            rendered = post_render(rendered, ch)
+        out[str(ch["key"])] = rendered
+    return out
+
+
 def export_formatted_image(
     base: Image.Image,
     overlay: dict[str, Any] | None,
@@ -437,40 +560,26 @@ def export_formatted_image(
     target_w: int,
     target_h: int,
     resize_mode: str = "fit",
+    content_band: tuple[int, int] | None = None,
 ) -> Image.Image:
     """Resize for a platform frame, then burn overlay using format-aware coordinates.
 
-    ``resize_mode``:
-    - ``fit`` (default): scale the entire image to fit; fill gaps with a blurred
-      extension of the image so the frame looks full without cropping content.
-    - ``crop``: center-crop to aspect ratio, then scale (legacy behavior).
+    The full source image is always scaled to fit inside the frame (or inside
+    ``content_band`` when branding overlays reserve the top/bottom). Empty margins
+    use a blurred extension of the image — nothing is cropped.
     """
     src_w, src_h = base.size
-    mode = (resize_mode or "fit").strip().lower()
-
-    if mode == "crop":
-        crop_box = compute_crop_box(src_w, src_h, target_w, target_h)
-        left, top, cw, ch = crop_box
-        cropped = base.crop((left, top, left + cw, top + ch))
-        canvas = cropped.resize((target_w, target_h), Image.LANCZOS)
-        fmt_overlay = overlay_for_format(
-            overlay,
-            crop_box=crop_box,
-            src_w=src_w,
-            src_h=src_h,
-            out_w=target_w,
-            out_h=target_h,
-        )
-    else:
-        canvas, placement = _fit_canvas_with_blurred_fill(base, target_w, target_h)
-        fmt_overlay = overlay_for_fit(
-            overlay,
-            placement=placement,
-            src_w=src_w,
-            src_h=src_h,
-            out_w=target_w,
-            out_h=target_h,
-        )
+    canvas, placement = _fit_canvas_with_blurred_fill(
+        base, target_w, target_h, content_band=content_band
+    )
+    fmt_overlay = overlay_for_fit(
+        overlay,
+        placement=placement,
+        src_w=src_w,
+        src_h=src_h,
+        out_w=target_w,
+        out_h=target_h,
+    )
 
     if fmt_overlay:
         canvas = apply_overlay(canvas, fmt_overlay, logo_path=logo_path)

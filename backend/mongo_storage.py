@@ -120,6 +120,30 @@ def database_file_count() -> int:
     return int(files.count_documents({}))
 
 
+def connection_status() -> dict[str, object]:
+    """Ping MongoDB when configured; used by /health for diagnostics."""
+    if not enabled():
+        return {"configured": False, "connected": False, "database": None, "file_count": 0}
+    try:
+        _connect()
+        _client.admin.command("ping")
+        return {
+            "configured": True,
+            "connected": True,
+            "database": config.MONGODB_DB,
+            "file_count": database_file_count(),
+        }
+    except Exception as exc:
+        logger.warning("MongoDB health ping failed: %s", exc)
+        return {
+            "configured": True,
+            "connected": False,
+            "database": config.MONGODB_DB,
+            "file_count": 0,
+            "error": str(exc),
+        }
+
+
 def hydrate_cache(*, clear: bool = True) -> int:
     """Replace the runtime cache with the complete file tree stored in MongoDB."""
     global _snapshot, _known_paths

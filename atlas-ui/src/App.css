@@ -1566,6 +1566,17 @@ body.sb-resizing .sb {
   word-break: normal;
   overflow-wrap: break-word;
   white-space: normal;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+}
+
+.sb-run-nav-top:hover .sb-run-topic,
+.sb-run-nav-top:focus-within .sb-run-topic {
+  display: block;
+  -webkit-line-clamp: unset;
+  overflow: visible;
 }
 .sb-step:hover {
   color: var(--text);
@@ -4022,6 +4033,20 @@ body.sb-resizing .sb {
   font-weight: 500;
   line-height: 1.45;
   color: var(--text-muted);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+  word-break: normal;
+  overflow-wrap: break-word;
+  transition: color 0.12s ease;
+}
+
+.client-context-card:hover .client-context-card-desc,
+.client-context-card:focus-within .client-context-card-desc {
+  display: block;
+  -webkit-line-clamp: unset;
+  overflow: visible;
 }
 
 .client-context-card-actions {
@@ -4244,6 +4269,19 @@ body.sb-resizing .sb {
   line-height: 1.5;
   color: var(--text-muted);
   flex: 1;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+  word-break: normal;
+  overflow-wrap: break-word;
+}
+
+.artifact-picker-card:hover .artifact-picker-card-desc,
+.artifact-picker-card:focus-visible .artifact-picker-card-desc {
+  display: block;
+  -webkit-line-clamp: unset;
+  overflow: visible;
 }
 
 .artifact-picker-card-wrap {

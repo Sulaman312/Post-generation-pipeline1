@@ -627,6 +627,16 @@ def run_single_step(client_id: str, run_id: str, step_name: str):
         return jsonify(detail=str(e)), 400
 
     runner_fn = pipeline.step_runners.get(step_name)
+    if step_name in ("image_formats", "image_template"):
+        import importlib
+
+        from backend import image_overlay, image_templates, social_pipeline, social_steps
+
+        importlib.reload(image_overlay)
+        importlib.reload(image_templates)
+        importlib.reload(social_steps)
+        importlib.reload(social_pipeline)
+        runner_fn = social_pipeline.STEP_RUNNERS.get(step_name)
     if runner_fn is None:
         return jsonify(detail=f"Unknown step_name: {step_name!r}"), 400
 

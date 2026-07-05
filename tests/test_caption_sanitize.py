@@ -1,0 +1,28 @@
+import unittest
+
+from backend.social_steps import _split_captions_by_channel, sanitize_caption_for_publish
+
+
+class CaptionSanitizeTests(unittest.TestCase):
+    def test_strips_suggested_metadata_lines(self):
+        raw = """## Instagram
+Great post about glass railings.
+
+- Suggested location tag: Geneva
+- Suggested posting time window: 10 AM - 12 PM
+
+#glass #design
+"""
+        sections = _split_captions_by_channel(raw)
+        self.assertNotIn("Suggested location tag", sections["instagram"])
+        self.assertNotIn("Suggested posting time window", sections["instagram"])
+        self.assertIn("Great post about glass railings", sections["instagram"])
+        self.assertIn("#glass", sections["instagram"])
+
+    def test_sanitize_caption_for_publish(self):
+        text = "Hello\n- Suggested location tag: [Your City]\nWorld"
+        self.assertEqual(sanitize_caption_for_publish(text), "Hello\nWorld")
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import logging
 
+import re
+
 from datetime import datetime
 
 
@@ -29,6 +31,21 @@ from .run_record import normalize_platforms, normalize_published_results
 
 
 logger = logging.getLogger(__name__)
+
+_PUBLISH_META_LINE = re.compile(
+    r"^\s*-\s*Suggested\s+(?:location tag|posting time window):",
+    re.IGNORECASE,
+)
+
+
+def sanitize_caption_for_publish(text: str) -> str:
+    """Remove scheduling/location suggestions that should not be posted."""
+    lines = []
+    for line in (text or "").splitlines():
+        if _PUBLISH_META_LINE.match(line):
+            continue
+        lines.append(line)
+    return "\n".join(lines).strip()
 
 
 
@@ -461,29 +478,25 @@ def run_step_6_image_formats(client_id: str, run_id: str, previous_artifact: str
 
     importlib.reload(image_overlay)
 
-    overlay = None
-
     outputs: dict[str, dict] = {}
     export_lines: list[str] = []
 
     with Image.open(src_path) as im0:
         base = im0.convert("RGB")
+        rendered_by_key = image_overlay.render_channel_exports(
+            base,
+            None,
+            logo_path=None,
+        )
         for ch in social_channels.SOCIAL_CHANNELS:
-            rendered = image_overlay.export_formatted_image(
-                base,
-                None,
-                logo_path=None,
-                target_w=int(ch["width"]),
-                target_h=int(ch["height"]),
-                resize_mode="crop",
-            )
+            key = str(ch["key"])
+            rendered = rendered_by_key[key]
             fn = str(ch["filename"])
             out_path = image_artifacts.format_image_path(client_id, run_id, fn)
             rendered.save(out_path, format="PNG", optimize=True)
             base_fn = f"base_{fn}"
             base_path = image_artifacts.format_image_path(client_id, run_id, base_fn)
             rendered.save(base_path, format="PNG", optimize=True)
-            key = str(ch["key"])
             outputs[key] = {
                 "filename": fn,
                 "base_filename": base_fn,
@@ -501,6 +514,7 @@ def run_step_6_image_formats(client_id: str, run_id: str, previous_artifact: str
         {
             "selected_primary": idx.selected_primary,
             "generated_at": datetime.now().isoformat(timespec="seconds"),
+            "resize_policy": image_overlay.EXPORT_RESIZE_POLICY,
             "overlay_applied": False,
             "template_applied": False,
             "outputs": outputs,
@@ -707,6 +721,9 @@ def _split_captions_by_channel(captions_md: str) -> dict[str, str]:
 
         result[current] = "\n".join(buffer).strip()
 
+    for key in result:
+        result[key] = sanitize_caption_for_publish(result[key])
+
     return result
 
 
@@ -744,273 +761,9 @@ def _channel_export_image_path(client_id: str, run_id: str, channel_key: str):
 
 
 def run_step_publish(client_id: str, run_id: str, previous_artifact: str = "") -> str:
+    from backend.publish_runner import run_step_publish as _run_publish
 
-    step_name = "publish"
-
-    manifest = _load_manifest(client_id, run_id)
-
-    selected = set(normalize_platforms(manifest.get("platforms"), allow_empty=True))
-
-    captions_md = artifacts.load_artifact(client_id, run_id, "captions")
-
-    caption_by_channel = _split_captions_by_channel(captions_md)
-
-    lines = ["Publish results:", ""]
-
-    published_results: list[dict] = []
-
-    any_published = False
-
-    any_failed = False
-
-    channel_specs = (
-
-        (
-
-            "facebook",
-
-            "Facebook",
-
-            lambda: bool(
-
-                (config.META_PAGE_ACCESS_TOKEN or "").strip()
-
-                and (config.META_PAGE_ID or "").strip()
-
-            ),
-
-            meta_graph.publish_facebook_post,
-
-        ),
-
-        (
-
-            "instagram",
-
-            "Instagram",
-
-            lambda: bool(
-
-                (config.META_IG_USER_ID or "").strip()
-
-                and (config.META_PAGE_ACCESS_TOKEN or "").strip()
-
-            ),
-
-            meta_graph.publish_instagram_post,
-
-        ),
-
-        (
-
-            "linkedin",
-
-            "LinkedIn",
-
-            lambda: bool(
-
-                (config.LINKEDIN_ACCESS_TOKEN or "").strip()
-
-                and (config.LINKEDIN_ORG_URN or "").strip()
-
-            ),
-
-            linkedin_api.publish_linkedin_post,
-
-        ),
-
-    )
-
-    for channel_key, label, is_connected, publish_fn in channel_specs:
-
-        lines.append(f"## {label}")
-
-        if channel_key not in selected:
-
-            lines.append("- Status: Skipped — not selected")
-
-            published_results.append(
-
-                {
-
-                    "platform": channel_key,
-
-                    "status": "skipped",
-
-                    "published_at": None,
-
-                    "post_url": None,
-
-                    "error": None,
-
-                }
-
-            )
-
-            lines.append("")
-
-            continue
-
-        if not is_connected():
-
-            lines.append("- Status: Skipped — not connected")
-
-            published_results.append(
-
-                {
-
-                    "platform": channel_key,
-
-                    "status": "skipped",
-
-                    "published_at": None,
-
-                    "post_url": None,
-
-                    "error": "not connected",
-
-                }
-
-            )
-
-            lines.append("")
-
-            continue
-
-        try:
-
-            image_path = _channel_export_image_path(client_id, run_id, channel_key)
-
-            if not image_path.is_file():
-
-                raise RuntimeError(f"Exported image not found: {image_path.name}")
-
-            caption = caption_by_channel.get(channel_key, "").strip()
-
-            post_id = publish_fn(str(image_path), caption)
-
-            lines.append("- Status: Posted")
-
-            lines.append(f"- Post id: {post_id}")
-
-            published_results.append(
-
-                {
-
-                    "platform": channel_key,
-
-                    "status": "published",
-
-                    "published_at": datetime.now().isoformat(),
-
-                    "post_url": None,
-
-                    "error": None,
-
-                }
-
-            )
-
-            any_published = True
-
-        except Exception as exc:
-
-            logger.exception("Publish to %s failed", label)
-
-            lines.append("- Status: Failed")
-
-            lines.append(f"- Error: {exc}")
-
-            published_results.append(
-
-                {
-
-                    "platform": channel_key,
-
-                    "status": "failed",
-
-                    "published_at": None,
-
-                    "post_url": None,
-
-                    "error": str(exc),
-
-                }
-
-            )
-
-            any_failed = True
-
-        lines.append("")
-
-    content = _save_md(client_id, run_id, step_name, "\n".join(lines).strip() + "\n")
-
-    manifest = _load_manifest(client_id, run_id)
-
-    if manifest:
-
-        if any_published:
-
-            post_status = "published"
-
-        elif any_failed:
-
-            post_status = "failed"
-
-        else:
-
-            post_status = manifest.get("status") or "draft"
-
-        artifacts.save_run_manifest(
-
-            client_id,
-
-            run_id,
-
-            manifest.get("topic") or "untitled",
-
-            manifest.get("statuses") or {},
-
-            pipeline_id=manifest.get("pipeline_id"),
-
-            manual_inputs=manifest.get("manual_inputs")
-
-            if isinstance(manifest.get("manual_inputs"), dict)
-
-            else None,
-
-            step_timings=manifest.get("step_timings")
-
-            if isinstance(manifest.get("step_timings"), dict)
-
-            else None,
-
-            context_summary=manifest.get("context_summary")
-
-            if isinstance(manifest.get("context_summary"), str)
-
-            else None,
-
-            step_errors=manifest.get("step_errors")
-
-            if isinstance(manifest.get("step_errors"), dict)
-
-            else None,
-
-            post_status=post_status,
-
-            platforms=manifest.get("platforms"),
-
-            scheduled_at=None if any_published else manifest.get("scheduled_at"),
-
-            published_results=normalize_published_results(published_results),
-
-        )
-
-    return content
-
-
-
+    return _run_publish(client_id, run_id, previous_artifact)
 
 
 def run_step_8_schedule_publish(

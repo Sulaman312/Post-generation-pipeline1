@@ -2,6 +2,7 @@ from flask import Response, jsonify, request
 
 from backend import config
 from backend import mongo_storage
+from backend import publish_env
 from backend.publishing import connected_platform_rows
 from backend.api.blueprint import api_bp
 
@@ -14,12 +15,16 @@ def context_files_catalog():
 
 @api_bp.get("/health")
 def health():
+    mongo = mongo_storage.connection_status()
     return jsonify(
         ok=True,
         service="ContentFlow API",
-        persistence="mongodb" if mongo_storage.enabled() else "filesystem",
-        database=config.MONGODB_DB if mongo_storage.enabled() else None,
+        persistence="mongodb" if mongo.get("configured") else "filesystem",
+        database=mongo.get("database"),
+        mongodb=mongo,
         connected_platforms=connected_platform_rows(),
+        publish_env=publish_env.active_publish_env(),
+        publish_env_availability=publish_env.env_availability(),
     )
 
 

@@ -6,10 +6,10 @@ import {
   PLATFORM_ORDER,
   PLATFORM_LABELS,
   comparePostSummariesByDate,
-  formatPlatformTime,
   formatPostDateTime,
   matchesPostStatusFilter,
   overallStatusLabel,
+  platformCellDisplay,
   summarizePostPublish,
 } from "../../utils/postPublishStatus";
 import "./PostStatusScreen.css";
@@ -21,16 +21,19 @@ const FILTERS = [
   { key: "draft", label: "Drafts" },
 ];
 
-const DATE_SORTS = [
-  { key: "desc", label: "Newest first" },
-  { key: "asc", label: "Oldest first" },
-];
-
 function IconSearch() {
   return (
     <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
       <circle cx="7" cy="7" r="4.5" />
       <path d="M10.5 10.5 14 14" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function IconSort() {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
+      <path d="M5 3.5 8 1l3 2.5M5 12.5 8 15l3-2.5M8 1v14" strokeLinecap="round" />
     </svg>
   );
 }
@@ -49,19 +52,12 @@ function platformImageUrl(client, runId, formats, cacheKey, platformKey) {
   return api.formattedImageUrl(client, runId, info.filename, cacheKey);
 }
 
-function platformTimeText(platform) {
-  if (!platform) return "Not selected";
-  if (platform.status === "draft") return "Not scheduled yet";
-  if (platform.status === "skipped") return "Not selected";
-  return formatPlatformTime(platform.status, platform.time);
-}
-
 function PlatformCell({ platformKey, platform, imageUrl }) {
   const label = PLATFORM_LABELS[platformKey] || platformKey;
-  const timeText = platformTimeText(platform);
+  const { status, label: statusLabel, detail } = platformCellDisplay(platform);
 
   return (
-    <td className="ps-cell ps-cell--platform" aria-label={`${label}: ${timeText}`}>
+    <td className="ps-cell ps-cell--platform" aria-label={`${label}: ${statusLabel}${detail ? `, ${detail}` : ""}`}>
       <div className="ps-platform">
         <div className="ps-platform-thumb">
           {imageUrl ? (
@@ -70,7 +66,10 @@ function PlatformCell({ platformKey, platform, imageUrl }) {
             <span className="ps-platform-thumb-empty" aria-hidden />
           )}
         </div>
-        <span className="ps-platform-time">{timeText}</span>
+        <div className="ps-platform-text">
+          <span className={`ps-platform-status ps-platform-status--${status}`}>{statusLabel}</span>
+          {detail ? <span className="ps-platform-detail">{detail}</span> : null}
+        </div>
       </div>
     </td>
   );
@@ -199,22 +198,16 @@ export default function PostStatusScreen({ client, onOpenRun, onClientDeleted })
             ))}
           </div>
           <div className="ps-controls-right">
-            <div className="ps-sort" role="group" aria-label="Sort posts by date">
-              <span className="ps-sort-label">Date</span>
-              <div className="ps-sort-options">
-                {DATE_SORTS.map((item) => (
-                  <button
-                    key={item.key}
-                    type="button"
-                    className={`ps-sort-btn${dateSort === item.key ? " ps-sort-btn--active" : ""}`}
-                    aria-pressed={dateSort === item.key}
-                    onClick={() => setDateSort(item.key)}
-                  >
-                    {item.label}
-                  </button>
-                ))}
-              </div>
-            </div>
+            <button
+              type="button"
+              className="ps-sort-toggle"
+              aria-label={`Sort by date: ${dateSort === "desc" ? "Newest" : "Oldest"}`}
+              title={dateSort === "desc" ? "Newest first" : "Oldest first"}
+              onClick={() => setDateSort((current) => (current === "desc" ? "asc" : "desc"))}
+            >
+              <IconSort />
+              <span>Sort: Date</span>
+            </button>
             <label className="ps-search">
               <IconSearch />
               <input
@@ -279,7 +272,9 @@ export default function PostStatusScreen({ client, onOpenRun, onClientDeleted })
                       <td className="ps-cell ps-cell--post">
                         <div className="ps-post-title">{summary.title}</div>
                         <div className="ps-post-meta">
-                          <span className="ps-status">{overallStatusLabel(summary.overallStatus)}</span>
+                          <span className={`ps-status ps-status--${summary.overallStatus}`}>
+                            {overallStatusLabel(summary.overallStatus)}
+                          </span>
                           {scheduleLabel && summary.overallStatus === "scheduled" ? (
                             <span className="ps-post-schedule">Goes live {scheduleLabel}</span>
                           ) : null}

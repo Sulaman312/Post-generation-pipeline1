@@ -19,7 +19,7 @@ from pathlib import Path
 import requests
 from PIL import Image
 
-from .. import config
+from .. import publish_env
 
 logger = logging.getLogger(__name__)
 
@@ -29,31 +29,50 @@ GRAPH_API_BASE = f"https://graph.facebook.com/{GRAPH_API_VERSION}"
 _client: requests.Session | None = None
 
 
+def _meta_creds() -> dict[str, str | None]:
+    return publish_env.meta_credentials()
+
+
+def _page_access_token() -> str:
+    token = (_meta_creds().get("page_access_token") or "").strip()
+    if not token:
+        env = publish_env.active_publish_env()
+        prefix = "META_LIVE_" if env == "live" else "META_"
+        raise RuntimeError(
+            f"{prefix}PAGE_ACCESS_TOKEN is not set for {env} publishing. "
+            "Add it to `.env` (see .env.example)."
+        )
+    return token
+
+
 def _get_client() -> requests.Session:
     global _client
     if _client is None:
-        if not config.META_PAGE_ACCESS_TOKEN:
-            raise RuntimeError(
-                "META_PAGE_ACCESS_TOKEN is not set. Add it to `.env` (see .env.example)."
-            )
+        _page_access_token()
         _client = requests.Session()
     return _client
 
 
 def _require_page_id() -> str:
-    page_id = (config.META_PAGE_ID or "").strip()
+    page_id = (_meta_creds().get("page_id") or "").strip()
     if not page_id:
+        env = publish_env.active_publish_env()
+        prefix = "META_LIVE_" if env == "live" else "META_"
         raise RuntimeError(
-            "META_PAGE_ID is not set. Add it to `.env` (see .env.example)."
+            f"{prefix}PAGE_ID is not set for {env} publishing. "
+            "Add it to `.env` (see .env.example)."
         )
     return page_id
 
 
 def _require_ig_user_id() -> str:
-    ig_user_id = (config.META_IG_USER_ID or "").strip()
+    ig_user_id = (_meta_creds().get("ig_user_id") or "").strip()
     if not ig_user_id:
+        env = publish_env.active_publish_env()
+        prefix = "META_LIVE_" if env == "live" else "META_"
         raise RuntimeError(
-            "META_IG_USER_ID is not set. Add it to `.env` (see .env.example)."
+            f"{prefix}IG_USER_ID is not set for {env} publishing. "
+            "Add it to `.env` (see .env.example)."
         )
     return ig_user_id
 
@@ -103,7 +122,7 @@ def _graph_post(
 ) -> dict:
     url = f"{GRAPH_API_BASE}/{path.lstrip('/')}"
     payload = dict(data or {})
-    payload["access_token"] = config.META_PAGE_ACCESS_TOKEN or ""
+    payload["access_token"] = _page_access_token()
     try:
         response = session.post(url, data=payload, files=files, timeout=timeout)
         body = response.json()
@@ -134,7 +153,7 @@ def _graph_get(
 ) -> dict:
     url = f"{GRAPH_API_BASE}/{path.lstrip('/')}"
     query = dict(params or {})
-    query["access_token"] = config.META_PAGE_ACCESS_TOKEN or ""
+    query["access_token"] = _page_access_token()
     try:
         response = session.get(url, params=query, timeout=timeout)
         body = response.json()

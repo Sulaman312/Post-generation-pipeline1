@@ -180,6 +180,36 @@ def get_formats_index(client_id: str, run_id: str):
     return jsonify(data or {})
 
 
+@api_bp.post("/clients/<client_id>/runs/<run_id>/images/format-exports/regenerate")
+def regenerate_formats(client_id: str, run_id: str):
+    """Re-export platform images using the current contain (no-crop) resize policy."""
+    bad = reject_client(client_id)
+    if bad:
+        return bad
+    bad_run = reject_run_id(run_id)
+    if bad_run:
+        return bad_run
+    import importlib
+
+    from backend import image_overlay, social_steps
+
+    importlib.reload(image_overlay)
+    importlib.reload(social_steps)
+    try:
+        idx = image_artifacts.load_formats_index(client_id, run_id) or {}
+        if idx.get("template_applied"):
+            from backend import image_templates
+
+            importlib.reload(image_templates)
+            data = image_templates.apply_run_template_to_formats(client_id, run_id)
+        else:
+            social_steps.run_step_6_image_formats(client_id, run_id, "")
+            data = image_artifacts.load_formats_index(client_id, run_id) or {}
+    except RuntimeError as e:
+        return jsonify(detail=str(e)), 400
+    return jsonify(data)
+
+
 @api_bp.get("/clients/<client_id>/runs/<run_id>/images/formats/<filename>")
 def get_formatted_image(client_id: str, run_id: str, filename: str):
     bad = reject_client(client_id)
@@ -327,6 +357,10 @@ def apply_image_template(client_id: str, run_id: str):
     if bad_run:
         return bad_run
     try:
+        import importlib
+
+        importlib.reload(image_overlay)
+        importlib.reload(image_templates)
         formats = image_templates.apply_run_template_to_formats(client_id, run_id)
     except RuntimeError as e:
         return jsonify(detail=str(e)), 400

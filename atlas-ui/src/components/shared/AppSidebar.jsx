@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as api from "../../services/api";
 import { useToast } from "../../context/ToastContext";
 import { stepsForPipeline } from "../../constants/pipelines";
@@ -20,6 +20,8 @@ import {
   resolveStepTiming,
 } from "../../utils/formatStepDuration";
 import { canRunStep } from "../../utils/pipelineFlow";
+import { hasPendingSchedule, runRecordFromRun } from "../../constants/runRecord";
+import { publishStepSidebarMeta } from "../../utils/postPublishStatus";
 import { executeRunStep } from "../../utils/runStepAction";
 import WorkspaceLogo from "../workspace/WorkspaceLogo";
 
@@ -640,6 +642,7 @@ function RunNavSection({
   const [hoveredStepKey, setHoveredStepKey] = useState(null);
   const [clockTick, setClockTick] = useState(0);
   const [clientStepDurations, setClientStepDurations] = useState({});
+  const [publishScheduleLocked, setPublishScheduleLocked] = useState(false);
   const runAbortRef = useRef(null);
   const stepRunStartRef = useRef({});
 
@@ -704,6 +707,26 @@ function RunNavSection({
   const STEPS = stepsForPipeline(pipelineId);
   const stepTimings = run?.step_timings || {};
 
+  const publishRecord = useMemo(() => runRecordFromRun(run), [run]);
+  const publishStepScheduled = useMemo(
+    () => hasPendingSchedule(publishRecord, publishRecord.platforms),
+    [publishRecord]
+  );
+
+  useEffect(() => {
+    setPublishScheduleLocked(publishStepScheduled);
+  }, [client, runId, publishStepScheduled]);
+
+  useEffect(() => {
+    function onPublishScheduleLock(event) {
+      const { clientId, runId: eventRunId, locked } = event.detail || {};
+      if (clientId !== client || eventRunId !== runId) return;
+      setPublishScheduleLocked(Boolean(locked));
+    }
+    window.addEventListener("cf:publish-schedule-lock", onPublishScheduleLock);
+    return () => window.removeEventListener("cf:publish-schedule-lock", onPublishScheduleLock);
+  }, [client, runId]);
+
   const hasRunningStep =
     Boolean(runningStepKey) ||
     Object.values(statuses).some((s) => s === "running");
@@ -719,6 +742,7 @@ function RunNavSection({
     if (runningStepKey) return;
     const st = statuses[stepKey] || "pending";
     if (st === "running") return;
+    if (stepKey === "publish" && publishScheduleLocked) return;
     if (!canRunStep(stepKey, statuses, topic, pipelineId) && st !== "done") return;
 
     onSelectStep(stepKey);
@@ -876,6 +900,8 @@ function RunNavSection({
               (s === "done" ||
                 s === "skipped" ||
                 canRunStep(step.key, statuses, topic, pipelineId));
+            const publishStepLocked =
+              step.key === "publish" && publishScheduleLocked;
             const isRunningThis =
               (s === "running" || runningStepKey === step.key) &&
               s !== "pending";
@@ -903,11 +929,13 @@ function RunNavSection({
               resolvedTiming,
               Date.now()
             );
-            const metaSubtitle = formatStepMetaSubtitle(
-              s,
-              resolvedTiming,
-              Date.now()
-            );
+            const metaSubtitle = (() => {
+              if (step.key === "publish" && run) {
+                const publishMeta = publishStepSidebarMeta(run);
+                if (publishMeta) return publishMeta;
+              }
+              return formatStepMetaSubtitle(s, resolvedTiming, Date.now());
+            })();
             const timingTitle = resolvedTiming?.client
               ? "Duration measured in this browser session"
               : resolvedTiming?.inferred && resolvedTiming?.duration_ms
@@ -970,16 +998,18 @@ function RunNavSection({
                               ? " sb-step-rail-btn--rerun"
                               : " sb-step-rail-btn--play"
                           }`}
-                          disabled={Boolean(runningStepKey)}
+                          disabled={Boolean(runningStepKey) || publishStepLocked}
                           aria-label={
                             s === "done"
                               ? `Re-run ${step.label}`
                               : `Run ${step.label}`
                           }
                           title={
-                            s === "done"
-                              ? "Re-run this step"
-                              : `Run ${step.label}`
+                            publishStepLocked
+                              ? "Change the schedule to publish immediately"
+                              : s === "done"
+                                ? "Re-run this step"
+                                : `Run ${step.label}`
                           }
                           data-tip={
                             s === "done" ? "Re-run this step" : undefined

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from backend import config
+from backend import publish_env
 from backend.social_channels import SOCIAL_CHANNELS
 
 PLATFORM_KEYS: tuple[str, ...] = tuple(str(c["key"]) for c in SOCIAL_CHANNELS)
@@ -13,36 +13,20 @@ PLATFORM_LABELS: dict[str, str] = {
 
 
 def is_facebook_connected() -> bool:
-    return bool(
-        (config.META_PAGE_ACCESS_TOKEN or "").strip()
-        and (config.META_PAGE_ID or "").strip()
-    )
+    return publish_env.is_facebook_connected()
 
 
 def is_instagram_connected() -> bool:
-    return bool(
-        (config.META_IG_USER_ID or "").strip()
-        and (config.META_PAGE_ACCESS_TOKEN or "").strip()
-    )
+    return publish_env.is_instagram_connected()
 
 
 def is_linkedin_connected() -> bool:
-    token = (config.LINKEDIN_ACCESS_TOKEN or "").strip()
-    org = (config.LINKEDIN_ORG_URN or "").strip()
-    person = (config.LINKEDIN_PERSON_URN or "").strip()
-    return bool(token and (org or person))
+    return publish_env.is_linkedin_connected()
 
 
 def connected_platforms() -> list[str]:
-    """Platforms with credentials configured for publishing."""
-    out: list[str] = []
-    if is_facebook_connected():
-        out.append("facebook")
-    if is_instagram_connected():
-        out.append("instagram")
-    if is_linkedin_connected():
-        out.append("linkedin")
-    return out
+    """Platforms with credentials configured for the active publish environment."""
+    return publish_env.connected_platform_keys()
 
 
 def connected_platform_rows() -> list[dict[str, str]]:

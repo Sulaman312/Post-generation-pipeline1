@@ -353,6 +353,132 @@ def _draw_imported_layers(
     return out
 
 
+def _layer_bounds(layer: dict[str, Any]) -> tuple[int, int, int, int]:
+    x = int(round(float(layer.get("x") or 0)))
+    y = int(round(float(layer.get("y") or 0)))
+    w = max(0, int(round(float(layer.get("width") or 0))))
+    h = max(0, int(round(float(layer.get("height") or 0))))
+    return x, y, w, h
+
+
+def footer_top_from_format(
+    fmt: dict[str, Any] | None,
+    frame_h: int,
+) -> int:
+    """Return the Y coordinate where the bottom template (footer) begins."""
+    if not isinstance(fmt, dict) or frame_h < 1:
+        return frame_h
+
+    layers = fmt.get("layers")
+    if isinstance(layers, list) and layers:
+        footer_top = frame_h
+        for layer in layers:
+            if layer.get("visible") is False:
+                continue
+            y = int(round(float(layer.get("y") or 0)))
+            asset = str(layer.get("asset") or "").lower()
+            if "footer" in asset or y >= int(frame_h * 0.58):
+                footer_top = min(footer_top, y)
+        return footer_top if footer_top < frame_h else frame_h
+
+    card = fmt.get("card") if isinstance(fmt.get("card"), dict) else {}
+    if card:
+        return min(frame_h, int(card.get("y") or frame_h))
+    return frame_h
+
+
+def content_band_from_format(
+    fmt: dict[str, Any] | None,
+    frame_h: int,
+    *,
+    pad: int = 6,
+) -> tuple[int, int] | None:
+    """Return (top, bottom) pixel band where photo content should stay visible.
+
+    Derived from template overlay layers (header logo, footer bars, headline cards).
+    """
+    if not isinstance(fmt, dict) or frame_h < 1:
+        return None
+
+    layers = fmt.get("layers")
+    if isinstance(layers, list) and layers:
+        top = 0
+        bottom = frame_h
+        for layer in layers:
+            if layer.get("visible") is False:
+                continue
+            _x, y, _w, h = _layer_bounds(layer)
+            bottom_y = y + h
+            asset = str(layer.get("asset") or "").lower()
+            kind = str(layer.get("kind") or "").strip()
+
+            is_header = y < int(frame_h * 0.28) or (
+                kind == "asset" and "logo" in asset and y < int(frame_h * 0.35)
+            )
+            is_footer = "footer" in asset or y >= int(frame_h * 0.58)
+
+            if is_header:
+                top = max(top, bottom_y)
+            if is_footer:
+                bottom = min(bottom, y)
+
+        top = min(top + pad, frame_h - 2)
+        bottom = max(bottom - pad, top + 8)
+        if bottom - top < int(frame_h * 0.2):
+            return None
+        if top <= pad and bottom >= frame_h - pad:
+            return None
+        return (top, bottom)
+
+    logo_cfg = fmt.get("logo") if isinstance(fmt.get("logo"), dict) else {}
+    card = fmt.get("card") if isinstance(fmt.get("card"), dict) else {}
+    top = 0
+    bottom = frame_h
+    if logo_cfg:
+        top = max(top, int(logo_cfg.get("y") or 0) + int(logo_cfg.get("height") or 0))
+    if card:
+        bottom = min(bottom, int(card.get("y") or frame_h))
+    top = min(top + pad, frame_h - 2)
+    bottom = max(bottom - pad, top + 8)
+    if bottom - top < int(frame_h * 0.2):
+        return None
+    if top <= pad and bottom >= frame_h - pad:
+        return None
+    return (top, bottom)
+
+
+def photo_zone_bottom_from_format(
+    fmt: dict[str, Any] | None,
+    frame_h: int,
+) -> int:
+    """Return the Y coordinate where the photo zone ends and the footer begins."""
+    if not isinstance(fmt, dict) or frame_h < 1:
+        return frame_h
+    band = content_band_from_format(fmt, frame_h)
+    if band:
+        return band[1]
+    footer_top = footer_top_from_format(fmt, frame_h)
+    return footer_top if 0 < footer_top < frame_h else frame_h
+
+
+def format_spec_for_platform(
+    client_id: str,
+    run_template: dict[str, Any] | None,
+    platform_key: str,
+) -> dict[str, Any] | None:
+    if not run_template:
+        return None
+    template_id = str(run_template.get("template_id") or DEFAULT_TEMPLATE_ID).strip()
+    spec = load_client_template(client_id, template_id)
+    if not spec:
+        return None
+    formats = run_template.get("formats") if isinstance(run_template.get("formats"), dict) else None
+    if not formats:
+        formats = spec.get("formats") if isinstance(spec.get("formats"), dict) else {}
+    fmt = formats.get(platform_key) if isinstance(formats, dict) else None
+    return fmt if isinstance(fmt, dict) else None
+
+
 def apply_template(
     image: Image.Image,
     *,
@@ -479,31 +605,43 @@ def apply_run_template_to_formats(client_id: str, run_id: str) -> dict[str, Any]
         templates = list_client_templates(client_id)
         template_id = templates[0]["id"] if templates else DEFAULT_TEMPLATE_ID
         run_template = ensure_run_template(client_id, run_id, template_id=template_id)
-    overlay = None
+    import importlib
+
+    importlib.reload(image_overlay)
+
     outputs: dict[str, dict] = {}
+
+    def _apply_template(rendered: Image.Image, ch: dict[str, str | int]) -> Image.Image:
+        return apply_template(
+            rendered,
+            client_id=client_id,
+            run_template=run_template,
+            platform_key=str(ch["key"]),
+        )
+
+    def _content_band(ch: dict[str, str | int]) -> tuple[int, int] | None:
+        fmt = format_spec_for_platform(client_id, run_template, str(ch["key"]))
+        frame_h = int(ch["height"])
+        bottom = photo_zone_bottom_from_format(fmt, frame_h)
+        if bottom >= frame_h:
+            return None
+        return (0, bottom)
 
     with Image.open(src_path) as im0:
         base = im0.convert("RGB")
+        rendered_by_key = image_overlay.render_branded_channel_exports(
+            base,
+            post_render=_apply_template,
+            content_band_for=_content_band,
+        )
         for ch in social_channels.SOCIAL_CHANNELS:
-            rendered = image_overlay.export_formatted_image(
-                base,
-                None,
-                logo_path=None,
-                target_w=int(ch["width"]),
-                target_h=int(ch["height"]),
-                resize_mode="crop",
-            )
-            rendered = apply_template(
-                rendered,
-                client_id=client_id,
-                run_template=run_template,
-                platform_key=str(ch["key"]),
-            )
+            key = str(ch["key"])
+            rendered = rendered_by_key[key]
             fn = str(ch["filename"])
             out_path = image_artifacts.format_image_path(client_id, run_id, fn)
             rendered.save(out_path, format="PNG", optimize=True)
             base_fn = f"base_{fn}"
-            outputs[str(ch["key"])] = {
+            outputs[key] = {
                 "filename": fn,
                 "base_filename": base_fn,
                 "width": int(ch["width"]),
@@ -514,6 +652,7 @@ def apply_run_template_to_formats(client_id: str, run_id: str) -> dict[str, Any]
     payload = {
         "selected_primary": idx.selected_primary,
         "generated_at": datetime.now().isoformat(timespec="seconds"),
+        "resize_policy": image_overlay.TEMPLATE_EXPORT_POLICY,
         "overlay_applied": False,
         "template_applied": True,
         "template": run_template,

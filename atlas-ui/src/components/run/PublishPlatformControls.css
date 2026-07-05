@@ -14,6 +14,134 @@
   margin-bottom: 12px;
 }
 
+.ppc-head-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.ppc-env {
+  flex-shrink: 0;
+}
+
+.ppc-env-toggle {
+  position: relative;
+  display: inline-grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  padding: 3px;
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 999px;
+  background: var(--panel-soft, #f9fafb);
+  box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.ppc-env-toggle--busy {
+  opacity: 0.82;
+  pointer-events: none;
+}
+
+.ppc-env-busy {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.45);
+}
+
+.ppc-env-btn {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 72px;
+  height: 30px;
+  padding: 0 14px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-faint, #64748b);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    background 0.18s ease,
+    color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.12s ease;
+}
+
+.ppc-env-btn:hover:not(:disabled) {
+  color: var(--text-secondary, #334155);
+}
+
+.ppc-env-btn:disabled:not(.ppc-env-btn--active) {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.ppc-env-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.45;
+  flex-shrink: 0;
+  transition: opacity 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.ppc-env-btn--test.ppc-env-btn--active .ppc-env-dot {
+  background: var(--running, #eab308);
+  opacity: 1;
+  box-shadow: 0 0 0 2px rgba(234, 179, 8, 0.22);
+}
+
+.ppc-env-btn--live.ppc-env-btn--active .ppc-env-dot {
+  background: #fff;
+  opacity: 1;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.35);
+}
+
+.ppc-env-btn--test.ppc-env-btn--active {
+  background: var(--running-soft, #fefce8);
+  color: var(--running-text, #a16207);
+  box-shadow: 0 1px 2px rgba(161, 98, 7, 0.14);
+}
+
+.ppc-env-btn--live.ppc-env-btn--active {
+  background: linear-gradient(180deg, #10b981 0%, #059669 100%);
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(16, 185, 129, 0.28);
+}
+
+.ppc-env-btn--active:disabled {
+  opacity: 1;
+  cursor: default;
+}
+
+.ppc-env-btn:focus-visible {
+  outline: 2px solid var(--accent-focus, rgba(17, 24, 39, 0.12));
+  outline-offset: 2px;
+}
+
+.ppc-env-lock {
+  display: inline-flex;
+  width: 12px;
+  height: 12px;
+  margin-left: -2px;
+  opacity: 0.55;
+}
+
+.ppc-env-lock svg {
+  width: 100%;
+  height: 100%;
+}
+
 .ppc-title {
   margin: 0;
   font-size: 14px;
@@ -168,6 +296,14 @@
   gap: 10px;
   min-width: 0;
   text-align: right;
+  flex-wrap: wrap;
+}
+
+.ppc-schedule-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
 }
 
 .ppc-schedule-text {
@@ -179,6 +315,22 @@
 
 .ppc-schedule-text--muted {
   color: var(--text-muted, #94a3b8);
+}
+
+.ppc-schedule-text--warning {
+  color: #b45309;
+}
+
+.ppc-schedule-btn--primary {
+  border-color: #111827;
+  background: #111827;
+  color: #fff;
+}
+
+.ppc-schedule-btn--primary:hover:not(:disabled) {
+  background: #1f2937;
+  border-color: #1f2937;
+  color: #fff;
 }
 
 .ppc-schedule-btn {
@@ -211,6 +363,10 @@
   color: #b45309;
   font-size: 12px;
   font-weight: 600;
+}
+
+.publish-platform-hint--retry {
+  color: #1d4ed8;
 }
 
 .publish-platform-empty,

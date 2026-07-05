@@ -16,7 +16,7 @@ from pathlib import Path
 
 import requests
 
-from .. import config
+from .. import publish_env
 
 logger = logging.getLogger(__name__)
 
@@ -26,31 +26,60 @@ LINKEDIN_API_VERSION = "202606"
 _client: requests.Session | None = None
 
 
+def _linkedin_creds() -> dict[str, str | None]:
+    return publish_env.linkedin_credentials()
+
+
+def _access_token() -> str:
+    token = (_linkedin_creds().get("access_token") or "").strip()
+    if not token:
+        env = publish_env.active_publish_env()
+        prefix = "LINKEDIN_LIVE_" if env == "live" else "LINKEDIN_"
+        raise RuntimeError(
+            f"{prefix}ACCESS_TOKEN is not set for {env} publishing. "
+            "Add it to `.env` (see .env.example)."
+        )
+    return token
+
+
 def _get_client() -> requests.Session:
     global _client
     if _client is None:
-        if not config.LINKEDIN_ACCESS_TOKEN:
+        _access_token()
+        creds = _linkedin_creds()
+        if not (creds.get("org_urn") or creds.get("person_urn")):
+            env = publish_env.active_publish_env()
+            prefix = "LINKEDIN_LIVE_" if env == "live" else "LINKEDIN_"
             raise RuntimeError(
-                "LINKEDIN_ACCESS_TOKEN is not set. Add it to `.env` (see .env.example)."
-            )
-        if not config.LINKEDIN_ORG_URN:
-            raise RuntimeError(
-                "LINKEDIN_ORG_URN is not set. Add it to `.env` (see .env.example)."
+                f"{prefix}ORG_URN or {prefix}PERSON_URN is required for {env} publishing. "
+                "Add it to `.env` (see .env.example)."
             )
         _client = requests.Session()
     return _client
 
 
-def _org_urn() -> str:
-    raw = (config.LINKEDIN_ORG_URN or "").strip()
-    if raw.startswith("urn:li:organization:"):
-        return raw
-    return f"urn:li:organization:{raw}"
+def _author_urn() -> str:
+    creds = _linkedin_creds()
+    org = (creds.get("org_urn") or "").strip()
+    if org:
+        if org.startswith("urn:li:organization:"):
+            return org
+        return f"urn:li:organization:{org}"
+    person = (creds.get("person_urn") or "").strip()
+    if person:
+        if person.startswith("urn:li:person:"):
+            return person
+        return f"urn:li:person:{person}"
+    env = publish_env.active_publish_env()
+    prefix = "LINKEDIN_LIVE_" if env == "live" else "LINKEDIN_"
+    raise RuntimeError(
+        f"{prefix}ORG_URN or {prefix}PERSON_URN is not set for {env} publishing."
+    )
 
 
 def _linkedin_headers(*, json_content: bool = True) -> dict[str, str]:
     headers = {
-        "Authorization": f"Bearer {config.LINKEDIN_ACCESS_TOKEN}",
+        "Authorization": f"Bearer {_access_token()}",
         "LinkedIn-Version": LINKEDIN_API_VERSION,
         "X-Restli-Protocol-Version": "2.0.0",
     }
@@ -73,7 +102,7 @@ def _read_image(image_path: str) -> tuple[bytes, str]:
 def publish_linkedin_post(image_path: str, caption: str) -> str:
     """Register image upload, PUT binary, create post; return post URN."""
     session = _get_client()
-    author = _org_urn()
+    author = _author_urn()
     image_bytes, content_type = _read_image(image_path)
 
     init_url = f"{LINKEDIN_API_BASE}/images?action=initializeUpload"
@@ -121,7 +150,7 @@ def publish_linkedin_post(image_path: str, caption: str) -> str:
             upload_url,
             data=image_bytes,
             headers={
-                "Authorization": f"Bearer {config.LINKEDIN_ACCESS_TOKEN}",
+                "Authorization": f"Bearer {_access_token()}",
                 "Content-Type": content_type,
             },
             timeout=120,

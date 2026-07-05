@@ -389,6 +389,7 @@ function OutputPanel({
   onShowOutput,
   onGoToNextStep,
 }) {
+  const [publishActionsLocked, setPublishActionsLocked] = useState(false);
   const showInlineRun = (pipelineId || "article") === "social_media";
   const showPublishControls =
     showInlineRun &&
@@ -408,11 +409,15 @@ function OutputPanel({
       pipelineId={pipelineId}
       onRunUpdated={onRunComplete}
       toast={toast}
+      onPublishActionsLockedChange={setPublishActionsLocked}
     />
   ) : null;
 
+  const inlineRunLocked =
+    showInlineRun && step.key === "publish" && publishActionsLocked;
+
   async function handleInlineRun() {
-    if (!showInlineRun) return;
+    if (!showInlineRun || inlineRunLocked) return;
     if (inlineRunning) return;
     onStepError?.(null);
     onInlineRunningChange?.(true);
@@ -473,6 +478,12 @@ function OutputPanel({
                     <button
                       type="button"
                       className="btn btn-primary"
+                      disabled={inlineRunLocked}
+                      title={
+                        inlineRunLocked
+                          ? "Change the schedule to publish immediately"
+                          : undefined
+                      }
                       onClick={handleInlineRun}
                     >
                       ▶ Run this step
@@ -1189,10 +1200,26 @@ function ImageComposePanel({ client, runId, toast }) {
   );
 }
 
+const FORMAT_EXPORT_POLICY = "contain_blur_v4";
+const TEMPLATE_EXPORT_POLICY = "template_stack_contain_v12";
+
+const FORMAT_ASPECT = {
+  instagram: "1080 / 1350",
+  facebook: "1200 / 630",
+  linkedin: "1200 / 628",
+};
+
 function FormattedImagesPanel({ client, runId, toast }) {
   const [cacheKey, setCacheKey] = useState("");
   const [outputs, setOutputs] = useState([]);
+  const [resizePolicy, setResizePolicy] = useState("");
   const [downloading, setDownloading] = useState(null);
+  const [regenerating, setRegenerating] = useState(false);
+  const autoRegenAttemptedRef = useRef(false);
+
+  const needsRegenerate = Boolean(
+    outputs.length > 0 && resizePolicy !== FORMAT_EXPORT_POLICY
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -1200,7 +1227,10 @@ function FormattedImagesPanel({ client, runId, toast }) {
       try {
         const idx = await api.getFormatsIndex(client, runId);
         if (cancelled) return;
-        const key = idx?.generated_at || "";
+        const generatedAt = idx?.generated_at || "";
+        const policy = idx?.resize_policy || "";
+        setResizePolicy(policy);
+        const key = [generatedAt, policy].filter(Boolean).join("|");
         if (key) {
           setCacheKey((prev) => (prev === key ? prev : key));
         }
@@ -1225,6 +1255,46 @@ function FormattedImagesPanel({ client, runId, toast }) {
     };
   }, [client, runId]);
 
+  async function handleRegenerate() {
+    if (regenerating) return;
+    setRegenerating(true);
+    try {
+      const idx = await api.regenerateFormats(client, runId);
+      const generatedAt = idx?.generated_at || String(Date.now());
+      const policy = idx?.resize_policy || FORMAT_EXPORT_POLICY;
+      setResizePolicy(policy);
+      setCacheKey([generatedAt, policy].filter(Boolean).join("|"));
+      const raw = idx?.outputs || {};
+      const list = Object.entries(raw).map(([platformKey, info]) => ({
+        key: platformKey,
+        label: info?.label
+          ? `${info.label} (${info.width}×${info.height})`
+          : platformKey,
+        filename: info?.filename || "",
+      }));
+      setOutputs(list.filter((o) => o.filename));
+      toast?.("Platform images re-exported (full image, no crop).", {
+        variant: "success",
+        duration: 4000,
+      });
+    } catch (err) {
+      toast?.(err?.message || String(err), { variant: "error", duration: 9000 });
+    } finally {
+      setRegenerating(false);
+    }
+  }
+
+  useEffect(() => {
+    autoRegenAttemptedRef.current = false;
+  }, [client, runId]);
+
+  useEffect(() => {
+    if (autoRegenAttemptedRef.current || regenerating || outputs.length === 0) return;
+    if (resizePolicy === FORMAT_EXPORT_POLICY) return;
+    autoRegenAttemptedRef.current = true;
+    handleRegenerate();
+  }, [client, runId, outputs.length, resizePolicy, regenerating]);
+
   async function handleDownload(filename) {
     if (downloading) return;
     setDownloading(filename);
@@ -1248,13 +1318,40 @@ function FormattedImagesPanel({ client, runId, toast }) {
 
   return (
     <div style={{ padding: 18 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start" }}>
         <div>
           <div style={{ fontWeight: 700, marginBottom: 6 }}>Formatted images</div>
           <div style={{ fontSize: 13, color: "var(--text-muted)" }}>
-            Full image preserved — empty space is filled with a blurred extension of the image.
+            The full photo is kept on every platform — margins are filled with a soft blur,
+            never cropped.
           </div>
+          {needsRegenerate ? (
+            <div style={{ fontSize: 13, color: "#a16207", marginTop: 8 }}>
+              {regenerating
+                ? "Re-exporting with the full-image (no crop) policy…"
+                : (
+                  <>
+                    These exports use an older crop style. Click <strong>Re-export</strong> to
+                    regenerate without trimming.
+                  </>
+                )}
+            </div>
+          ) : null}
         </div>
+        <button
+          type="button"
+          className="btn btn-secondary btn-sm"
+          disabled={regenerating}
+          onClick={handleRegenerate}
+        >
+          {regenerating ? (
+            <>
+              <span className="spinner" /> Re-exporting…
+            </>
+          ) : (
+            "Re-export"
+          )}
+        </button>
       </div>
 
       <div
@@ -1279,25 +1376,34 @@ function FormattedImagesPanel({ client, runId, toast }) {
               }}
             >
               <div style={{ fontWeight: 700, marginBottom: 8 }}>{o.label}</div>
-              <img
-                src={url}
-                alt={o.filename}
+              <div
                 style={{
                   width: "100%",
-                  height: 220,
-                  objectFit: "contain",
+                  aspectRatio: FORMAT_ASPECT[o.key] || "1 / 1",
                   borderRadius: 10,
                   border: "1px solid var(--border)",
                   background: "#f3f4f6",
+                  overflow: "hidden",
                 }}
-                onError={() => {
-                  toast?.(
-                    `Formatted image not found yet (${o.filename}). Run Step 6 first.`,
-                    { variant: "error", duration: 9000 }
-                  );
-                }}
-                loading="lazy"
-              />
+              >
+                <img
+                  src={url}
+                  alt={o.filename}
+                  style={{
+                    display: "block",
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "contain",
+                  }}
+                  onError={() => {
+                    toast?.(
+                      `Formatted image not found yet (${o.filename}). Run Export channel sizes first.`,
+                      { variant: "error", duration: 9000 }
+                    );
+                  }}
+                  loading="lazy"
+                />
+              </div>
               <div style={{ marginTop: 10, display: "flex", gap: 10, alignItems: "center" }}>
                 <button
                   type="button"
@@ -1619,6 +1725,8 @@ function TemplatePlacementPanel({ client, runId, toast }) {
         setSelectedTemplateId(templateId);
         if (!idx?.template_applied) {
           await applyTemplate(templateId);
+        } else if (idx?.resize_policy !== TEMPLATE_EXPORT_POLICY) {
+          await applyTemplate(templateId);
         } else {
           syncFromFormats(idx);
         }
@@ -1712,6 +1820,14 @@ function TemplatePlacementPanel({ client, runId, toast }) {
               )}
             </select>
           </label>
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            onClick={() => changeTemplate(selectedTemplateId)}
+            disabled={downloading || applying || !selectedTemplateId}
+          >
+            {applying ? "Re-applying..." : "Re-apply template"}
+          </button>
           <button
             type="button"
             className="btn btn-secondary btn-sm"

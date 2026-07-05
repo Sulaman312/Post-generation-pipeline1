@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 POST_STATUSES: frozenset[str] = frozenset({"draft", "scheduled", "published", "failed"})
@@ -151,6 +151,116 @@ def earliest_scheduled_at(platform_schedules: dict[str, str | None]) -> str | No
     return parsed[0][1]
 
 
+def parse_schedule_datetime(value: Any) -> datetime | None:
+    iso = normalize_scheduled_at(value)
+    if not iso:
+        return None
+    try:
+        dt = datetime.fromisoformat(iso.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
+
+
+def schedule_is_due(value: Any, now: datetime | None = None) -> bool:
+    dt = parse_schedule_datetime(value)
+    if dt is None:
+        return False
+    current = now or datetime.now(timezone.utc)
+    if current.tzinfo is None:
+        current = current.replace(tzinfo=timezone.utc)
+    else:
+        current = current.astimezone(timezone.utc)
+    return dt <= current
+
+
+def published_platform_keys(published_results: Any) -> set[str]:
+    return {
+        row["platform"]
+        for row in normalize_published_results(published_results)
+        if row.get("status") == "published"
+    }
+
+
+def due_platforms(record: dict[str, Any], now: datetime | None = None) -> list[str]:
+    """Platforms selected for publish whose schedule time has passed."""
+    current = now or datetime.now(timezone.utc)
+    platforms = normalize_platforms(record.get("platforms"), allow_empty=True)
+    schedules = dict(record.get("platform_schedules") or {})
+    fallback = record.get("scheduled_at")
+    already_published = published_platform_keys(record.get("published_results"))
+
+    due: list[str] = []
+    for platform in platforms:
+        if platform in already_published:
+            continue
+        iso = schedules.get(platform) or fallback
+        if iso and schedule_is_due(iso, current):
+            due.append(platform)
+    return due
+
+
+def merge_published_results(
+    existing: Any,
+    updates: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    by_platform: dict[str, dict[str, Any]] = {
+        row["platform"]: row
+        for row in normalize_published_results(existing)
+    }
+    for row in normalize_published_results(updates):
+        if row:
+            by_platform[row["platform"]] = row
+    order = [p for p in PLATFORMS if p in by_platform]
+    extra = [p for p in by_platform if p not in order]
+    return [by_platform[p] for p in order + extra]
+
+
+def derive_post_status(
+    record: dict[str, Any],
+    *,
+    now: datetime | None = None,
+) -> str:
+    """Derive queue status from schedules and per-platform publish results."""
+    current = now or datetime.now(timezone.utc)
+    platforms = normalize_platforms(record.get("platforms"), allow_empty=True)
+    schedules = dict(record.get("platform_schedules") or {})
+    fallback = record.get("scheduled_at")
+    results = normalize_published_results(record.get("published_results"))
+    by_platform = {row["platform"]: row for row in results}
+    published = published_platform_keys(results)
+
+    for platform in platforms:
+        if platform in published:
+            continue
+        if by_platform.get(platform, {}).get("status") == "skipped":
+            continue
+        iso = schedules.get(platform) or fallback
+        if iso and not schedule_is_due(iso, current):
+            return "scheduled"
+
+    if any(row.get("status") == "failed" for row in results) and not published:
+        return "failed"
+
+    if published:
+        return "published"
+
+    stored = str(record.get("status") or "draft").strip().lower()
+    if stored in POST_STATUSES:
+        return stored
+    return "draft"
+
+
+def derive_post_status_after_publish(
+    record: dict[str, Any],
+    *,
+    now: datetime | None = None,
+) -> str:
+    return derive_post_status(record, now=now)
+
+
 def normalize_run_record_fields(data: dict[str, Any]) -> dict[str, Any]:
     """Return normalized publishing fields (does not mutate ``data``)."""
     defaults = default_run_record_fields()
@@ -166,7 +276,7 @@ def normalize_run_record_fields(data: dict[str, Any]) -> dict[str, Any]:
     )
     if not scheduled_at and platform_schedules:
         scheduled_at = earliest_scheduled_at(platform_schedules)
-    return {
+    draft = {
         "status": _normalize_post_status(data.get("status", defaults["status"])),
         "platforms": platforms,
         "scheduled_at": scheduled_at,
@@ -174,6 +284,13 @@ def normalize_run_record_fields(data: dict[str, Any]) -> dict[str, Any]:
         "published_results": normalize_published_results(
             data.get("published_results", defaults["published_results"])
         ),
+    }
+    return {
+        "status": derive_post_status(draft),
+        "platforms": platforms,
+        "scheduled_at": scheduled_at,
+        "platform_schedules": platform_schedules,
+        "published_results": draft["published_results"],
     }
 
 

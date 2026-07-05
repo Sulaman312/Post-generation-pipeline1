@@ -128,6 +128,15 @@ export async function getFormatsIndex(clientId, runId) {
   );
 }
 
+export async function regenerateFormats(clientId, runId) {
+  return request(
+    `/clients/${encodeURIComponent(clientId)}/runs/${encodeURIComponent(
+      runId
+    )}/images/format-exports/regenerate`,
+    { method: "POST" }
+  );
+}
+
 export async function listRunImages(clientId, runId) {
   const data = await request(
     `/clients/${encodeURIComponent(clientId)}/runs/${encodeURIComponent(
@@ -540,6 +549,31 @@ export async function scheduleRun(clientId, runId, payload) {
       body: JSON.stringify(body),
     });
   }
+}
+
+/** Publish immediately to one or more platforms (optional list; defaults to all unpublished selected). */
+export async function publishRunPlatforms(clientId, runId, platforms = null) {
+  const body = platforms ? { platforms } : {};
+  return request(
+    `/clients/${encodeURIComponent(clientId)}/runs/${encodeURIComponent(runId)}/publish`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }
+  );
+}
+
+export async function getPublishSettings() {
+  return request("/publishing/settings");
+}
+
+export async function setPublishEnv(env) {
+  return request("/publishing/settings", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ env }),
+  });
 }
 
 export async function getConnectedPlatforms() {

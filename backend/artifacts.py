@@ -44,28 +44,25 @@ _BUILTIN_SPECS: list[dict[str, str]] = [
     {
         "filename": "personas.md",
         "title": "Audience personas",
-        "description": "Who you write for — roles, goals, objections, and vocabulary.",
+        "description": "Roles, goals, and vocabulary for your audience.",
         "placeholder": "## Primary persona\n- Role:\n- Goals:\n- What they need from this content:\n",
     },
     {
         "filename": "context.md",
         "title": "Company context",
-        "description": "Positioning, offerings, and facts the pipeline should treat as ground truth.",
+        "description": "Company positioning, offerings, and ground-truth facts.",
         "placeholder": "## Company overview\n- Company name:\n- What you sell:\n- Key differentiators:\n",
     },
     {
         "filename": "brand_voice.md",
         "title": "Brand voice",
-        "description": "Tone, personality, and phrasing rules for captions and post copy.",
+        "description": "Tone and phrasing rules for captions and post copy.",
         "placeholder": "# Brand voice\n\n## Tone\n- \n\n## Personality\n- \n\n## Words to use\n- \n\n## Words to avoid\n- \n",
     },
     {
         "filename": "image_style.md",
         "title": "Generalized image prompt template",
-        "description": (
-            "Editable brand template for Step 3. When present, the user's post idea is "
-            "appended as CONTENT TOPIC and ChatGPT produces on-brand image prompts."
-        ),
+        "description": "Step 3 brand template for image prompts.",
         "placeholder": (
             "You are a prompt engineer specializing in AI image generation for [YOUR INDUSTRY] "
             "brands. I run [COMPANY NAME] that [WHAT YOU DO].\n\n"

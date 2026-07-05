@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as api from "../../services/api";
-import { PLATFORMS, runRecordFromRun } from "../../constants/runRecord";
-import { executeRunStep } from "../../utils/runStepAction";
+import { PLATFORMS, hasPendingSchedule, isPlatformRetryable, runRecordFromRun, unpublishedSelectedPlatforms } from "../../constants/runRecord";
 import SchedulePublishModal, { formatScheduleLabel } from "./SchedulePublishModal";
 import "./PublishPlatformControls.css";
 
@@ -41,6 +40,67 @@ function PlatformSwitch({ checked, disabled, onChange, label }) {
   );
 }
 
+function PublishEnvToggle({ env, availability, switching, onChange }) {
+  const liveAvailable = Boolean(availability?.live);
+
+  return (
+    <div className="ppc-env" role="group" aria-label="Publishing environment">
+      <div
+        className={`ppc-env-toggle${switching ? " ppc-env-toggle--busy" : ""}`}
+        data-env={env}
+      >
+        <button
+          type="button"
+          className={`ppc-env-btn ppc-env-btn--test${
+            env === "test" ? " ppc-env-btn--active" : ""
+          }`}
+          disabled={switching || env === "test"}
+          aria-pressed={env === "test"}
+          onClick={() => onChange("test")}
+        >
+          <span className="ppc-env-dot" aria-hidden />
+          <span>Test</span>
+        </button>
+        <button
+          type="button"
+          className={`ppc-env-btn ppc-env-btn--live${
+            env === "live" ? " ppc-env-btn--active" : ""
+          }`}
+          disabled={switching || !liveAvailable || env === "live"}
+          aria-pressed={env === "live"}
+          title={!liveAvailable ? "Add live credentials to .env to enable" : undefined}
+          onClick={() => onChange("live")}
+        >
+          <span className="ppc-env-dot" aria-hidden />
+          <span>Live</span>
+          {!liveAvailable ? (
+            <span className="ppc-env-lock" aria-hidden>
+              <svg viewBox="0 0 16 16" fill="none">
+                <path
+                  d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"
+                  stroke="currentColor"
+                  strokeWidth="1.4"
+                  strokeLinecap="round"
+                />
+                <rect
+                  x="4"
+                  y="7"
+                  width="8"
+                  height="6"
+                  rx="1.5"
+                  stroke="currentColor"
+                  strokeWidth="1.4"
+                />
+              </svg>
+            </span>
+          ) : null}
+        </button>
+        {switching ? <span className="ppc-env-busy" aria-hidden /> : null}
+      </div>
+    </div>
+  );
+}
+
 export default function PublishPlatformControls({
   client,
   runId,
@@ -51,9 +111,13 @@ export default function PublishPlatformControls({
   pipelineId = "social_media",
   onRunUpdated,
   toast,
+  onPublishActionsLockedChange,
 }) {
   const [connected, setConnected] = useState([]);
   const [loadingConnected, setLoadingConnected] = useState(true);
+  const [publishEnv, setPublishEnv] = useState("test");
+  const [envAvailability, setEnvAvailability] = useState({ test: true, live: false });
+  const [switchingEnv, setSwitchingEnv] = useState(false);
   const [selected, setSelected] = useState([]);
   const [saving, setSaving] = useState(false);
   const [publishing, setPublishing] = useState(false);
@@ -61,6 +125,7 @@ export default function PublishPlatformControls({
   const [scheduleTarget, setScheduleTarget] = useState(null);
   const [scheduling, setScheduling] = useState(false);
   const [syncSchedules, setSyncSchedules] = useState(true);
+  const [scheduleEditUnlocked, setScheduleEditUnlocked] = useState(false);
   const initialSyncPlatformsRef = useRef(true);
   const syncPreferenceRef = useRef(null);
 
@@ -69,27 +134,59 @@ export default function PublishPlatformControls({
 
   useEffect(() => {
     let cancelled = false;
-    setLoadingConnected(true);
-    api
-      .getConnectedPlatforms()
-      .then((rows) => {
+    void (async () => {
+      setLoadingConnected(true);
+      try {
+        const settings = await api.getPublishSettings();
         if (cancelled) return;
-        setConnected(
-          rows.filter((row) => row?.connected && row?.key).map((row) => row.key)
-        );
-      })
-      .catch((e) => {
-        if (!cancelled) {
-          toast?.(e?.message || String(e), { variant: "error", duration: 9000 });
+        setPublishEnv(settings.env || "test");
+        setEnvAvailability(settings.availability || { test: true, live: false });
+        const keys = (settings.connected_platforms || []).map((row) =>
+          typeof row === "string" ? row : row.key
+        ).filter(Boolean);
+        setConnected(keys);
+      } catch (e) {
+        if (cancelled) return;
+        try {
+          const rows = await api.getConnectedPlatforms();
+          setConnected(
+            rows.filter((row) => row?.connected && row?.key).map((row) => row.key)
+          );
+        } catch (inner) {
+          toast?.(inner?.message || String(inner), { variant: "error", duration: 9000 });
         }
-      })
-      .finally(() => {
+      } finally {
         if (!cancelled) setLoadingConnected(false);
-      });
+      }
+    })();
     return () => {
       cancelled = true;
     };
   }, [toast]);
+
+  async function handlePublishEnvChange(nextEnv) {
+    if (switchingEnv || nextEnv === publishEnv) return;
+    setSwitchingEnv(true);
+    try {
+      const settings = await api.setPublishEnv(nextEnv);
+      setPublishEnv(settings.env || nextEnv);
+      setEnvAvailability(settings.availability || envAvailability);
+      const keys = (settings.connected_platforms || []).map((row) =>
+        typeof row === "string" ? row : row.key
+      ).filter(Boolean);
+      setConnected(keys);
+      toast?.(
+        nextEnv === "live"
+          ? "Switched to live publishing credentials."
+          : "Switched to test publishing credentials.",
+        { variant: "success", duration: 3000 }
+      );
+    } catch (e) {
+      toast?.(e?.message || String(e), { variant: "error", duration: 9000 });
+    } finally {
+      setSwitchingEnv(false);
+    }
+  }
 
   useEffect(() => {
     const allowed = new Set(connected);
@@ -101,6 +198,7 @@ export default function PublishPlatformControls({
     syncPreferenceRef.current = null;
     initialSyncPlatformsRef.current = true;
     setSyncSchedules(schedulesAreSynced(platformSchedules, selected));
+    setScheduleEditUnlocked(false);
   }, [runId]);
 
   useEffect(() => {
@@ -186,22 +284,20 @@ export default function PublishPlatformControls({
     }
   }
 
-  async function handlePublishNow() {
-    if (publishing || selected.length === 0) return;
+  async function handlePublishNow(targetPlatforms = null) {
+    if (publishing || publishActionsLocked) return;
+    const targets = targetPlatforms || unpublishedSelectedPlatforms(record, selected);
+    if (!targets.length) return;
     setPublishing(true);
     try {
-      await executeRunStep(
-        api,
-        client,
-        runId,
-        "publish",
-        topic,
-        statuses,
-        null,
-        pipelineId
-      );
+      await api.publishRunPlatforms(client, runId, targets);
       await onRunUpdated?.();
-      toast?.("Publishing started.", { variant: "success", duration: 3500 });
+      toast?.(
+        targets.length === 1
+          ? `Publishing to ${PLATFORM_LABELS[targets[0]] || targets[0]}…`
+          : "Publishing started.",
+        { variant: "success", duration: 3500 }
+      );
     } catch (e) {
       toast?.(e?.message || String(e), { variant: "error", duration: 12000 });
     } finally {
@@ -210,8 +306,18 @@ export default function PublishPlatformControls({
   }
 
   function openScheduleFor(platform) {
+    setScheduleEditUnlocked(true);
     setScheduleTarget(platform);
     setScheduleOpen(true);
+  }
+
+  function closeScheduleModal() {
+    if (scheduling) return;
+    setScheduleOpen(false);
+    setScheduleTarget(null);
+    if (hasPendingSchedule(record, selected)) {
+      setScheduleEditUnlocked(false);
+    }
   }
 
   async function handleScheduleConfirm(scheduledAt) {
@@ -232,6 +338,7 @@ export default function PublishPlatformControls({
       await onRunUpdated?.(updated);
       setScheduleOpen(false);
       setScheduleTarget(null);
+      setScheduleEditUnlocked(false);
       const label = formatScheduleLabel(scheduledAt);
       toast?.(
         syncSchedules
@@ -249,14 +356,39 @@ export default function PublishPlatformControls({
   const noneSelected = selected.length === 0;
   const publishStepStatus = statuses.publish || "pending";
   const publishBusy = publishing || publishStepStatus === "running";
+  const publishActionsLocked =
+    hasPendingSchedule(record, selected) && !scheduleEditUnlocked;
+  const unpublishedTargets = unpublishedSelectedPlatforms(record, selected);
+  const hasRetryablePlatforms = selected.some((platform) =>
+    isPlatformRetryable(record, platform)
+  );
 
-  function platformStatusLabel(platform) {
+  useEffect(() => {
+    onPublishActionsLockedChange?.(publishActionsLocked);
+    window.dispatchEvent(
+      new CustomEvent("cf:publish-schedule-lock", {
+        detail: { clientId: client, runId, locked: publishActionsLocked },
+      })
+    );
+  }, [publishActionsLocked, client, runId, onPublishActionsLockedChange]);
+
+  function platformRowState(platform) {
     const result = publishedByPlatform[platform];
-    if (!result) return null;
-    if (result.status === "published") return "Published";
-    if (result.status === "failed") return "Failed";
-    if (result.status === "skipped") return "Skipped";
-    return null;
+    if (result?.status === "published") {
+      return { kind: "published", label: "Published" };
+    }
+    if (result?.status === "failed") {
+      return {
+        kind: "retryable",
+        label: "Failed",
+        detail: result.error || "Publish failed",
+      };
+    }
+    if (result?.status === "skipped") {
+      const detail = result.error === "not connected" ? "Not connected" : result.error;
+      return { kind: "retryable", label: "Skipped", detail };
+    }
+    return { kind: "pending", label: null, detail: null };
   }
 
   const scheduleModalPlatform = scheduleTarget
@@ -272,12 +404,25 @@ export default function PublishPlatformControls({
   return (
     <section className="publish-platform-controls" aria-label="Publish destinations">
       <div className="ppc-head">
-        <h3 className="ppc-title">Publish to</h3>
+        <div className="ppc-head-main">
+          <h3 className="ppc-title">Publish to</h3>
+          <PublishEnvToggle
+            env={publishEnv}
+            availability={envAvailability}
+            switching={switchingEnv || loadingConnected}
+            onChange={handlePublishEnvChange}
+          />
+        </div>
         <button
           type="button"
           className="btn btn-primary btn-sm"
-          disabled={noneSelected || publishBusy}
-          onClick={handlePublishNow}
+          disabled={unpublishedTargets.length === 0 || publishBusy || publishActionsLocked}
+          title={
+            publishActionsLocked
+              ? "Change the schedule to publish immediately"
+              : undefined
+          }
+          onClick={() => handlePublishNow()}
         >
           {publishBusy ? (
             <>
@@ -295,7 +440,13 @@ export default function PublishPlatformControls({
         </p>
       ) : connected.length === 0 ? (
         <p className="publish-platform-empty">
-          No accounts connected — add credentials in <code>.env</code>
+          No accounts connected for <strong>{publishEnv}</strong> — add credentials in{" "}
+          <code>.env</code>
+          {publishEnv === "test" ? (
+            <> (META_*, LINKEDIN_*)</>
+          ) : (
+            <> (META_LIVE_*, LINKEDIN_LIVE_*)</>
+          )}
         </p>
       ) : (
         <>
@@ -312,32 +463,38 @@ export default function PublishPlatformControls({
           <ul className="ppc-list">
             {connected.map((platform) => {
               const active = selected.includes(platform);
-              const publishResult = platformStatusLabel(platform);
+              const rowState = platformRowState(platform);
               const scheduleIso = platformSchedules[platform] || null;
               const scheduleLabel = scheduleIso ? formatScheduleLabel(scheduleIso) : null;
+              const published = rowState.kind === "published";
+              const retryable = rowState.kind === "retryable";
 
               return (
                 <li
                   key={platform}
                   className={`ppc-row${active ? " ppc-row--on" : ""}${
-                    publishResult ? " ppc-row--published" : ""
-                  }`}
+                    published ? " ppc-row--published" : ""
+                  }${retryable ? " ppc-row--retryable" : ""}`}
                 >
                   <PlatformSwitch
                     checked={active}
-                    disabled={saving || Boolean(publishResult)}
+                    disabled={saving || published}
                     onChange={() => handleToggle(platform)}
                     label={`Publish to ${PLATFORM_LABELS[platform] || platform}`}
                   />
                   <span className="ppc-name">{PLATFORM_LABELS[platform] || platform}</span>
                   <div className="ppc-schedule">
-                    {publishResult ? (
+                    {published ? (
                       <span className="ppc-schedule-text ppc-schedule-text--muted">
-                        {publishResult}
+                        {rowState.label}
                       </span>
                     ) : !active ? (
                       <span className="ppc-schedule-text ppc-schedule-text--muted">
                         Off
+                      </span>
+                    ) : retryable ? (
+                      <span className="ppc-schedule-text ppc-schedule-text--warning">
+                        {rowState.detail || rowState.label}
                       </span>
                     ) : scheduleLabel ? (
                       <span className="ppc-schedule-text">{scheduleLabel}</span>
@@ -346,15 +503,27 @@ export default function PublishPlatformControls({
                         Not scheduled
                       </span>
                     )}
-                    {active && !publishResult ? (
-                      <button
-                        type="button"
-                        className="ppc-schedule-btn"
-                        disabled={scheduling}
-                        onClick={() => openScheduleFor(platform)}
-                      >
-                        {scheduleLabel ? "Change" : "Set time"}
-                      </button>
+                    {active && !published ? (
+                      <div className="ppc-schedule-actions">
+                        {retryable ? (
+                          <button
+                            type="button"
+                            className="ppc-schedule-btn ppc-schedule-btn--primary"
+                            disabled={publishing || publishBusy}
+                            onClick={() => handlePublishNow([platform])}
+                          >
+                            Publish now
+                          </button>
+                        ) : null}
+                        <button
+                          type="button"
+                          className="ppc-schedule-btn"
+                          disabled={scheduling}
+                          onClick={() => openScheduleFor(platform)}
+                        >
+                          {scheduleLabel || retryable ? "Reschedule" : "Set time"}
+                        </button>
+                      </div>
                     ) : null}
                   </div>
                 </li>
@@ -364,7 +533,19 @@ export default function PublishPlatformControls({
         </>
       )}
 
-      {noneSelected && connected.length > 0 ? (
+      {hasRetryablePlatforms ? (
+        <p className="publish-platform-hint publish-platform-hint--retry" role="status">
+          Some platforms were not published. Use <strong>Publish now</strong> or{" "}
+          <strong>Reschedule</strong> below.
+        </p>
+      ) : publishActionsLocked ? (
+        <p className="publish-platform-hint" role="status">
+          This post is scheduled. Use <strong>Reschedule</strong> on a platform to publish
+          immediately.
+        </p>
+      ) : null}
+
+      {noneSelected && connected.length > 0 && !publishActionsLocked ? (
         <p className="publish-platform-hint" role="status">
           Turn on at least one platform to publish or schedule.
         </p>
@@ -380,12 +561,7 @@ export default function PublishPlatformControls({
         existingScheduledAt={existingForModal}
         platformCount={syncSchedules ? selected.length : 1}
         platformLabel={syncSchedules ? null : scheduleModalPlatform}
-        onClose={() => {
-          if (!scheduling) {
-            setScheduleOpen(false);
-            setScheduleTarget(null);
-          }
-        }}
+        onClose={closeScheduleModal}
         onConfirm={handleScheduleConfirm}
       />
     </section>

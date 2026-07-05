@@ -453,7 +453,7 @@ export default function ImageComposer({ client, runId, primaryImage, toast }) {
     try {
       const overlay = buildOverlayPayload(canvas, primaryImage, dimsRef.current);
       await api.saveImageOverlay(client, runId, overlay);
-      toast?.("Overlay saved. Run Step 6 (Resize & formats) to export with your logo & text.", {
+      toast?.("Overlay saved. Run Export channel sizes to export with your logo & text.", {
         variant: "success",
         duration: 5000,
       });

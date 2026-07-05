@@ -9,6 +9,7 @@ from flask_cors import CORS
 from backend.api.routes import api_bp
 from backend.logging_config import configure_logging, register_request_logging
 from backend import mongo_storage
+from backend.schedule_publisher import start_schedule_publisher
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +29,7 @@ def create_app() -> Flask:
     configure_logging(level=logging.INFO)
     logger.info("ContentFlow backend starting")
     mongo_storage.initialize_runtime_cache()
+    start_schedule_publisher()
 
     ui_build_dir = Path(__file__).resolve().parent.parent / "atlas-ui" / "build"
     app = Flask(
