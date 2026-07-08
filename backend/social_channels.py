@@ -13,16 +13,16 @@ SOCIAL_CHANNELS: tuple[dict[str, str | int], ...] = (
     {
         "key": "linkedin",
         "label": "LinkedIn",
-        "filename": "li_1200x628.png",
-        "width": 1200,
-        "height": 628,
+        "filename": "li_1080x1350.png",
+        "width": 1080,
+        "height": 1350,
     },
     {
         "key": "facebook",
         "label": "Facebook",
-        "filename": "fb_1200x630.png",
-        "width": 1200,
-        "height": 630,
+        "filename": "fb_1080x1350.png",
+        "width": 1080,
+        "height": 1350,
     },
 )
 

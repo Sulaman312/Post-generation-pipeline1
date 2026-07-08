@@ -5,8 +5,8 @@ import re
 from datetime import datetime
 from pathlib import Path
 
-from . import artifacts
-from . import config
+from . import artifacts, config
+from .client_location import load_client_location
 
 
 def _client_context_path(client_id: str) -> Path:
@@ -320,6 +320,10 @@ def generate_context_summary(client_id: str) -> str:
         else:
             cluster_lines = "  [NOT PROVIDED]"
 
+    # LOCATION (explicit field from context.md — not inferred)
+    client_location = load_client_location(client_id)
+    location_txt = client_location if client_location else "[NOT PROVIDED]"
+
     summary = f"""---CONTEXT SUMMARY START---
 CLIENT: {client_id}
 GENERATED: {ts}
@@ -330,6 +334,9 @@ COMPANY OVERVIEW:
   Main Features:
   {features_txt}
   Key Customers: {icp_txt}
+
+LOCATION (city/region for marketing — from company context only):
+  {location_txt}
 
 AUDIENCE PERSONAS:
 {persona_lines}

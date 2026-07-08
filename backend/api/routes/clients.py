@@ -2,8 +2,7 @@ from pathlib import Path
 
 from flask import Response, jsonify, request, send_from_directory
 
-from backend import artifacts
-from backend import config
+from backend import artifacts, config
 from backend.api.blueprint import api_bp
 from backend.api.helpers import list_workspace_dir_names, reject_client
 
@@ -41,6 +40,49 @@ def create_client(client_id: str):
     display_name = str(body.get("display_name") or client_id).strip() or client_id
     artifacts.write_workspace_meta(client_id, {"display_name": display_name})
     return jsonify(created=client_id, display_name=display_name)
+
+
+def _update_client_workspace(client_id: str, body: dict):
+    base = Path(config.CLIENTS_DIR) / client_id
+    if not base.is_dir():
+        return jsonify(detail="client not found"), 404
+    meta = artifacts.read_workspace_meta(client_id)
+    if "display_name" in body:
+        display_name = str(body.get("display_name") or "").strip() or client_id
+        meta["display_name"] = display_name
+        artifacts.write_workspace_meta(client_id, meta)
+    logo_b64 = body.get("logo_base64")
+    if logo_b64:
+        logo_name = str(body.get("logo_filename") or "").strip()
+        try:
+            artifacts.save_client_logo_from_base64(
+                client_id, str(logo_b64), logo_name
+            )
+        except ValueError as e:
+            return jsonify(detail=str(e)), 400
+    return jsonify(
+        updated=True,
+        id=client_id,
+        display_name=artifacts.workspace_display_name(client_id),
+    )
+
+
+@api_bp.post("/clients/<client_id>/workspace")
+def update_client_workspace(client_id: str):
+    bad = reject_client(client_id)
+    if bad:
+        return bad
+    body = request.get_json(silent=True) or {}
+    return _update_client_workspace(client_id, body)
+
+
+@api_bp.patch("/clients/<client_id>")
+def update_client(client_id: str):
+    bad = reject_client(client_id)
+    if bad:
+        return bad
+    body = request.get_json(silent=True) or {}
+    return _update_client_workspace(client_id, body)
 
 
 @api_bp.get("/clients/<client_id>/logo")
@@ -179,7 +221,14 @@ def get_context_file(client_id: str, filename: str):
         return jsonify(detail=str(e)), 400
     if text is None:
         return jsonify(filename=filename, content="", exists=False)
-    return jsonify(filename=filename, content=text, exists=True)
+    payload: dict = {"filename": filename, "content": text, "exists": True}
+    if filename == "context.md":
+        from backend.client_location import extract_client_location_from_context
+
+        location = extract_client_location_from_context(text) or ""
+        payload["location"] = location
+        payload["has_location"] = bool(location)
+    return jsonify(payload)
 
 
 @api_bp.put("/clients/<client_id>/context-files/<filename>")
@@ -194,6 +243,20 @@ def put_context_file(client_id: str, filename: str):
     except ValueError as e:
         return jsonify(detail=str(e)), 400
     return jsonify(saved=True)
+
+
+@api_bp.get("/clients/<client_id>/location")
+def get_client_location(client_id: str):
+    bad = reject_client(client_id)
+    if bad:
+        return bad
+    from backend.client_location import load_client_location
+
+    location = load_client_location(client_id)
+    return jsonify(
+        location=location or "",
+        has_location=bool(location),
+    )
 
 
 @api_bp.get("/clients/<client_id>/context-summary")

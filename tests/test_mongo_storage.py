@@ -69,6 +69,7 @@ class MongoStorageTests(unittest.TestCase):
         mongo_storage._bucket = self.bucket
         mongo_storage._snapshot = {}
         mongo_storage._known_paths = set()
+        mongo_storage._hydration_complete = True
 
     def tearDown(self):
         config.MONGODB_URI = self.original_uri
@@ -79,6 +80,7 @@ class MongoStorageTests(unittest.TestCase):
         mongo_storage._bucket = None
         mongo_storage._snapshot = {}
         mongo_storage._known_paths = set()
+        mongo_storage._hydration_complete = False
         self.temp.cleanup()
 
     def test_sync_replaces_and_deletes_binary_file(self):
@@ -131,6 +133,36 @@ class MongoStorageTests(unittest.TestCase):
         self.assertEqual(
             (config.CLIENTS_DIR / "client-a/logo.png").read_bytes(), b"png-data"
         )
+
+    def test_sync_refuses_mass_delete_when_cache_empty(self):
+        for index in range(3):
+            rel = f"client-a/file-{index}.txt"
+            blob_id = f"blob-{index + 1}"
+            self.files.docs[rel] = {"path": rel, "gridfs_id": blob_id}
+            self.bucket.blobs[blob_id] = f"content-{index}".encode()
+        mongo_storage._known_paths = set(self.files.docs)
+
+        result = mongo_storage.sync_cache()
+
+        self.assertEqual(result["deleted"], 0)
+        self.assertEqual(len(self.files.docs), 3)
+
+    def test_sync_refuses_delete_before_hydration(self):
+        mongo_storage._hydration_complete = False
+        image = config.CLIENTS_DIR / "client-a/logo.png"
+        image.parent.mkdir(parents=True)
+        image.write_bytes(b"png")
+        mongo_storage._known_paths = {"client-a/logo.png", "client-a/context/context.md"}
+        self.files.docs["client-a/context/context.md"] = {
+            "path": "client-a/context/context.md",
+            "gridfs_id": "blob-1",
+        }
+
+        result = mongo_storage.sync_cache()
+
+        self.assertEqual(result["uploaded"], 1)
+        self.assertEqual(result["deleted"], 0)
+        self.assertIn("client-a/context/context.md", self.files.docs)
 
     def test_startup_hydration_retries_transient_connection_failure(self):
         with (
@@ -213,10 +245,11 @@ class MongoStorageTests(unittest.TestCase):
             deadline = time.time() + 3
             while time.time() < deadline:
                 completed = artifacts.read_run_manifest("client-a", "run-a")
-                if completed["statuses"]["topic_card"] == "done":
+                if completed["statuses"].get("topic_card") == "done":
                     break
                 time.sleep(0.02)
             self.assertEqual(completed["statuses"]["topic_card"], "done")
+            mongo_storage.sync_cache()
             self.assertIn("client-a/runs/run-a/topic_card.md", self.files.docs)
 
     def test_background_step_error_is_available_to_polling_client(self):

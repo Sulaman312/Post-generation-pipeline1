@@ -53,7 +53,7 @@ def _extract_h1_section(markdown: str, label: str) -> str:
     if not target:
         return ""
     pattern = re.compile(
-        rf"^#\s+(.+?)\s*$([\s\S]*?)(?=^#\s+|\Z)",
+        r"^#\s+(.+?)\s*$([\s\S]*?)(?=^#\s+|\Z)",
         re.MULTILINE,
     )
     for match in pattern.finditer(markdown):
@@ -71,7 +71,7 @@ def _extract_section(markdown: str, label: str) -> str:
     if not target:
         return ""
     pattern = re.compile(
-        rf"^##\s+(.+?)\s*$([\s\S]*?)(?=^##\s+|\Z)",
+        r"^##\s+(.+?)\s*$([\s\S]*?)(?=^##\s+|\Z)",
         re.MULTILINE,
     )
     for match in pattern.finditer(markdown):
@@ -153,9 +153,69 @@ def _fallback_style_prompt(master: str, preset: dict[str, str]) -> str:
     )
 
 
+def _extract_all_client_prompt_sections(markdown: str) -> list[dict[str, str]]:
+    """Collect every ## section whose heading is a primary/alternate image prompt."""
+    md = (markdown or "").strip()
+    if not md:
+        return []
+    primary_aliases = tuple(
+        _normalize_heading(alias)
+        for alias in (
+            "Primary image prompt",
+            "Full image-generation prompt",
+            "Full image generation prompt",
+        )
+    )
+    alternate_aliases = tuple(
+        _normalize_heading(alias)
+        for alias in (
+            "Alternate image prompt",
+            "Alternate camera angle / variation",
+            "Alternate camera angle",
+        )
+    )
+    pattern = re.compile(
+        r"^##\s+(.+?)\s*$([\s\S]*?)(?=^##\s+|\Z)",
+        re.MULTILINE,
+    )
+    results: list[dict[str, str]] = []
+    for match in pattern.finditer(md):
+        raw_heading = (match.group(1) or "").strip()
+        heading = _normalize_heading(raw_heading)
+        body = (match.group(2) or "").strip()
+        body = re.sub(r"^#+\s.*$", "", body, flags=re.MULTILINE).strip()
+        if not body:
+            continue
+        kind = ""
+        for alias in primary_aliases:
+            if _heading_matches(heading, alias):
+                kind = "primary"
+                break
+        if not kind:
+            for alias in alternate_aliases:
+                if _heading_matches(heading, alias):
+                    kind = "alternate"
+                    break
+        if not kind:
+            continue
+        index = len(results) + 1
+        results.append(
+            {
+                "style_key": f"variation_{index}",
+                "style_label": raw_heading,
+                "prompt": body,
+            }
+        )
+    return results
+
+
 def parse_style_prompts(markdown: str) -> list[dict[str, str]]:
     """Return one prompt dict per preset, in stable order."""
     md = (markdown or "").strip()
+    all_client_sections = _extract_all_client_prompt_sections(md)
+    if len(all_client_sections) >= 2:
+        return all_client_sections
+
     client_style_results: list[dict[str, str]] = []
     primary_aliases = (
         "Primary image prompt",

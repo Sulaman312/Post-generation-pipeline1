@@ -15,6 +15,7 @@
 .client-card {
   cursor: pointer;
   padding: 18px 18px 16px;
+  position: relative;
   transition:
     border-color 0.15s,
     box-shadow 0.15s,
@@ -71,4 +72,110 @@
 .client-card-add:hover {
   color: var(--text);
   border-color: var(--border-strong);
+}
+
+.client-card-menu-wrap {
+  position: absolute;
+  top: 10px;
+  right: 8px;
+  z-index: 2;
+}
+
+.client-card-menu-wrap--open {
+  z-index: 3;
+}
+
+.client-card-menu-btn {
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.client-card-menu-btn--open,
+.client-card-menu-btn:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.client-card-menu {
+  min-width: 220px;
+  padding: 8px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: var(--shadow-md);
+}
+
+.client-card-menu--portal {
+  position: fixed;
+  z-index: 2000;
+}
+
+.client-card-menu-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  font-size: 14px;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.client-card-menu-item:hover {
+  background: var(--hover);
+}
+
+.client-edit-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(10, 13, 24, 0.42);
+}
+
+.client-edit-dialog {
+  width: min(440px, 100%);
+  padding: 22px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-md);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.client-edit-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.client-edit-logo-row {
+  margin-top: 4px;
+}
+
+.client-edit-error {
+  margin: 0;
+  font-size: 13px;
+  color: var(--error-text);
+}
+
+.client-edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
 }

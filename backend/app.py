@@ -6,9 +6,9 @@ from pathlib import Path
 from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 
+from backend import mongo_storage
 from backend.api.routes import api_bp
 from backend.logging_config import configure_logging, register_request_logging
-from backend import mongo_storage
 from backend.schedule_publisher import start_schedule_publisher
 
 logger = logging.getLogger(__name__)
@@ -55,6 +55,20 @@ def create_app() -> Flask:
     def persist_workspace_mutations(response):
         if not mongo_storage.enabled() or not _request_can_change_workspace():
             return response
+        if not mongo_storage.hydration_complete():
+            logger.error(
+                "Refusing MongoDB sync after %s %s: cache not hydrated",
+                request.method,
+                request.path,
+            )
+            if response.status_code < 400:
+                return jsonify(
+                    detail=(
+                        "Workspace data is not available because MongoDB hydration "
+                        "did not complete. Restart the backend after MongoDB is reachable."
+                    )
+                ), 503
+            return response
         try:
             mongo_storage.sync_cache()
         except Exception:
@@ -86,6 +100,14 @@ def create_app() -> Flask:
 
     @app.get("/<path:path>")
     def serve_ui_path(path: str):
+        # Unmatched API paths must not return the SPA shell (breaks JSON clients).
+        if (
+            path == "health"
+            or path.startswith("clients/")
+            or path.startswith("context-files/")
+            or path.startswith("auth/")
+        ):
+            return jsonify(detail="Not found"), 404
         target = ui_build_dir / path
         if target.is_file():
             return send_from_directory(ui_build_dir, path)

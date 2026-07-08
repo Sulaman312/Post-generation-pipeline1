@@ -19,6 +19,16 @@ Great post about glass railings.
         self.assertIn("Great post about glass railings", sections["instagram"])
         self.assertIn("#glass", sections["instagram"])
 
+    def test_strips_italic_suggested_metadata_lines(self):
+        raw = """## Instagram
+Great post about logistics.
+
+*Suggested posting time window: 10 AM - 2 PM*
+"""
+        sections = _split_captions_by_channel(raw)
+        self.assertNotIn("Suggested posting time window", sections["instagram"])
+        self.assertIn("Great post about logistics", sections["instagram"])
+
     def test_sanitize_caption_for_publish(self):
         text = "Hello\n- Suggested location tag: [Your City]\nWorld"
         self.assertEqual(sanitize_caption_for_publish(text), "Hello\nWorld")

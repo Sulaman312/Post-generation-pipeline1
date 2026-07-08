@@ -6,14 +6,13 @@ import json
 import logging
 import os
 import sys
-import textwrap
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable
 
 from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont
 
-from . import artifacts
+from . import artifacts, config
 
 logger = logging.getLogger(__name__)
 
@@ -491,6 +490,7 @@ def export_for_brand_template(
 
 
 TEMPLATE_EXPORT_POLICY = "template_stack_contain_v12"
+TEMPLATE_FIGMA_POLICY = "template_figma_overlay_v1"
 
 
 def render_branded_channel_exports(
@@ -517,12 +517,21 @@ def render_branded_channel_exports(
     return out
 
 
-EXPORT_RESIZE_POLICY = "contain_blur_v4"
+FIT_BLUR_POLICY = "contain_blur_v4"
+CENTER_CROP_POLICY = "center_crop_v1"
+
+# Back-compat for callers that store a policy string.
+EXPORT_RESIZE_POLICY = FIT_BLUR_POLICY
 
 
 def export_resize_mode() -> str:
-    """Always contain — crop mode is disabled for platform exports."""
-    return "fit"
+    """Policy for Step 6 exports (fit+blur vs center-crop)."""
+    mode = (getattr(config, "EXPORT_RESIZE_MODE", "fit") or "fit").strip().lower()
+    return "crop" if mode == "crop" else "fit"
+
+
+def export_resize_policy() -> str:
+    return CENTER_CROP_POLICY if export_resize_mode() == "crop" else FIT_BLUR_POLICY
 
 
 def render_channel_exports(
@@ -564,22 +573,38 @@ def export_formatted_image(
 ) -> Image.Image:
     """Resize for a platform frame, then burn overlay using format-aware coordinates.
 
-    The full source image is always scaled to fit inside the frame (or inside
-    ``content_band`` when branding overlays reserve the top/bottom). Empty margins
-    use a blurred extension of the image — nothing is cropped.
+    resize_mode:
+    - fit: scale full image to fit; fill margins with soft blur (no crop)
+    - crop: center-crop to the target aspect ratio; no blur/padding
     """
     src_w, src_h = base.size
-    canvas, placement = _fit_canvas_with_blurred_fill(
-        base, target_w, target_h, content_band=content_band
-    )
-    fmt_overlay = overlay_for_fit(
-        overlay,
-        placement=placement,
-        src_w=src_w,
-        src_h=src_h,
-        out_w=target_w,
-        out_h=target_h,
-    )
+    mode = (resize_mode or "fit").strip().lower()
+
+    if mode == "crop":
+        # Note: crop mode ignores content_band (no letterboxing/padding concept).
+        left, top, cw, ch = compute_crop_box(src_w, src_h, target_w, target_h)
+        cropped = base.crop((left, top, left + cw, top + ch))
+        canvas = cropped.resize((target_w, target_h), Image.LANCZOS)
+        fmt_overlay = overlay_for_format(
+            overlay,
+            crop_box=(left, top, cw, ch),
+            src_w=src_w,
+            src_h=src_h,
+            out_w=target_w,
+            out_h=target_h,
+        )
+    else:
+        canvas, placement = _fit_canvas_with_blurred_fill(
+            base, target_w, target_h, content_band=content_band
+        )
+        fmt_overlay = overlay_for_fit(
+            overlay,
+            placement=placement,
+            src_w=src_w,
+            src_h=src_h,
+            out_w=target_w,
+            out_h=target_h,
+        )
 
     if fmt_overlay:
         canvas = apply_overlay(canvas, fmt_overlay, logo_path=logo_path)

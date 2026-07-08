@@ -64,6 +64,14 @@ export function isSocialPipeline(pipelineId) {
   return pipelineId === "social_media";
 }
 
+/** Full post idea text for expanded title view (paragraph + additional details). */
+export function socialRunFullText(manual, storedTopic = "") {
+  const parts = [socialPostParagraph(manual), socialAdditionalDetails(manual)].filter(Boolean);
+  if (parts.length) return parts.join("\n\n");
+  const fallback = String(storedTopic || "").trim();
+  return fallback || socialRunTitle(manual, storedTopic);
+}
+
 /** Short single-line label for run header chrome. */
 export function socialRunChromeLabel(manual, storedTopic = "") {
   return socialRunTitle(manual, storedTopic);

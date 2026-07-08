@@ -82,6 +82,7 @@ function MatrixInputCard({
   onDeleteRun,
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [showFullTitle, setShowFullTitle] = useState(false);
   const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
   const menuRef = useRef(null);
   const menuBtnRef = useRef(null);
@@ -89,12 +90,6 @@ function MatrixInputCard({
   const createdLabel = formatRunDate(created);
   const createdTitle = formatRunDateTime(created);
   const title = socialRunTitle(run.manual_inputs, run.topic);
-  const titleHint = [
-    run.manual_inputs?.paragraph?.trim(),
-    run.manual_inputs?.additional_details?.trim(),
-  ]
-    .filter(Boolean)
-    .join("\n\n") || title;
 
   const syncMenuPosition = useCallback(() => {
     const btn = menuBtnRef.current;
@@ -163,7 +158,11 @@ function MatrixInputCard({
         className="matrix-input-card-main"
         onClick={() => onOpen?.(run.run_id)}
       >
-        <span className="matrix-input-title" title={titleHint}>
+        <span
+          className={`matrix-input-title${
+            showFullTitle ? " matrix-input-title--expanded" : ""
+          }`}
+        >
           {title}
         </span>
         {createdLabel ? (
@@ -203,13 +202,15 @@ function MatrixInputCard({
             <div
               ref={menuRef}
               className="matrix-input-menu matrix-input-menu--portal"
+              role="menu"
               style={{ top: menuPos.top, left: menuPos.left }}
               onMouseDown={(e) => e.stopPropagation()}
               onClick={(e) => e.stopPropagation()}
             >
               <button
                 type="button"
-                className="matrix-input-menu-open"
+                className="matrix-input-menu-item"
+                role="menuitem"
                 onClick={() => {
                   setMenuOpen(false);
                   onOpen?.(run.run_id);
@@ -217,9 +218,21 @@ function MatrixInputCard({
               >
                 Open pipeline
               </button>
+              <button
+                type="button"
+                className="matrix-input-menu-item"
+                role="menuitem"
+                onClick={() => {
+                  setShowFullTitle((v) => !v);
+                  setMenuOpen(false);
+                }}
+              >
+                {showFullTitle ? "Hide full title" : "Show full title"}
+              </button>
               <MatrixRunActions
-                articleTopic={title}
+                variant="menu"
                 itemNoun="post"
+                showTopic={false}
                 showRestore={showRestore}
                 onArchive={async () => {
                   setMenuOpen(false);

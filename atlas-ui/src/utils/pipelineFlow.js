@@ -9,6 +9,18 @@ export function inputSourceForStep(stepKey, statuses, pipelineId = null) {
   const idx = keys.indexOf(stepKey);
   if (idx < 0) return { kind: "blocked" };
 
+  // Image generation always uses the saved image_prompt artifact (user may edit it).
+  if (stepKey === "image_generation") {
+    const promptStatus = statuses.image_prompt || "pending";
+    if (promptStatus === "done") {
+      return { kind: "artifact", stepKey: "image_prompt" };
+    }
+    if (promptStatus === "skipped") {
+      return { kind: "blocked" };
+    }
+    return { kind: "blocked" };
+  }
+
   for (let i = idx - 1; i >= 0; i -= 1) {
     const prev = keys[i];
     const st = statuses[prev] || "pending";

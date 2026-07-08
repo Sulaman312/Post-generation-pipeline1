@@ -31,7 +31,7 @@ MONGODB_DB = (
 _clients_override = (os.getenv("CLIENTS_DATA_DIR") or "").strip()
 _mongo_cache_override = (os.getenv("MONGODB_CACHE_DIR") or "").strip()
 if MONGODB_URI:
-    # Never hydrate over the repository's seed data. Mongo uses an isolated cache.
+    # MongoDB is the source of truth. CLIENTS_DIR is a disposable runtime cache only.
     CLIENTS_DIR = Path(
         _mongo_cache_override
         or (Path(tempfile.gettempdir()) / "contentflow-clients")
@@ -57,6 +57,11 @@ except ValueError:
 
 # Figma — optional importer for client social templates
 FIGMA_ACCESS_TOKEN = (os.getenv("FIGMA_ACCESS_TOKEN") or "").strip() or None
+
+# Image export sizing policy (Step 6)
+# - "fit": contain full image; fill margins with soft blur (default)
+# - "crop": center-crop to platform aspect ratio; no blur/padding
+EXPORT_RESIZE_MODE = (os.getenv("EXPORT_RESIZE_MODE") or "fit").strip().lower() or "fit"
 
 # Meta Graph — Facebook Page + Instagram publishing
 META_APP_ID = (os.getenv("META_APP_ID") or "").strip() or None

@@ -8,11 +8,11 @@ Binary image outputs will live under `clients/<client_id>/runs/<run_id>/images/`
 from __future__ import annotations
 
 from . import social_steps
+from .pipeline_contract import step_order
 from .publish_runner import run_step_publish
 
 STEP_RUNNERS = {
     "client_profile_topic": social_steps.run_step_1_client_profile_topic,
-    "content_angle_intent": social_steps.run_step_2_content_angle_intent,
     "image_prompt": social_steps.run_step_3_image_prompt,
     "image_generation": social_steps.run_step_4_image_generation,
     "image_formats": social_steps.run_step_6_image_formats,
@@ -22,5 +22,5 @@ STEP_RUNNERS = {
     "publish": run_step_publish,
 }
 
-STEP_ORDER = list(STEP_RUNNERS.keys())
+STEP_ORDER = step_order()
 

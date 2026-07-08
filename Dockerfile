@@ -22,6 +22,6 @@ COPY scripts/ scripts/
 COPY main.py ./
 COPY --from=ui-build /app/atlas-ui/build atlas-ui/build
 
-EXPOSE 8000
+EXPOSE 8001
 
-CMD ["sh", "-c", "gunicorn --bind :${PORT:-8000} --workers 1 --threads 8 --timeout 900 main:app"]
+CMD ["sh", "-c", "gunicorn --bind :${PORT:-8001} --workers 1 --threads 8 --timeout 900 main:app"]

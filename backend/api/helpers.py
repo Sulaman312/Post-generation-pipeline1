@@ -6,11 +6,10 @@ from pathlib import Path
 
 from flask import jsonify
 
-from backend import artifacts
-from backend import config
-from backend.social_pipeline import STEP_ORDER
+from backend import artifacts, config
 from backend.pipelines import resolve_pipeline_id, upgrade_manifest
 from backend.run_record import default_run_record_fields, run_record_api_fields
+from backend.social_pipeline import STEP_ORDER
 
 _RUN_ID_PATTERN = re.compile(r"^[a-zA-Z0-9._-]+$")
 

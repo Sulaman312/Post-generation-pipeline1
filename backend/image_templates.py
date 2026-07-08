@@ -10,8 +10,7 @@ from typing import Any
 
 from PIL import Image, ImageDraw, ImageFont
 
-from . import artifacts
-from . import config
+from . import artifacts, config
 
 logger = logging.getLogger(__name__)
 
@@ -60,10 +59,11 @@ def client_template_path(client_id: str, template_id: str = DEFAULT_TEMPLATE_ID)
 
 def _source_template_label(path: Path) -> str:
     try:
-        return str(path.relative_to(config.REPO_ROOT))
+        rel = path.relative_to(config.REPO_ROOT)
     except ValueError:
         # Mongo mode hydrates client data into a disposable cache outside the repo.
-        return str(Path("clients") / path.relative_to(config.CLIENTS_DIR))
+        rel = Path("clients") / path.relative_to(config.CLIENTS_DIR)
+    return rel.as_posix()
 
 
 def run_template_path(client_id: str, run_id: str) -> Path:
@@ -461,6 +461,35 @@ def photo_zone_bottom_from_format(
     return footer_top if 0 < footer_top < frame_h else frame_h
 
 
+def layout_format_key(platform_key: str) -> str:
+    """Reuse Instagram layout for platforms that share the same export size."""
+    from . import social_channels
+
+    ch = social_channels.CHANNEL_BY_KEY.get(platform_key)
+    if not ch or platform_key == "instagram":
+        return platform_key
+    ig = social_channels.CHANNEL_BY_KEY.get("instagram")
+    if not ig:
+        return platform_key
+    if int(ch["width"]) == int(ig["width"]) and int(ch["height"]) == int(ig["height"]):
+        return "instagram"
+    return platform_key
+
+
+def _format_for_platform(
+    formats: dict[str, Any] | None,
+    platform_key: str,
+) -> dict[str, Any] | None:
+    if not isinstance(formats, dict):
+        return None
+    layout_key = layout_format_key(platform_key)
+    fmt = formats.get(layout_key)
+    if isinstance(fmt, dict):
+        return fmt
+    fmt = formats.get(platform_key)
+    return fmt if isinstance(fmt, dict) else None
+
+
 def format_spec_for_platform(
     client_id: str,
     run_template: dict[str, Any] | None,
@@ -475,8 +504,7 @@ def format_spec_for_platform(
     formats = run_template.get("formats") if isinstance(run_template.get("formats"), dict) else None
     if not formats:
         formats = spec.get("formats") if isinstance(spec.get("formats"), dict) else {}
-    fmt = formats.get(platform_key) if isinstance(formats, dict) else None
-    return fmt if isinstance(fmt, dict) else None
+    return _format_for_platform(formats, platform_key)
 
 
 def apply_template(
@@ -497,7 +525,7 @@ def apply_template(
     formats = run_template.get("formats") if isinstance(run_template.get("formats"), dict) else None
     if not formats:
         formats = spec.get("formats") if isinstance(spec.get("formats"), dict) else {}
-    fmt = formats.get(platform_key)
+    fmt = _format_for_platform(formats, platform_key)
     if not isinstance(fmt, dict):
         logger.warning("Template %s has no format config for %s", template_id, platform_key)
         return image.convert("RGB")
@@ -588,9 +616,7 @@ def template_summary(client_id: str, run_id: str) -> str:
 
 
 def apply_run_template_to_formats(client_id: str, run_id: str) -> dict[str, Any]:
-    from . import image_artifacts
-    from . import image_overlay
-    from . import social_channels
+    from . import image_artifacts, image_overlay, social_channels
 
     idx = image_artifacts.load_image_index(client_id, run_id)
     if not idx or not idx.selected_primary:
@@ -611,37 +637,28 @@ def apply_run_template_to_formats(client_id: str, run_id: str) -> dict[str, Any]
 
     outputs: dict[str, dict] = {}
 
-    def _apply_template(rendered: Image.Image, ch: dict[str, str | int]) -> Image.Image:
-        return apply_template(
-            rendered,
-            client_id=client_id,
-            run_template=run_template,
-            platform_key=str(ch["key"]),
-        )
-
-    def _content_band(ch: dict[str, str | int]) -> tuple[int, int] | None:
-        fmt = format_spec_for_platform(client_id, run_template, str(ch["key"]))
-        frame_h = int(ch["height"])
-        bottom = photo_zone_bottom_from_format(fmt, frame_h)
-        if bottom >= frame_h:
-            return None
-        return (0, bottom)
-
     with Image.open(src_path) as im0:
         base = im0.convert("RGB")
-        rendered_by_key = image_overlay.render_branded_channel_exports(
-            base,
-            post_render=_apply_template,
-            content_band_for=_content_band,
-        )
         for ch in social_channels.SOCIAL_CHANNELS:
-            key = str(ch["key"])
-            rendered = rendered_by_key[key]
+            rendered = image_overlay.export_formatted_image(
+                base,
+                None,
+                logo_path=None,
+                target_w=int(ch["width"]),
+                target_h=int(ch["height"]),
+                resize_mode=image_overlay.export_resize_mode(),
+            )
+            rendered = apply_template(
+                rendered,
+                client_id=client_id,
+                run_template=run_template,
+                platform_key=str(ch["key"]),
+            )
             fn = str(ch["filename"])
             out_path = image_artifacts.format_image_path(client_id, run_id, fn)
             rendered.save(out_path, format="PNG", optimize=True)
             base_fn = f"base_{fn}"
-            outputs[key] = {
+            outputs[str(ch["key"])] = {
                 "filename": fn,
                 "base_filename": base_fn,
                 "width": int(ch["width"]),
@@ -652,7 +669,7 @@ def apply_run_template_to_formats(client_id: str, run_id: str) -> dict[str, Any]
     payload = {
         "selected_primary": idx.selected_primary,
         "generated_at": datetime.now().isoformat(timespec="seconds"),
-        "resize_policy": image_overlay.TEMPLATE_EXPORT_POLICY,
+        "resize_policy": image_overlay.TEMPLATE_FIGMA_POLICY,
         "overlay_applied": False,
         "template_applied": True,
         "template": run_template,

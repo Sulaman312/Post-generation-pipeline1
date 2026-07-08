@@ -1,7 +1,7 @@
 import { useState } from "react";
 
 /**
- * Radio-style actions: selecting an option runs archive or delete immediately.
+ * Run actions — panel (edit toolbar) or compact dropdown menu items.
  */
 export default function MatrixRunActions({
   articleTopic = "",
@@ -9,6 +9,7 @@ export default function MatrixRunActions({
   showTopic = true,
   showRestore = false,
   disabled = false,
+  variant = "panel",
   onArchive,
   onDelete,
 }) {
@@ -32,6 +33,32 @@ export default function MatrixRunActions({
 
   const noun = String(itemNoun || "article").trim() || "article";
   const topicLabel = articleTopic?.trim() || `Untitled ${noun}`;
+  const archiveLabel = showRestore ? `Restore ${noun}` : `Archive ${noun}`;
+  const deleteLabel = `Delete ${noun}`;
+
+  if (variant === "menu") {
+    return (
+      <>
+        <div className="matrix-input-menu-divider" role="separator" />
+        <button
+          type="button"
+          className="matrix-input-menu-item"
+          disabled={disabled || busy}
+          onClick={() => runAction("archive")}
+        >
+          {archiveLabel}
+        </button>
+        <button
+          type="button"
+          className="matrix-input-menu-item matrix-input-menu-item--danger"
+          disabled={disabled || busy}
+          onClick={() => runAction("delete")}
+        >
+          {deleteLabel}
+        </button>
+      </>
+    );
+  }
 
   return (
     <div className="matrix-action-panel">

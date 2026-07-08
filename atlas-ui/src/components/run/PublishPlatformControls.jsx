@@ -1,105 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as api from "../../services/api";
 import { PLATFORMS, hasPendingSchedule, isPlatformRetryable, runRecordFromRun, unpublishedSelectedPlatforms } from "../../constants/runRecord";
+import { PLATFORM_LABELS } from "../../utils/postPublishStatus";
+import { schedulesAreSynced } from "../../utils/publishSchedules";
 import SchedulePublishModal, { formatScheduleLabel } from "./SchedulePublishModal";
+import PlatformSwitch from "./publish/PlatformSwitch";
+import PublishEnvToggle from "./publish/PublishEnvToggle";
 import "./PublishPlatformControls.css";
-
-const PLATFORM_LABELS = {
-  instagram: "Instagram",
-  linkedin: "LinkedIn",
-  facebook: "Facebook",
-};
-
-function schedulesAreSynced(schedules, platforms) {
-  if (!platforms.length) return true;
-
-  const times = platforms.map((platform) => {
-    const iso = schedules[platform];
-    return typeof iso === "string" && iso.trim() ? iso.trim() : null;
-  });
-
-  const scheduled = times.filter(Boolean);
-  if (!scheduled.length) return true;
-  if (scheduled.length !== platforms.length) return false;
-  return scheduled.every((time) => time === scheduled[0]);
-}
-
-function PlatformSwitch({ checked, disabled, onChange, label }) {
-  return (
-    <label className="ppc-switch">
-      <input
-        type="checkbox"
-        className="ppc-switch-input"
-        checked={checked}
-        disabled={disabled}
-        onChange={(e) => onChange(e.target.checked)}
-      />
-      <span className="ppc-switch-track" aria-hidden />
-      <span className="visually-hidden">{label}</span>
-    </label>
-  );
-}
-
-function PublishEnvToggle({ env, availability, switching, onChange }) {
-  const liveAvailable = Boolean(availability?.live);
-
-  return (
-    <div className="ppc-env" role="group" aria-label="Publishing environment">
-      <div
-        className={`ppc-env-toggle${switching ? " ppc-env-toggle--busy" : ""}`}
-        data-env={env}
-      >
-        <button
-          type="button"
-          className={`ppc-env-btn ppc-env-btn--test${
-            env === "test" ? " ppc-env-btn--active" : ""
-          }`}
-          disabled={switching || env === "test"}
-          aria-pressed={env === "test"}
-          onClick={() => onChange("test")}
-        >
-          <span className="ppc-env-dot" aria-hidden />
-          <span>Test</span>
-        </button>
-        <button
-          type="button"
-          className={`ppc-env-btn ppc-env-btn--live${
-            env === "live" ? " ppc-env-btn--active" : ""
-          }`}
-          disabled={switching || !liveAvailable || env === "live"}
-          aria-pressed={env === "live"}
-          title={!liveAvailable ? "Add live credentials to .env to enable" : undefined}
-          onClick={() => onChange("live")}
-        >
-          <span className="ppc-env-dot" aria-hidden />
-          <span>Live</span>
-          {!liveAvailable ? (
-            <span className="ppc-env-lock" aria-hidden>
-              <svg viewBox="0 0 16 16" fill="none">
-                <path
-                  d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"
-                  stroke="currentColor"
-                  strokeWidth="1.4"
-                  strokeLinecap="round"
-                />
-                <rect
-                  x="4"
-                  y="7"
-                  width="8"
-                  height="6"
-                  rx="1.5"
-                  stroke="currentColor"
-                  strokeWidth="1.4"
-                />
-              </svg>
-            </span>
-          ) : null}
-        </button>
-        {switching ? <span className="ppc-env-busy" aria-hidden /> : null}
-      </div>
-    </div>
-  );
-}
 
 export default function PublishPlatformControls({
   client,

@@ -224,13 +224,6 @@
   overflow-wrap: break-word;
 }
 
-.ps-row:hover .ps-post-title,
-.ps-row:focus-visible .ps-post-title {
-  display: block;
-  -webkit-line-clamp: unset;
-  overflow: visible;
-}
-
 .ps-post-meta {
   display: flex;
   flex-wrap: wrap;

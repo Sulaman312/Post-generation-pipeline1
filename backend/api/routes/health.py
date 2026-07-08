@@ -1,10 +1,8 @@
 from flask import Response, jsonify, request
 
-from backend import config
-from backend import mongo_storage
-from backend import publish_env
-from backend.publishing import connected_platform_rows
+from backend import config, mongo_storage, publish_env
 from backend.api.blueprint import api_bp
+from backend.publishing import connected_platform_rows
 
 
 @api_bp.get("/context-files/catalog")

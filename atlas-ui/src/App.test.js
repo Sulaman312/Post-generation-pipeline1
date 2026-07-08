@@ -1,9 +1,12 @@
 import { render, screen } from "@testing-library/react";
 import App from "./App";
 
-test("renders idle state", () => {
+jest.mock("./services/api", () => ({
+  getClients: jest.fn().mockResolvedValue([]),
+  describeApiTargetForHumans: jest.fn(() => "localhost:8001"),
+}));
+
+test("renders workspace home", () => {
   render(<App />);
-  expect(
-    screen.getByText(/select a run or start a new one/i)
-  ).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: /workspaces/i })).toBeInTheDocument();
 });

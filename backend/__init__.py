@@ -1,1 +1,1 @@
-"""ArticleGen / Atlas editorial pipeline — backend package."""
+"""ContentFlow post generation pipeline — backend package."""

@@ -1,42 +1,20 @@
 from __future__ import annotations
 
-
-
 import logging
-
 import re
-
 from datetime import datetime
 
-
-
-from . import artifacts
-
-from . import config
-
-from . import image_artifacts
-
-from . import social_input
-
-from . import social_prompts
-
+from . import artifacts, config, image_artifacts, social_channels, social_input, social_prompts
 from .context_summary import generate_context_summary
-
-from .integrations import linkedin_api, meta_graph, openai_chat
-
-from . import social_channels
-
-from .run_record import normalize_platforms, normalize_published_results
-
-
+from .integrations import openai_chat
+from .run_location import location_from_manifest, location_prompt_block
 
 logger = logging.getLogger(__name__)
 
 _PUBLISH_META_LINE = re.compile(
-    r"^\s*-\s*Suggested\s+(?:location tag|posting time window):",
+    r"^\s*(?:[-*•]\s*)?\*{0,2}\s*Suggested\s+(?:location\s+tag|posting\s+time\s+window)\s*:",
     re.IGNORECASE,
 )
-
 
 def sanitize_caption_for_publish(text: str) -> str:
     """Remove scheduling/location suggestions that should not be posted."""
@@ -47,35 +25,19 @@ def sanitize_caption_for_publish(text: str) -> str:
         lines.append(line)
     return "\n".join(lines).strip()
 
-
-
-
-
 def _chat(system_msg: str, user_msg: str, *, step_label: str) -> str:
 
     return openai_chat.chat_complete(system_msg, user_msg, step_label=step_label)
 
-
-
-
-
 def _load_manifest(client_id: str, run_id: str) -> dict:
 
     return artifacts.read_run_manifest(client_id, run_id) or {}
-
-
-
-
 
 def _save_md(client_id: str, run_id: str, step_name: str, content: str) -> str:
 
     artifacts.save_artifact(client_id, run_id, step_name, content)
 
     return content
-
-
-
-
 
 def _context_block(client_id: str, run_id: str) -> str:
 
@@ -91,18 +53,77 @@ def _context_block(client_id: str, run_id: str) -> str:
 
     return summary.strip()
 
+def _location_context(client_id: str, run_id: str) -> dict[str, bool | str]:
+    manifest = _load_manifest(client_id, run_id)
+    return location_from_manifest(manifest)
 
 
+def _location_block(client_id: str, run_id: str) -> str:
+    return location_prompt_block(_location_context(client_id, run_id))
+
+
+_STEP_ANGLE_MARKER = re.compile(r"^##\s+Primary intent\s*$", re.MULTILINE | re.IGNORECASE)
+
+
+def split_topic_brief(content: str) -> tuple[str, str]:
+    """Split combined topic brief into profile and angle/intent sections."""
+    text = (content or "").strip()
+    match = _STEP_ANGLE_MARKER.search(text)
+    if not match:
+        return text, ""
+    return text[: match.start()].strip(), text[match.start() :].strip()
+
+
+def load_angle_intent(client_id: str, run_id: str) -> str:
+    """Angle/intent from legacy step file or embedded in the combined topic brief."""
+    try:
+        legacy = artifacts.load_artifact(client_id, run_id, "content_angle_intent")
+        if legacy and legacy.strip():
+            return legacy.strip()
+    except Exception:
+        pass
+    try:
+        brief = artifacts.load_artifact(client_id, run_id, "client_profile_topic")
+        _, angle = split_topic_brief(brief)
+        return angle
+    except Exception:
+        return ""
+
+
+def _topic_brief_block(client_id: str, run_id: str) -> str:
+    """Full topic brief for downstream prompts (profile + angle in one block)."""
+    brief = artifacts.load_artifact(client_id, run_id, "client_profile_topic").strip()
+    if not brief:
+        return ""
+    _, angle = split_topic_brief(brief)
+    if angle:
+        return (
+            "---TOPIC BRIEF (profile + angle)---\n"
+            f"{brief}\n"
+            "---END TOPIC BRIEF---\n"
+        )
+    legacy_angle = load_angle_intent(client_id, run_id)
+    if legacy_angle:
+        return (
+            "---CLIENT PROFILE---\n"
+            f"{brief}\n\n"
+            "---ANGLE / INTENT---\n"
+            f"{legacy_angle}\n"
+            "---END---\n"
+        )
+    return (
+        "---CLIENT PROFILE---\n"
+        f"{brief}\n"
+        "---END---\n"
+    )
 
 
 def _user_idea_block(manifest: dict) -> str:
-
     manual = manifest.get("manual_inputs")
 
     manual = manual if isinstance(manual, dict) else None
 
     return social_input.format_manual_block(manual)
-
 
 def _image_style_block(client_id: str) -> str:
 
@@ -113,7 +134,6 @@ def _image_style_block(client_id: str) -> str:
         return ""
 
     return path.read_text(encoding="utf-8").strip()
-
 
 def _content_topic_block(manifest: dict) -> str:
     """Full post idea/title for the generalized image prompt template."""
@@ -132,10 +152,6 @@ def _content_topic_block(manifest: dict) -> str:
     if topic:
         return topic
     return _user_idea_block(manifest)
-
-
-
-
 
 def run_step_1_client_profile_topic(
 
@@ -173,6 +189,8 @@ def run_step_1_client_profile_topic(
 
         "---END USER IDEA---\n\n"
 
+        f"{_location_block(client_id, run_id)}\n\n"
+
         "---EXTRA TOPIC (if any)---\n"
 
         f"{(previous_artifact or '').strip()}\n"
@@ -181,61 +199,9 @@ def run_step_1_client_profile_topic(
 
     )
 
-    out = _chat(social_prompts.CLIENT_PROFILE_TOPIC_SYSTEM, user_msg, step_label="Social Step 1")
+    out = _chat(social_prompts.TOPIC_BRIEF_SYSTEM, user_msg, step_label="Social topic brief")
 
     return _save_md(client_id, run_id, step_name, out.strip() + "\n")
-
-
-
-
-
-def run_step_2_content_angle_intent(
-
-    client_id: str, run_id: str, previous_artifact: str = ""
-
-) -> str:
-
-    step_name = "content_angle_intent"
-
-    manifest = _load_manifest(client_id, run_id)
-
-    profile = (previous_artifact or "").strip() or artifacts.load_artifact(
-
-        client_id, run_id, "client_profile_topic"
-
-    )
-
-    context = _context_block(client_id, run_id)
-
-    user_msg = (
-
-        "---WORKSPACE ARTIFACT SUMMARY---\n"
-
-        f"{context}\n"
-
-        "---END WORKSPACE ARTIFACT SUMMARY---\n\n"
-
-        "---USER IDEA---\n"
-
-        f"{_user_idea_block(manifest)}\n"
-
-        "---END USER IDEA---\n\n"
-
-        "---CLIENT PROFILE (STEP 1)---\n"
-
-        f"{profile}\n"
-
-        "---END---\n"
-
-    )
-
-    out = _chat(social_prompts.CONTENT_ANGLE_INTENT_SYSTEM, user_msg, step_label="Social Step 2")
-
-    return _save_md(client_id, run_id, step_name, out.strip() + "\n")
-
-
-
-
 
 def run_step_3_image_prompt(
 
@@ -254,14 +220,11 @@ def run_step_3_image_prompt(
             f"{image_style}\n\n"
             "---CONTENT TOPIC---\n"
             f"{topic}\n"
-            "---END CONTENT TOPIC---"
+            "---END CONTENT TOPIC---\n\n"
+            f"{_location_block(client_id, run_id)}\n"
         )
         system_msg = social_prompts.CLIENT_IMAGE_FROM_TEMPLATE_SYSTEM
     else:
-        angle = (previous_artifact or "").strip() or artifacts.load_artifact(
-            client_id, run_id, "content_angle_intent"
-        )
-        profile = artifacts.load_artifact(client_id, run_id, "client_profile_topic")
         context = _context_block(client_id, run_id)
         user_msg = (
             "---WORKSPACE ARTIFACT SUMMARY---\n"
@@ -270,20 +233,14 @@ def run_step_3_image_prompt(
             "---USER IDEA---\n"
             f"{_user_idea_block(manifest)}\n"
             "---END USER IDEA---\n\n"
-            "---CLIENT PROFILE---\n"
-            f"{profile.strip()}\n\n"
-            "---ANGLE / INTENT---\n"
-            f"{angle.strip()}\n"
+            f"{_topic_brief_block(client_id, run_id)}\n\n"
+            f"{_location_block(client_id, run_id)}\n"
         )
         system_msg = social_prompts.IMAGE_PROMPT_SYSTEM
 
     out = _chat(system_msg, user_msg, step_label="Social Step 3")
 
     return _save_md(client_id, run_id, step_name, out.strip() + "\n")
-
-
-
-
 
 def run_step_4_image_generation(client_id: str, run_id: str, previous_artifact: str = "") -> str:
 
@@ -305,10 +262,6 @@ def run_step_4_image_generation(client_id: str, run_id: str, previous_artifact: 
 
     return _save_md(client_id, run_id, step_name, "\n".join(lines) + "\n")
 
-
-
-
-
 def run_step_5_image_compose(client_id: str, run_id: str, previous_artifact: str = "") -> str:
 
     step_name = "image_compose"
@@ -322,8 +275,6 @@ def run_step_5_image_compose(client_id: str, run_id: str, previous_artifact: str
     if not idx.selected_primary:
 
         raise RuntimeError("No primary image selected. Select one in Step 4 first.")
-
-
 
     from . import image_overlay
 
@@ -368,10 +319,6 @@ def run_step_5_image_compose(client_id: str, run_id: str, previous_artifact: str
     )
 
     return _save_md(client_id, run_id, step_name, out)
-
-
-
-
 
 def run_step_7_image_template(client_id: str, run_id: str, previous_artifact: str = "") -> str:
     step_name = "image_template"
@@ -430,9 +377,6 @@ def run_step_7_image_template(client_id: str, run_id: str, previous_artifact: st
 
     return _save_md(client_id, run_id, step_name, out)
 
-
-
-
 def run_step_6_image_formats(client_id: str, run_id: str, previous_artifact: str = "") -> str:
 
     step_name = "image_formats"
@@ -447,8 +391,6 @@ def run_step_6_image_formats(client_id: str, run_id: str, previous_artifact: str
 
         raise RuntimeError("No primary image selected. Select one in Step 4 first.")
 
-
-
     try:
 
         from PIL import Image
@@ -456,8 +398,6 @@ def run_step_6_image_formats(client_id: str, run_id: str, previous_artifact: str
     except ImportError as e:
 
         raise RuntimeError("Pillow not installed. Run: pip install pillow") from e
-
-
 
     src_path = image_artifacts.generated_image_path(
 
@@ -469,13 +409,12 @@ def run_step_6_image_formats(client_id: str, run_id: str, previous_artifact: str
 
         raise RuntimeError("Selected primary image file is missing on disk.")
 
-
-
     import importlib
 
-    from . import image_overlay
-    from . import social_channels
+    from . import config, image_overlay, social_channels
 
+    # Allow switching EXPORT_RESIZE_MODE without restarting the API.
+    importlib.reload(config)
     importlib.reload(image_overlay)
 
     outputs: dict[str, dict] = {}
@@ -514,7 +453,7 @@ def run_step_6_image_formats(client_id: str, run_id: str, previous_artifact: str
         {
             "selected_primary": idx.selected_primary,
             "generated_at": datetime.now().isoformat(timespec="seconds"),
-            "resize_policy": image_overlay.EXPORT_RESIZE_POLICY,
+            "resize_policy": image_overlay.export_resize_policy(),
             "overlay_applied": False,
             "template_applied": False,
             "outputs": outputs,
@@ -526,24 +465,16 @@ def run_step_6_image_formats(client_id: str, run_id: str, previous_artifact: str
         + "\n".join(export_lines)
         + "\n\n"
         "Overlay: Not applied in this step.\n"
-        "Template: Applied automatically in Step 6.\n"
+        "Template: Applied in the Brand template step (Step 7).\n"
     )
 
     return _save_md(client_id, run_id, step_name, out)
-
-
-
-
 
 def run_step_8_captions(client_id: str, run_id: str, previous_artifact: str = "") -> str:
 
     step_name = "captions"
 
     manifest = _load_manifest(client_id, run_id)
-
-    profile = artifacts.load_artifact(client_id, run_id, "client_profile_topic")
-
-    angle = artifacts.load_artifact(client_id, run_id, "content_angle_intent")
 
     img_prompt = artifacts.load_artifact(client_id, run_id, "image_prompt")
 
@@ -587,13 +518,7 @@ def run_step_8_captions(client_id: str, run_id: str, previous_artifact: str = ""
 
         "---END USER IDEA---\n\n"
 
-        "---CLIENT PROFILE---\n"
-
-        f"{profile.strip()}\n\n"
-
-        "---ANGLE / INTENT---\n"
-
-        f"{angle.strip()}\n\n"
+        f"{_topic_brief_block(client_id, run_id)}\n\n"
 
         "---IMAGE PROMPT---\n"
 
@@ -609,17 +534,15 @@ def run_step_8_captions(client_id: str, run_id: str, previous_artifact: str = ""
 
         "---EXPORTED PLATFORM FILES---\n"
 
-        f"{chr(10).join(format_lines) if format_lines else '(run Step 6 first)'}\n"
+        f"{chr(10).join(format_lines) if format_lines else '(run Step 6 first)'}\n\n"
+
+        f"{_location_block(client_id, run_id)}\n"
 
     )
 
     out = _chat(social_prompts.CAPTIONS_SYSTEM, user_msg, step_label="Social Step 8")
 
     return _save_md(client_id, run_id, step_name, out.strip() + "\n")
-
-
-
-
 
 def run_step_9_review_checklist(
 
@@ -629,45 +552,11 @@ def run_step_9_review_checklist(
 
     step_name = "review_checklist"
 
-    manifest = _load_manifest(client_id, run_id)
-
-    profile = artifacts.load_artifact(client_id, run_id, "client_profile_topic")
-
-    captions = artifacts.load_artifact(client_id, run_id, "captions")
-
-    context = _context_block(client_id, run_id)
-
-    user_msg = (
-
-        "---WORKSPACE ARTIFACT SUMMARY---\n"
-
-        f"{context}\n"
-
-        "---END WORKSPACE ARTIFACT SUMMARY---\n\n"
-
-        "---USER IDEA---\n"
-
-        f"{_user_idea_block(manifest)}\n"
-
-        "---END USER IDEA---\n\n"
-
-        "---CLIENT PROFILE---\n"
-
-        f"{profile.strip()}\n\n"
-
-        "---CAPTIONS (STEP 7)---\n"
-
-        f"{captions.strip()}\n"
-
+    out = (
+        "Use the platform previews in the UI to review captions and images before publish.\n"
     )
 
-    out = _chat(social_prompts.REVIEW_CHECKLIST_SYSTEM, user_msg, step_label="Social Step 9")
-
-    return _save_md(client_id, run_id, step_name, out.strip() + "\n")
-
-
-
-
+    return _save_md(client_id, run_id, step_name, out)
 
 def _split_captions_by_channel(captions_md: str) -> dict[str, str]:
 
@@ -726,10 +615,6 @@ def _split_captions_by_channel(captions_md: str) -> dict[str, str]:
 
     return result
 
-
-
-
-
 def _channel_export_image_path(client_id: str, run_id: str, channel_key: str):
 
     formats = image_artifacts.load_formats_index(client_id, run_id) or {}
@@ -756,15 +641,10 @@ def _channel_export_image_path(client_id: str, run_id: str, channel_key: str):
 
     return image_artifacts.format_image_path(client_id, run_id, filename)
 
-
-
-
-
 def run_step_publish(client_id: str, run_id: str, previous_artifact: str = "") -> str:
     from backend.publish_runner import run_step_publish as _run_publish
 
     return _run_publish(client_id, run_id, previous_artifact)
-
 
 def run_step_8_schedule_publish(
 
@@ -809,5 +689,4 @@ def run_step_8_schedule_publish(
     out = _chat(social_prompts.SCHEDULE_PUBLISH_SYSTEM, user_msg, step_label="Social Step 7")
 
     return _save_md(client_id, run_id, step_name, out.strip() + "\n")
-
 

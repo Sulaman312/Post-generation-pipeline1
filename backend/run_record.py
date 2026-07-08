@@ -5,13 +5,17 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
-POST_STATUSES: frozenset[str] = frozenset({"draft", "scheduled", "published", "failed"})
-PLATFORMS: frozenset[str] = frozenset({"instagram", "linkedin", "facebook"})
-PLATFORM_RESULT_STATUSES: frozenset[str] = frozenset(
-    {"pending", "published", "failed", "skipped"}
+from backend.pipeline_contract import (
+    default_platforms,
+    platform_result_statuses,
+    platforms,
+    post_statuses,
 )
 
-DEFAULT_PLATFORMS: tuple[str, ...] = ("instagram", "linkedin", "facebook")
+POST_STATUSES: frozenset[str] = post_statuses()
+PLATFORMS: frozenset[str] = frozenset(platforms())
+PLATFORM_RESULT_STATUSES: frozenset[str] = platform_result_statuses()
+DEFAULT_PLATFORMS: tuple[str, ...] = default_platforms()
 
 
 def default_run_record_fields() -> dict[str, Any]:

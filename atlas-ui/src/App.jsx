@@ -2,15 +2,12 @@ import { useEffect, useState } from "react";
 import "./App.css";
 import AppSidebar from "./components/shared/AppSidebar";
 import ClientsGrid from "./components/workspace/ClientsGrid";
-import ClientHome from "./components/workspace/ClientHome";
-import RunView from "./components/run/RunView";
-import SocialStepMatrixScreen from "./components/run/SocialStepMatrixScreen";
-import PostStatusScreen from "./components/run/PostStatusScreen";
-import SocialPipelineBoard from "./components/workspace/SocialPipelineBoard";
+import WorkspaceMain from "./components/workspace/WorkspaceMain";
 import { ToastProvider } from "./context/ToastContext";
 import { CONTENTFLOW_LOGO } from "./constants/brand";
 import { appProductMeta } from "./constants/appProject";
 import { readStoredSidebarWidth } from "./hooks/useSidebarResize";
+import { useWorkspaceNavigation } from "./hooks/useWorkspaceNavigation";
 
 const PRODUCT = appProductMeta();
 
@@ -23,6 +20,28 @@ function App() {
   const [artifactFilename, setArtifactFilename] = useState(null);
   const [logoVersions, setLogoVersions] = useState({});
   const [stepStatusOverrides, setStepStatusOverrides] = useState({});
+
+  const {
+    goHome,
+    handleClientDeleted,
+    openClient,
+    openRun,
+    patchStepStatus,
+    closeRun,
+    handleWorkspaceViewChange,
+    goToSocialBoard,
+    goToSocialMatrix,
+    goToPostStatus,
+    goToArtifacts,
+  } = useWorkspaceNavigation({
+    setClient,
+    setRunId,
+    setActiveStepKey,
+    setWorkspaceView,
+    setArtifactFilename,
+    setStepStatusOverrides,
+    setClientsRefresh,
+  });
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     try {
@@ -54,84 +73,8 @@ function App() {
     }
   }, [sidebarWidth, sidebarCollapsed]);
 
-  function goHome() {
-    setClient(null);
-    setRunId(null);
-    setWorkspaceView("matrix");
-    setArtifactFilename(null);
-  }
-
-  function handleClientDeleted() {
-    goHome();
-    setClientsRefresh((n) => n + 1);
-  }
-
   function bumpClientLogo(clientId) {
     setLogoVersions((v) => ({ ...v, [clientId]: Date.now() }));
-  }
-
-  function openClient(c) {
-    setClient(c);
-    setRunId(null);
-    setWorkspaceView("matrix");
-    setArtifactFilename(null);
-  }
-
-  function openRun(id) {
-    setRunId(id);
-    setActiveStepKey("client_profile_topic");
-    setStepStatusOverrides({});
-  }
-
-  function patchStepStatus(stepKey, status) {
-    if (stepKey == null && status == null) {
-      setStepStatusOverrides({});
-      return;
-    }
-    setStepStatusOverrides((prev) => {
-      if (status == null) {
-        if (!(stepKey in prev)) return prev;
-        const next = { ...prev };
-        delete next[stepKey];
-        return next;
-      }
-      return { ...prev, [stepKey]: status };
-    });
-  }
-
-  function closeRun() {
-    setRunId(null);
-    setStepStatusOverrides({});
-    setWorkspaceView("matrix");
-  }
-
-  function handleWorkspaceViewChange(view) {
-    setWorkspaceView(view);
-    setArtifactFilename(null);
-  }
-
-  function goToSocialBoard() {
-    setRunId(null);
-    setWorkspaceView("overview");
-    setArtifactFilename(null);
-  }
-
-  function goToSocialMatrix() {
-    setRunId(null);
-    setWorkspaceView("matrix");
-    setArtifactFilename(null);
-  }
-
-  function goToPostStatus() {
-    setRunId(null);
-    setWorkspaceView("post_status");
-    setArtifactFilename(null);
-  }
-
-  function goToArtifacts() {
-    setRunId(null);
-    setWorkspaceView("artifacts");
-    setArtifactFilename(null);
   }
 
   if (!client) {
@@ -197,56 +140,23 @@ function App() {
         stepStatusOverrides={stepStatusOverrides}
       />
       <main className="layout-main">
-        {!runId && workspaceView === "artifacts" ? (
-          <ClientHome
-            client={client}
-            onOpenRun={openRun}
-            onClientDeleted={handleClientDeleted}
-            workspaceView={workspaceView}
-            artifactFilename={artifactFilename}
-            onArtifactFilenameChange={setArtifactFilename}
-          />
-        ) : !runId && workspaceView === "matrix" ? (
-          <SocialStepMatrixScreen
-            client={client}
-            onOpenRun={openRun}
-            onClientDeleted={handleClientDeleted}
-            onBackToBoard={() => setWorkspaceView("overview")}
-          />
-        ) : !runId && workspaceView === "post_status" ? (
-          <PostStatusScreen
-            client={client}
-            onOpenRun={openRun}
-            onClientDeleted={handleClientDeleted}
-          />
-        ) : !runId && workspaceView === "overview" ? (
-          <SocialPipelineBoard
-            client={client}
-            onOpenRun={openRun}
-            onClientDeleted={handleClientDeleted}
-          />
-        ) : !runId ? (
-          <ClientHome
-            client={client}
-            onOpenRun={openRun}
-            onClientDeleted={handleClientDeleted}
-            workspaceView={workspaceView}
-            artifactFilename={artifactFilename}
-            onArtifactFilenameChange={setArtifactFilename}
-          />
-        ) : (
-          <RunView
-            client={client}
-            runId={runId}
-            activeStepKey={activeStepKey}
-            statusOverrides={stepStatusOverrides}
-            onSelectStep={setActiveStepKey}
-            onBack={() => {
-              closeRun();
-              setWorkspaceView("matrix");
-            }}
-          />
-        )}
+        <WorkspaceMain
+          client={client}
+          runId={runId}
+          workspaceView={workspaceView}
+          artifactFilename={artifactFilename}
+          onArtifactFilenameChange={setArtifactFilename}
+          activeStepKey={activeStepKey}
+          stepStatusOverrides={stepStatusOverrides}
+          onOpenRun={openRun}
+          onClientDeleted={handleClientDeleted}
+          onSelectStep={setActiveStepKey}
+          onBackFromRun={() => {
+            closeRun();
+            setWorkspaceView("matrix");
+          }}
+          onBackToBoard={() => setWorkspaceView("overview")}
+        />
       </main>
     </div>
   );

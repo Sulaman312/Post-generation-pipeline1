@@ -4,10 +4,7 @@ from pathlib import Path
 
 from flask import jsonify, request, send_file, send_from_directory
 
-from backend import image_artifacts
-from backend import image_overlay
-from backend import image_templates
-from backend import config
+from backend import config, image_artifacts, image_overlay, image_templates
 from backend.api.blueprint import api_bp
 from backend.api.helpers import reject_client, reject_run_id
 from backend.integrations import openai_chat
@@ -191,20 +188,31 @@ def regenerate_formats(client_id: str, run_id: str):
         return bad_run
     import importlib
 
-    from backend import image_overlay, social_steps
+    from backend import config, image_overlay, social_steps
 
+    # Allow switching EXPORT_RESIZE_MODE without restarting the API.
+    importlib.reload(config)
     importlib.reload(image_overlay)
     importlib.reload(social_steps)
     try:
         idx = image_artifacts.load_formats_index(client_id, run_id) or {}
-        if idx.get("template_applied"):
+        body = request.get_json(silent=True) or {}
+        base_only = bool(body.get("base_only"))
+        had_template = bool(idx.get("template_applied"))
+        if idx.get("template_applied") and not base_only:
             from backend import image_templates
 
             importlib.reload(image_templates)
             data = image_templates.apply_run_template_to_formats(client_id, run_id)
         else:
             social_steps.run_step_6_image_formats(client_id, run_id, "")
-            data = image_artifacts.load_formats_index(client_id, run_id) or {}
+            if base_only and had_template:
+                from backend import image_templates
+
+                importlib.reload(image_templates)
+                data = image_templates.apply_run_template_to_formats(client_id, run_id)
+            else:
+                data = image_artifacts.load_formats_index(client_id, run_id) or {}
     except RuntimeError as e:
         return jsonify(detail=str(e)), 400
     return jsonify(data)
@@ -274,6 +282,8 @@ def suggest_overlay_text(client_id: str, run_id: str):
         return bad_run
     from backend import artifacts
 
+    from backend.social_steps import load_angle_intent
+
     profile = ""
     angle = ""
     try:
@@ -281,15 +291,15 @@ def suggest_overlay_text(client_id: str, run_id: str):
     except Exception:
         pass
     try:
-        angle = artifacts.load_artifact(client_id, run_id, "content_angle_intent")
+        angle = load_angle_intent(client_id, run_id)
     except Exception:
         pass
-    user_msg = (
-        "---CLIENT PROFILE---\n"
-        f"{profile.strip()}\n\n"
-        "---ANGLE / INTENT---\n"
-        f"{angle.strip()}\n"
+    brief_block = (
+        f"---TOPIC BRIEF---\n{profile.strip()}\n"
+        + (f"\n{angle.strip()}\n" if angle.strip() and angle.strip() not in profile else "")
+        + "---END---\n"
     )
+    user_msg = brief_block
     try:
         text = openai_chat.chat_complete(
             OVERLAY_TEXT_SYSTEM,
@@ -391,7 +401,9 @@ def get_social_template_asset(client_id: str, filename: str):
 @api_bp.get("/_test/ig-post")
 def _test_ig_post():
     import tempfile
+
     from PIL import Image, ImageDraw
+
     from backend.integrations import meta_graph
     img = Image.new("RGBA", (1080, 1350), (24, 90, 200, 255))  # PNG w/ alpha, like the pipeline
     ImageDraw.Draw(img).text((60, 60), "IG publish test", fill=(255, 255, 255, 255))

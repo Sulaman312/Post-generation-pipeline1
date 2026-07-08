@@ -4,19 +4,15 @@ from __future__ import annotations
 
 import logging
 
-from . import artifacts
-from . import image_artifacts
-from . import social_image_styles
+from . import artifacts, image_artifacts, social_image_styles
 from .integrations import openai_images
 
 logger = logging.getLogger(__name__)
 
 
-def _prompt_markdown(client_id: str, run_id: str, previous_artifact: str = "") -> str:
-    prompt_md = (previous_artifact or "").strip()
-    if not prompt_md:
-        prompt_md = artifacts.load_artifact(client_id, run_id, "image_prompt") or ""
-    return prompt_md.strip()
+def load_image_prompt_markdown(client_id: str, run_id: str) -> str:
+    """Always read the saved image_prompt step artifact (includes user edits)."""
+    return (artifacts.load_artifact(client_id, run_id, "image_prompt") or "").strip()
 
 
 def generate_all_styles(
@@ -25,7 +21,9 @@ def generate_all_styles(
     *,
     previous_artifact: str = "",
 ) -> image_artifacts.ImageIndex:
-    prompt_md = _prompt_markdown(client_id, run_id, previous_artifact)
+    # User-edited image_prompt.md is the source of truth; ignore stale request bodies.
+    _ = previous_artifact
+    prompt_md = load_image_prompt_markdown(client_id, run_id)
     if not prompt_md:
         raise RuntimeError("No image prompt found. Run Step 3 first.")
 
@@ -52,11 +50,10 @@ def regenerate_style(
     style_key: str,
 ) -> image_artifacts.ImageIndex:
     key = (style_key or "").strip()
-    preset = social_image_styles.PRESET_BY_KEY.get(key)
-    if not preset:
-        raise ValueError(f"Unknown style_key: {style_key!r}")
+    if not key:
+        raise ValueError("style_key is required")
 
-    prompt_md = _prompt_markdown(client_id, run_id)
+    prompt_md = load_image_prompt_markdown(client_id, run_id)
     if not prompt_md:
         raise ValueError("No image prompt found. Run Step 3 first.")
 
@@ -69,10 +66,13 @@ def regenerate_style(
     if not blobs:
         raise RuntimeError("Image API returned no data")
 
+    preset = social_image_styles.PRESET_BY_KEY.get(key)
+    label = style.get("style_label") or (preset["label"] if preset else key)
+
     return image_artifacts.replace_style_image(
         client_id,
         run_id,
         style_key=key,
-        style_label=preset["label"],
+        style_label=label,
         png_blob=blobs[0],
     )

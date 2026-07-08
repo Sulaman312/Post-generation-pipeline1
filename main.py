@@ -8,8 +8,8 @@ Equivalent (from repository root)::
     flask --app backend.app:create_app run --host 0.0.0.0 --port 8000 --debug
 """
 
-from pathlib import Path
 import sys
+from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parent
 _repo_str = str(_REPO_ROOT)
@@ -25,7 +25,7 @@ if __name__ == "__main__":
 
     # Windows: debug reloader often hangs browser requests on :8000. Set FLASK_RELOAD=1 to enable.
     use_reloader = os.getenv("FLASK_RELOAD", "").strip() in ("1", "true", "yes")
-    port = int(os.getenv("API_PORT") or os.getenv("FLASK_RUN_PORT") or "8000")
+    port = int(os.getenv("API_PORT") or os.getenv("FLASK_RUN_PORT") or "8001")
     app.run(
         host="0.0.0.0",
         port=port,

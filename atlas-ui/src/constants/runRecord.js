@@ -1,17 +1,13 @@
 /** Post / pipeline run publishing fields — mirrors `backend/run_record.py`. */
 
-export const POST_STATUSES = ["draft", "scheduled", "published", "failed"];
+import {
+  DEFAULT_PLATFORMS,
+  PLATFORMS,
+  PLATFORM_RESULT_STATUSES,
+  POST_STATUSES,
+} from "./pipelineContract";
 
-export const PLATFORMS = ["instagram", "linkedin", "facebook"];
-
-export const PLATFORM_RESULT_STATUSES = [
-  "pending",
-  "published",
-  "failed",
-  "skipped",
-];
-
-export const DEFAULT_PLATFORMS = [...PLATFORMS];
+export { DEFAULT_PLATFORMS, PLATFORMS, PLATFORM_RESULT_STATUSES, POST_STATUSES };
 
 /** @returns {{ status: string, platforms: string[], scheduled_at: string|null, published_results: object[] }} */
 export function defaultRunRecordFields() {

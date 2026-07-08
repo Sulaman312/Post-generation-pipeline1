@@ -1,8 +1,8 @@
 from flask import jsonify, request
 
+from backend import publish_env
 from backend.api.blueprint import api_bp
 from backend.api.helpers import load_manifest, reject_client, reject_run_id
-from backend import publish_env
 from backend.publish_runner import publish_selected_platforms
 from backend.publishing import connected_platform_rows
 from backend.run_record import PLATFORMS, normalize_platforms

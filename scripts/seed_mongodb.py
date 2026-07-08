@@ -25,9 +25,12 @@ def main() -> int:
         help="Clients directory to upload (default: repository clients/)",
     )
     parser.add_argument(
-        "--keep-extra",
+        "--delete-missing",
         action="store_true",
-        help="Do not delete database files that are absent from the source tree.",
+        help=(
+            "Remove database files that are absent from the source tree. "
+            "By default extra database files are kept for safety."
+        ),
     )
     args = parser.parse_args()
 
@@ -46,7 +49,7 @@ def main() -> int:
     )
     result = mongo_storage.seed_from_directory(
         source,
-        delete_missing=not args.keep_extra,
+        delete_missing=args.delete_missing,
         progress=progress,
     )
     print(

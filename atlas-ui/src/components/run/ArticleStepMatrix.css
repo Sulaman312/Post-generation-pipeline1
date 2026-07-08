@@ -171,7 +171,7 @@
   white-space: normal;
 }
 
-.matrix-input-card-main:hover .matrix-input-title {
+.matrix-input-title--expanded {
   display: block;
   -webkit-line-clamp: unset;
   overflow: visible;
@@ -235,13 +235,16 @@
 }
 
 .matrix-input-menu {
-  min-width: 260px;
-  max-width: min(360px, 90vw);
-  padding: 8px;
+  min-width: 200px;
+  max-width: min(280px, 90vw);
+  padding: 6px;
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 10px;
   box-shadow: var(--shadow-md);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .matrix-input-menu--portal {
@@ -249,22 +252,47 @@
   z-index: 2000;
 }
 
+.matrix-input-menu-item,
 .matrix-input-menu-open {
   display: block;
   width: 100%;
   text-align: left;
-  padding: 8px 10px;
-  margin-bottom: 6px;
+  padding: 9px 10px;
   border: none;
   border-radius: 6px;
   background: transparent;
   font-size: 14px;
+  font-weight: 500;
   color: var(--text);
   cursor: pointer;
 }
 
+.matrix-input-menu-item:hover:not(:disabled),
 .matrix-input-menu-open:hover {
   background: var(--hover);
+}
+
+.matrix-input-menu-item:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.matrix-input-menu-item--danger {
+  color: var(--error-text);
+}
+
+.matrix-input-menu-item--danger:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.matrix-input-menu-divider {
+  height: 1px;
+  margin: 4px 2px;
+  background: var(--border);
+}
+
+.matrix-input-menu-open {
+  margin-bottom: 0;
 }
 
 .matrix-action-panel {

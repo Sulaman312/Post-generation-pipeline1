@@ -97,3 +97,11 @@ export function parseContentAngleIntent(text) {
 export function isContentAngleFormat(text) {
   return Boolean(parseContentAngleIntent(text));
 }
+
+/** Extract angle/intent sections from a combined topic brief artifact. */
+export function extractAngleSectionFromBrief(text) {
+  const source = String(text || "");
+  const match = source.match(/^##\s+Primary intent\s*$/im);
+  if (!match || match.index == null) return "";
+  return source.slice(match.index).trim();
+}

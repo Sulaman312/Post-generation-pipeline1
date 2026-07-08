@@ -21,6 +21,10 @@ export async function executeRunStep(
   } else {
     throw new Error("Complete earlier steps first.");
   }
+  // Step 4 reads image_prompt.md on the server; still fetch latest so the UI stays in sync.
+  if (stepKey === "image_generation") {
+    previous = await api.getArtifact(client, runId, "image_prompt");
+  }
   await api.runStep(client, runId, stepKey, previous, signal);
   const steps = stepsForPipeline(pipelineId);
   return steps.find((s) => s.key === stepKey);

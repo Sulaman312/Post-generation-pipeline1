@@ -5,8 +5,10 @@ import {
   socialAdditionalDetails,
   socialPostParagraph,
 } from "../../utils/socialRunTopic";
-import "../workspace/ManualArticleForm.css";
+import RunLocationField from "./RunLocationField";
+import "../workspace/WorkspaceForm.css";
 import "./SocialRunInputPanel.css";
+import "./RunLocationField.css";
 
 function FormattedPostIdea({ text }) {
   const blocks = parseSocialPostBlocks(text);
@@ -54,6 +56,8 @@ export default function SocialRunInputPanel({
   client,
   runId,
   manualInputs,
+  useLocation = false,
+  locationValue = "",
   onSaved,
   toast,
 }) {
@@ -63,18 +67,38 @@ export default function SocialRunInputPanel({
   const [fields, setFields] = useState({
     paragraph: paragraph || "",
     additional_details: details || "",
+    use_location: Boolean(useLocation),
+    location_value: locationValue || "",
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
+  const [clientDefaultLocation, setClientDefaultLocation] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .getClientLocation(client)
+      .then(({ location }) => {
+        if (!cancelled) setClientDefaultLocation((location || "").trim());
+      })
+      .catch(() => {
+        if (!cancelled) setClientDefaultLocation("");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [client]);
 
   useEffect(() => {
     if (!editing) {
       setFields({
         paragraph: socialPostParagraph(manualInputs) || "",
         additional_details: socialAdditionalDetails(manualInputs) || "",
+        use_location: Boolean(useLocation),
+        location_value: locationValue || "",
       });
     }
-  }, [manualInputs, editing]);
+  }, [manualInputs, useLocation, locationValue, editing]);
 
   async function handleSave(e) {
     e?.preventDefault?.();
@@ -87,9 +111,15 @@ export default function SocialRunInputPanel({
         paragraph: nextParagraph,
         additional_details: (fields.additional_details || "").trim(),
       });
+      await api.updateRunLocation(client, runId, {
+        use_location: Boolean(fields.use_location),
+        location_value: fields.use_location
+          ? (fields.location_value || "").trim()
+          : "",
+      });
       setEditing(false);
       onSaved?.();
-      toast?.("Post idea saved.", { variant: "success", duration: 3000 });
+      toast?.("Post settings saved.", { variant: "success", duration: 3000 });
     } catch (err) {
       const msg = err?.message || String(err);
       setError(msg);
@@ -103,6 +133,8 @@ export default function SocialRunInputPanel({
     setFields({
       paragraph: socialPostParagraph(manualInputs) || "",
       additional_details: socialAdditionalDetails(manualInputs) || "",
+      use_location: Boolean(useLocation),
+      location_value: locationValue || "",
     });
     setEditing(false);
     setError(null);
@@ -128,13 +160,13 @@ export default function SocialRunInputPanel({
 
         {editing ? (
           <form className="social-run-input-form" onSubmit={handleSave}>
-            <div className="manual-article-field manual-article-field--wide manual-article-field--idea">
+            <div className="workspace-form-field workspace-form-field--wide workspace-form-field--idea">
               <label className="label" htmlFor="sri-paragraph">
                 Post idea
               </label>
               <textarea
                 id="sri-paragraph"
-                className="textarea manual-article-textarea--idea"
+                className="textarea workspace-form-textarea--idea"
                 rows={8}
                 value={fields.paragraph}
                 onChange={(ev) =>
@@ -144,14 +176,14 @@ export default function SocialRunInputPanel({
                 required
               />
             </div>
-            <div className="manual-article-field manual-article-field--wide manual-article-field--details">
+            <div className="workspace-form-field workspace-form-field--wide workspace-form-field--details">
               <label className="label" htmlFor="sri-details">
                 Additional details{" "}
-                <span className="manual-article-optional">(optional)</span>
+                <span className="workspace-form-optional">(optional)</span>
               </label>
               <textarea
                 id="sri-details"
-                className="textarea manual-article-textarea--details"
+                className="textarea workspace-form-textarea--details"
                 rows={3}
                 value={fields.additional_details}
                 onChange={(ev) =>
@@ -164,8 +196,21 @@ export default function SocialRunInputPanel({
                 placeholder="Hashtags, links, offers, brand notes…"
               />
             </div>
+            <RunLocationField
+              idPrefix="sri"
+              useLocation={fields.use_location}
+              locationValue={fields.location_value}
+              defaultLocation={clientDefaultLocation}
+              onUseLocationChange={(checked) =>
+                setFields((f) => ({ ...f, use_location: checked }))
+              }
+              onLocationValueChange={(value) =>
+                setFields((f) => ({ ...f, location_value: value }))
+              }
+              disabled={saving}
+            />
             {error ? (
-              <p className="manual-article-error" role="alert">
+              <p className="workspace-form-error" role="alert">
                 {error}
               </p>
             ) : null}
@@ -202,7 +247,7 @@ export default function SocialRunInputPanel({
               <div className="run-input-topic-eyebrow social-run-details-eyebrow">
                 Additional details
                 {!details ? (
-                  <span className="manual-article-optional"> · none</span>
+                  <span className="workspace-form-optional"> · none</span>
                 ) : null}
               </div>
               {details ? (
@@ -210,6 +255,19 @@ export default function SocialRunInputPanel({
               ) : (
                 <p className="social-run-details-empty muted">
                   No extra details were added when this run was created.
+                </p>
+              )}
+            </section>
+
+            <section className="social-run-details-section" aria-label="Location">
+              <div className="run-input-topic-eyebrow social-run-details-eyebrow">
+                Location
+              </div>
+              {useLocation && (locationValue || "").trim() ? (
+                <p className="social-run-idea-line">{locationValue}</p>
+              ) : (
+                <p className="social-run-details-empty muted">
+                  Location off for this run.
                 </p>
               )}
             </section>

@@ -4,7 +4,7 @@ import { useToast } from "../../context/ToastContext";
 import { isImageFile, readImageFileAsBase64 } from "../../utils/readImageFile";
 import WorkspaceLogo from "./WorkspaceLogo";
 import LogoFitImage from "./LogoFitImage";
-import "./ManualArticleForm.css";
+import "./WorkspaceForm.css";
 
 const MAX_LOGO_BYTES = 2 * 1024 * 1024;
 
@@ -89,7 +89,7 @@ export default function WorkspaceLogoUpload({
           ref={inputRef}
           id={`ws-logo-inline-${clientId}`}
           type="file"
-          className="manual-article-logo-input"
+          className="workspace-form-logo-input"
           accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml,.png,.jpg,.jpeg,.webp,.gif,.svg"
           onChange={handleFile}
           disabled={saving}
@@ -101,7 +101,7 @@ export default function WorkspaceLogoUpload({
           {saving ? "Saving logo…" : "Change logo"}
         </label>
         {error ? (
-          <p className="manual-article-error ws-logo-upload-inline-error" role="alert">
+          <p className="workspace-form-error ws-logo-upload-inline-error" role="alert">
             {error}
           </p>
         ) : null}
@@ -111,27 +111,27 @@ export default function WorkspaceLogoUpload({
 
   return (
     <div className={`ws-logo-upload${compact ? " ws-logo-upload--compact" : ""}`}>
-      <div className="manual-article-logo-row">
-        <div className="manual-article-logo-preview">
+      <div className="workspace-form-logo-row">
+        <div className="workspace-form-logo-preview">
           {preview ? (
             <LogoFitImage src={preview} size={48} />
           ) : (
             <WorkspaceLogo clientId={clientId} size={48} cacheKey={cacheKey} />
           )}
         </div>
-        <div className="manual-article-logo-fields">
+        <div className="workspace-form-logo-fields">
           <span className="label">Workspace logo</span>
-          <span className="manual-article-logo-hint">
+          <span className="workspace-form-logo-hint">
             {saving
               ? "Uploading…"
               : "Square favicon or logo — saves automatically (max 2 MB)."}
           </span>
-          <div className="manual-article-logo-actions">
+          <div className="workspace-form-logo-actions">
             <input
               ref={inputRef}
               id={`ws-logo-${clientId}`}
               type="file"
-              className="manual-article-logo-input"
+              className="workspace-form-logo-input"
               accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml,.png,.jpg,.jpeg,.webp,.gif,.svg"
               onChange={handleFile}
               disabled={saving}
@@ -141,7 +141,7 @@ export default function WorkspaceLogoUpload({
             </label>
           </div>
           {error ? (
-            <p className="manual-article-error" role="alert">
+            <p className="workspace-form-error" role="alert">
               {error}
             </p>
           ) : null}

@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from . import config
+from .pipeline_contract import step_order as _contract_step_order
 from .run_record import normalize_run_record_fields
 
 logger = logging.getLogger(__name__)
@@ -28,17 +29,8 @@ ARTIFACTS_INDEX_FILENAME = "artifacts_index.json"
 _MAX_RUN_LOGO_BYTES = 2 * 1024 * 1024
 _RUN_LOGO_EXTS = frozenset({".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg"})
 
-# Social pipeline step order (standalone post service).
-_STEP_ORDER = [
-    "client_profile_topic",
-    "content_angle_intent",
-    "image_prompt",
-    "image_generation",
-    "image_formats",
-    "image_template",
-    "captions",
-    "review_checklist",
-]
+# Social pipeline step order for artifact inference (excludes publish — no .md artifact).
+_STEP_ORDER = [name for name in _contract_step_order() if name != "publish"]
 
 _BUILTIN_SPECS: list[dict[str, str]] = [
     {
@@ -51,7 +43,13 @@ _BUILTIN_SPECS: list[dict[str, str]] = [
         "filename": "context.md",
         "title": "Company context",
         "description": "Company positioning, offerings, and ground-truth facts.",
-        "placeholder": "## Company overview\n- Company name:\n- What you sell:\n- Key differentiators:\n",
+        "placeholder": (
+            "## Company overview\n"
+            "- Company name:\n"
+            "- What you sell:\n"
+            "- Key differentiators:\n"
+            "- Location (city/region for marketing — not street address):\n"
+        ),
     },
     {
         "filename": "brand_voice.md",
@@ -500,7 +498,7 @@ def infer_step_timings_from_artifacts(
     if not run_dir.is_dir():
         return {}
     statuses = manifest.get("statuses") or {}
-    order = list(statuses.keys()) if isinstance(statuses, dict) and statuses else _ARTICLE_STEP_ORDER
+    order = list(statuses.keys()) if isinstance(statuses, dict) and statuses else _STEP_ORDER
     manifest_path = run_dir / "run_manifest.json"
     prev_ts = (
         manifest_path.stat().st_mtime
@@ -535,7 +533,7 @@ def step_timings_for_display(client_id: str, run_id: str, manifest: dict) -> dic
     inferred = infer_step_timings_from_artifacts(client_id, run_id, manifest)
     out: dict[str, dict] = {}
     statuses = manifest.get("statuses") or {}
-    order = list(statuses.keys()) if isinstance(statuses, dict) and statuses else _ARTICLE_STEP_ORDER
+    order = list(statuses.keys()) if isinstance(statuses, dict) and statuses else _STEP_ORDER
     for name in order:
         if name in recorded:
             out[name] = recorded[name]
@@ -562,6 +560,8 @@ def save_run_manifest(
     scheduled_at: Any = _UNSET,
     platform_schedules: Any = _UNSET,
     published_results: list | None = None,
+    use_location: bool | None = None,
+    location_value: str | None = None,
 ) -> None:
     run_dir = get_run_dir(client_id, run_id)
     manifest_path = run_dir / "run_manifest.json"
@@ -572,6 +572,8 @@ def save_run_manifest(
     prev_archived_at: str | None = None
     prev_context_summary: str | None = None
     prev_step_errors: dict | None = None
+    prev_use_location: bool | None = None
+    prev_location_value: str | None = None
     prev: dict = {}
     if manifest_path.is_file():
         try:
@@ -590,6 +592,10 @@ def save_run_manifest(
             prev_context_summary = pcs if isinstance(pcs, str) and pcs.strip() else None
             pse = prev.get("step_errors")
             prev_step_errors = pse if isinstance(pse, dict) else None
+            pul = prev.get("use_location")
+            prev_use_location = pul if isinstance(pul, bool) else None
+            plv = prev.get("location_value")
+            prev_location_value = plv if isinstance(plv, str) else None
         except json.JSONDecodeError:
             pass
 
@@ -638,6 +644,21 @@ def save_run_manifest(
     if published_results is not None:
         record_seed["published_results"] = published_results
     payload.update(normalize_run_record_fields(record_seed))
+
+    from .run_location import normalize_run_location
+
+    loc = normalize_run_location(
+        use_location,
+        location_value,
+        fallback_use=prev_use_location,
+        fallback_value=prev_location_value or "",
+    )
+    payload["use_location"] = loc["use_location"]
+    if loc["location_value"]:
+        payload["location_value"] = loc["location_value"]
+    elif "location_value" in payload or prev_location_value is not None:
+        payload["location_value"] = loc["location_value"]
+
     _write_json_atomic(manifest_path, payload)
 
 

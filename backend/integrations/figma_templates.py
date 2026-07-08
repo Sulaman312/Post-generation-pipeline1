@@ -17,8 +17,8 @@ from backend.social_channels import CHANNEL_BY_KEY
 FIGMA_API_BASE = "https://api.figma.com/v1"
 SUPPORTED_FORMATS = {
     "instagram": (1080, 1350),
-    "linkedin": (1200, 628),
-    "facebook": (1200, 630),
+    "linkedin": (1080, 1350),
+    "facebook": (1080, 1350),
 }
 
 

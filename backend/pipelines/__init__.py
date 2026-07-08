@@ -16,16 +16,21 @@ class PipelineSpec:
 
 
 def resolve_pipeline_id(manifest: dict | None) -> str:
-    return "social_media"
+    from backend.pipeline_contract import pipeline_id
+
+    return pipeline_id()
 
 
 def upgrade_manifest(manifest: dict) -> tuple[dict, bool]:
+    from backend.pipeline_contract import pipeline_id
+
     if not isinstance(manifest, dict):
         return manifest, False
 
     out = dict(manifest)
-    changed = out.get("pipeline_id") != "social_media"
-    out["pipeline_id"] = "social_media"
+    pid = pipeline_id()
+    changed = out.get("pipeline_id") != pid
+    out["pipeline_id"] = pid
 
     pipeline = get_pipeline("social_media")
     statuses = dict(out.get("statuses") or {})
@@ -47,10 +52,11 @@ def upgrade_manifest(manifest: dict) -> tuple[dict, bool]:
 
 
 def get_pipeline(pipeline_id: str) -> PipelineSpec:
+    from backend.pipeline_contract import pipeline_id as contract_pipeline_id
     from backend.social_pipeline import STEP_ORDER, STEP_RUNNERS
 
     return PipelineSpec(
-        pipeline_id="social_media",
+        pipeline_id=contract_pipeline_id(),
         step_order=list(STEP_ORDER),
         step_runners=STEP_RUNNERS,
     )

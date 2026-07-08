@@ -1555,9 +1555,45 @@ body.sb-resizing .sb {
 }
 
 
-.sb-run-topic {
+.sb-run-topic-bar {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  width: calc(100% - 16px);
   margin: 8px 8px 0;
-  padding: 0 10px;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.sb-run-topic-bar:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.sb-run-topic-bar--static {
+  cursor: default;
+}
+
+.sb-run-topic-bar--static:hover {
+  background: transparent;
+}
+
+.sb-run-topic-bar--expanded .sb-run-topic {
+  display: block;
+  -webkit-line-clamp: unset;
+  overflow: visible;
+  white-space: pre-wrap;
+}
+
+.sb-run-topic {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
   font-size: 12px;
   font-weight: 600;
   color: var(--text);
@@ -1572,11 +1608,11 @@ body.sb-resizing .sb {
   overflow: hidden;
 }
 
-.sb-run-nav-top:hover .sb-run-topic,
-.sb-run-nav-top:focus-within .sb-run-topic {
+.sb-run-topic--expanded {
   display: block;
   -webkit-line-clamp: unset;
   overflow: visible;
+  white-space: pre-wrap;
 }
 .sb-step:hover {
   color: var(--text);
@@ -2316,10 +2352,42 @@ body.sb-resizing .sb {
   margin-left: auto;
 }
 
-.run-chrome-topic--minimal {
-  margin: 4px 0 0;
-  padding-top: 6px;
+.run-chrome-topic-bar--minimal {
+  margin-top: 4px;
+  padding: 8px 0 0;
   border-top: 1px solid var(--border);
+  max-width: 100%;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+  border-left: none;
+  border-right: none;
+  border-bottom: none;
+  border-radius: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.run-chrome-topic-bar--minimal:hover {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+.run-chrome-topic-bar--static {
+  cursor: default;
+}
+
+.run-chrome-topic-bar--static:hover {
+  background: transparent;
+}
+
+.run-chrome-topic--minimal {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
   max-width: 100%;
   font-size: 13px;
   font-weight: 500;
@@ -2328,6 +2396,13 @@ body.sb-resizing .sb {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.run-chrome-topic-bar--expanded .run-chrome-topic--minimal,
+.run-chrome-topic--minimal.run-chrome-topic--expanded {
+  white-space: pre-wrap;
+  overflow: visible;
+  text-overflow: unset;
 }
 
 .run-chrome-top {
@@ -2486,6 +2561,14 @@ body.sb-resizing .sb {
   overflow: auto;
 }
 
+.run-content-wrap--compact .run-artifact-card:has(.formatted-images-panel) {
+  overflow: visible;
+}
+
+.run-content-wrap--compact .run-artifact-card:has(.template-panel) {
+  overflow: visible;
+}
+
 .run-content-wrap--compact .run-artifact-body--flush {
   flex: 1;
   min-height: 0;
@@ -2493,6 +2576,24 @@ body.sb-resizing .sb {
   display: flex;
   flex-direction: column;
 }
+
+.run-content-wrap--compact .run-artifact-body--flush:has(.formatted-images-panel),
+.run-content-wrap--compact .run-artifact-body--flush:has(.template-panel),
+.run-content-wrap--compact .run-artifact-body--flush:has(.channel-format-preview) {
+  overflow: hidden;
+}
+
+.run-artifact-body--flush:has(.channel-format-preview) {
+  align-items: center;
+  justify-content: center;
+}
+
+.run-content-wrap--compact .run-artifact-shell--fit:has(.channel-format-preview) {
+  flex: 1;
+  width: 100%;
+  align-self: stretch;
+}
+
 
 .run-content-wrap--compact .run-artifact-body--flush .final-output-doc-root {
   flex: 1;

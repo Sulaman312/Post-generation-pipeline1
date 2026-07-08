@@ -1,0 +1,66 @@
+{
+  "version": 1,
+  "pipeline_id": "social_media",
+  "steps": [
+    {
+      "key": "client_profile_topic",
+      "label": "Topic brief & angle",
+      "matrixLabel": "Topic brief & angle",
+      "matrixCol": "P1",
+      "index": 1
+    },
+    {
+      "key": "image_prompt",
+      "label": "Image prompt",
+      "matrixLabel": "Image prompt",
+      "matrixCol": "IP",
+      "index": 2
+    },
+    {
+      "key": "image_generation",
+      "label": "Generate & select image",
+      "matrixLabel": "Generate & select image",
+      "matrixCol": "IG",
+      "index": 3
+    },
+    {
+      "key": "image_formats",
+      "label": "Export channel sizes",
+      "matrixLabel": "Export channel sizes",
+      "matrixCol": "RF",
+      "index": 4
+    },
+    {
+      "key": "image_template",
+      "label": "Brand template",
+      "matrixLabel": "Brand template",
+      "matrixCol": "TP",
+      "index": 5
+    },
+    {
+      "key": "captions",
+      "label": "Channel captions",
+      "matrixLabel": "Channel captions",
+      "matrixCol": "CP",
+      "index": 6
+    },
+    {
+      "key": "review_checklist",
+      "label": "Review",
+      "matrixLabel": "Review",
+      "matrixCol": "RV",
+      "index": 7
+    },
+    {
+      "key": "publish",
+      "label": "Publish",
+      "matrixLabel": "Publish",
+      "matrixCol": "PB",
+      "index": 8
+    }
+  ],
+  "platforms": ["instagram", "linkedin", "facebook"],
+  "default_platforms": ["instagram", "linkedin", "facebook"],
+  "post_statuses": ["draft", "scheduled", "published", "failed"],
+  "platform_result_statuses": ["pending", "published", "failed", "skipped"]
+}

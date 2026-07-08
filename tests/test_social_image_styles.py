@@ -41,6 +41,31 @@ def test_parse_numbered_client_prompts():
 def test_parse_markdown_client_prompts():
     styles = parse_style_prompts(MARKDOWN_OUTPUT)
     assert len(styles) == 2
-    assert styles[0]["style_key"] == "primary"
+    assert styles[0]["style_key"] == "variation_1"
     assert "frameless glass" in styles[0]["prompt"]
-    assert styles[1]["style_key"] == "alternate"
+    assert styles[1]["style_key"] == "variation_2"
+
+
+def test_parse_multiple_client_variations():
+    markdown = """\
+## Caption angle
+Caption text here.
+
+## Primary image prompt (Variation 1 - WIDE EQUIPMENT SHOT)
+Wide shot prompt one.
+
+## Alternate image prompt (Variation 2 - HUMAN TRUST SHOT)
+Human shot prompt two.
+
+## Primary image prompt (Variation 3 - WIDE EQUIPMENT SHOT)
+Wide shot prompt three.
+
+## Alternate image prompt (Variation 4 - HUMAN TRUST SHOT)
+Human shot prompt four.
+"""
+    styles = parse_style_prompts(markdown)
+    assert len(styles) == 4
+    assert styles[0]["prompt"] == "Wide shot prompt one."
+    assert styles[3]["prompt"] == "Human shot prompt four."
+    assert styles[0]["style_key"] == "variation_1"
+    assert styles[3]["style_key"] == "variation_4"
