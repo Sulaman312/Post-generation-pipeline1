@@ -26,7 +26,11 @@ export default function PublishEnvToggle({ env, availability, switching, onChang
           }`}
           disabled={switching || !liveAvailable || env === "live"}
           aria-pressed={env === "live"}
-          title={!liveAvailable ? "Add live credentials to .env to enable" : undefined}
+          title={
+            !liveAvailable
+              ? "Add META_LIVE_<WORKSPACE>_* / LINKEDIN_LIVE_<WORKSPACE>_* to .env to enable"
+              : undefined
+          }
           onClick={() => onChange("live")}
         >
           <span className="ppc-env-dot" aria-hidden />

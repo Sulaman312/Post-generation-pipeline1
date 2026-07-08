@@ -1,11 +1,9 @@
 """LinkedIn Community Management API — image post publishing to an ORGANIZATION Page.
 
-Environment (see repo `.env.example`):
-  LINKEDIN_ACCESS_TOKEN  — required
-  LINKEDIN_ORG_URN       — required (organization id for urn:li:organization:{id})
-  LINKEDIN_CLIENT_ID     — optional (OAuth setup; not used by publish helper yet)
-  LINKEDIN_CLIENT_SECRET — optional (OAuth setup; not used by publish helper yet)
-  LINKEDIN_REDIRECT_URI  — optional (OAuth setup; not used by publish helper yet)
+Credentials:
+  Test — ``.env`` LINKEDIN_ACCESS_TOKEN / LINKEDIN_ORG_URN (or PERSON_URN)
+  Live — ``.env`` LINKEDIN_LIVE_<WORKSPACE>_ACCESS_TOKEN / _ORG_URN / _PERSON_URN
+         (optional legacy fallback: LINKEDIN_LIVE_* without workspace)
 """
 
 from __future__ import annotations
@@ -30,13 +28,30 @@ def _linkedin_creds() -> dict[str, str | None]:
     return publish_env.linkedin_credentials()
 
 
+def _missing_live_hint() -> str:
+    cid = publish_env.resolve_client_id()
+    if cid:
+        names = publish_env.live_env_var_names(cid)
+        return (
+            f"Set {names['linkedin_access_token']} and "
+            f"{names['linkedin_org_urn']} (or {names['linkedin_person_urn']}) in `.env`."
+        )
+    return (
+        "Pass a workspace client_id, or set LINKEDIN_LIVE_* in `.env` "
+        "as a temporary fallback."
+    )
+
+
 def _access_token() -> str:
     token = (_linkedin_creds().get("access_token") or "").strip()
     if not token:
         env = publish_env.active_publish_env()
-        prefix = "LINKEDIN_LIVE_" if env == "live" else "LINKEDIN_"
+        if env == "live":
+            raise RuntimeError(
+                f"Live LinkedIn access token is not set. {_missing_live_hint()}"
+            )
         raise RuntimeError(
-            f"{prefix}ACCESS_TOKEN is not set for {env} publishing. "
+            "LINKEDIN_ACCESS_TOKEN is not set for test publishing. "
             "Add it to `.env` (see .env.example)."
         )
     return token
@@ -49,9 +64,13 @@ def _get_client() -> requests.Session:
         creds = _linkedin_creds()
         if not (creds.get("org_urn") or creds.get("person_urn")):
             env = publish_env.active_publish_env()
-            prefix = "LINKEDIN_LIVE_" if env == "live" else "LINKEDIN_"
+            if env == "live":
+                raise RuntimeError(
+                    f"Live LinkedIn org_urn or person_urn is required. "
+                    f"{_missing_live_hint()}"
+                )
             raise RuntimeError(
-                f"{prefix}ORG_URN or {prefix}PERSON_URN is required for {env} publishing. "
+                "LINKEDIN_ORG_URN or LINKEDIN_PERSON_URN is required for test publishing. "
                 "Add it to `.env` (see .env.example)."
             )
         _client = requests.Session()
@@ -71,9 +90,12 @@ def _author_urn() -> str:
             return person
         return f"urn:li:person:{person}"
     env = publish_env.active_publish_env()
-    prefix = "LINKEDIN_LIVE_" if env == "live" else "LINKEDIN_"
+    if env == "live":
+        raise RuntimeError(
+            f"Live LinkedIn org_urn or person_urn is not set. {_missing_live_hint()}"
+        )
     raise RuntimeError(
-        f"{prefix}ORG_URN or {prefix}PERSON_URN is not set for {env} publishing."
+        "LINKEDIN_ORG_URN or LINKEDIN_PERSON_URN is not set for test publishing."
     )
 
 

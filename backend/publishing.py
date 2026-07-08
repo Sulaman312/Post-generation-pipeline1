@@ -12,25 +12,25 @@ PLATFORM_LABELS: dict[str, str] = {
 }
 
 
-def is_facebook_connected() -> bool:
-    return publish_env.is_facebook_connected()
+def is_facebook_connected(*, client_id: str | None = None) -> bool:
+    return publish_env.is_facebook_connected(client_id=client_id)
 
 
-def is_instagram_connected() -> bool:
-    return publish_env.is_instagram_connected()
+def is_instagram_connected(*, client_id: str | None = None) -> bool:
+    return publish_env.is_instagram_connected(client_id=client_id)
 
 
-def is_linkedin_connected() -> bool:
-    return publish_env.is_linkedin_connected()
+def is_linkedin_connected(*, client_id: str | None = None) -> bool:
+    return publish_env.is_linkedin_connected(client_id=client_id)
 
 
-def connected_platforms() -> list[str]:
+def connected_platforms(*, client_id: str | None = None) -> list[str]:
     """Platforms with credentials configured for the active publish environment."""
-    return publish_env.connected_platform_keys()
+    return publish_env.connected_platform_keys(client_id=client_id)
 
 
-def connected_platform_rows() -> list[dict[str, str]]:
-    connected = set(connected_platforms())
+def connected_platform_rows(*, client_id: str | None = None) -> list[dict[str, str]]:
+    connected = set(connected_platforms(client_id=client_id))
     return [
         {"key": key, "label": PLATFORM_LABELS.get(key, key), "connected": key in connected}
         for key in PLATFORM_KEYS

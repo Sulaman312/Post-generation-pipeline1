@@ -47,7 +47,7 @@ export default function PublishPlatformControls({
     void (async () => {
       setLoadingConnected(true);
       try {
-        const settings = await api.getPublishSettings();
+        const settings = await api.getPublishSettings(client);
         if (cancelled) return;
         setPublishEnv(settings.env || "test");
         setEnvAvailability(settings.availability || { test: true, live: false });
@@ -58,7 +58,7 @@ export default function PublishPlatformControls({
       } catch (e) {
         if (cancelled) return;
         try {
-          const rows = await api.getConnectedPlatforms();
+          const rows = await api.getConnectedPlatforms(client);
           setConnected(
             rows.filter((row) => row?.connected && row?.key).map((row) => row.key)
           );
@@ -72,13 +72,13 @@ export default function PublishPlatformControls({
     return () => {
       cancelled = true;
     };
-  }, [toast]);
+  }, [client, toast]);
 
   async function handlePublishEnvChange(nextEnv) {
     if (switchingEnv || nextEnv === publishEnv) return;
     setSwitchingEnv(true);
     try {
-      const settings = await api.setPublishEnv(nextEnv);
+      const settings = await api.setPublishEnv(nextEnv, client);
       setPublishEnv(settings.env || nextEnv);
       setEnvAvailability(settings.availability || envAvailability);
       const keys = (settings.connected_platforms || []).map((row) =>
@@ -352,12 +352,18 @@ export default function PublishPlatformControls({
         </p>
       ) : connected.length === 0 ? (
         <p className="publish-platform-empty">
-          No accounts connected for <strong>{publishEnv}</strong> — add credentials in{" "}
-          <code>.env</code>
+          No accounts connected for <strong>{publishEnv}</strong>
           {publishEnv === "test" ? (
-            <> (META_*, LINKEDIN_*)</>
+            <>
+              {" "}
+              — add credentials in <code>.env</code> (META_*, LINKEDIN_*)
+            </>
           ) : (
-            <> (META_LIVE_*, LINKEDIN_LIVE_*)</>
+            <>
+              {" "}
+              — add META_LIVE_&lt;WORKSPACE&gt;_* / LINKEDIN_LIVE_&lt;WORKSPACE&gt;_*
+              in <code>.env</code>
+            </>
           )}
         </p>
       ) : (

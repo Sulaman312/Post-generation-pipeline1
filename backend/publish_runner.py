@@ -31,19 +31,19 @@ _CHANNEL_SPECS = (
     (
         "facebook",
         "Facebook",
-        lambda: publish_env.is_facebook_connected(),
+        publish_env.is_facebook_connected,
         meta_graph.publish_facebook_post,
     ),
     (
         "instagram",
         "Instagram",
-        lambda: publish_env.is_instagram_connected(),
+        publish_env.is_instagram_connected,
         meta_graph.publish_instagram_post,
     ),
     (
         "linkedin",
         "LinkedIn",
-        lambda: publish_env.is_linkedin_connected(),
+        publish_env.is_linkedin_connected,
         linkedin_api.publish_linkedin_post,
     ),
 )
@@ -65,24 +65,40 @@ def publish_to_platforms(
     include_unselected: bool = True,
 ) -> PublishOutcome:
     """Publish to the given platform keys. Other selected platforms may be skipped."""
-    manifest = _load_manifest(client_id, run_id)
-    selected = set(normalize_platforms(manifest.get("platforms"), allow_empty=True))
-    targets = {p for p in platforms_to_publish if p in selected}
-    already_published = published_platform_keys(
-        normalize_run_record_fields(manifest).get("published_results")
-    )
-    targets -= already_published
-    captions_md = artifacts.load_artifact(client_id, run_id, "captions")
-    caption_by_channel = _split_captions_by_channel(captions_md)
+    with publish_env.using_publish_client(client_id):
+        manifest = _load_manifest(client_id, run_id)
+        selected = set(normalize_platforms(manifest.get("platforms"), allow_empty=True))
+        targets = {p for p in platforms_to_publish if p in selected}
+        already_published = published_platform_keys(
+            normalize_run_record_fields(manifest).get("published_results")
+        )
+        targets -= already_published
+        captions_md = artifacts.load_artifact(client_id, run_id, "captions")
+        caption_by_channel = _split_captions_by_channel(captions_md)
 
-    lines = ["Publish results:", ""]
-    published_results: list[dict] = []
-    any_published = False
-    any_failed = False
+        lines = ["Publish results:", ""]
+        published_results: list[dict] = []
+        any_published = False
+        any_failed = False
 
-    for channel_key, label, is_connected, publish_fn in _CHANNEL_SPECS:
-        if channel_key not in targets:
-            if include_unselected:
+        for channel_key, label, is_connected, publish_fn in _CHANNEL_SPECS:
+            if channel_key not in targets:
+                if include_unselected:
+                    lines.append(f"## {label}")
+                    lines.append("- Status: Skipped — not selected")
+                    published_results.append(
+                        {
+                            "platform": channel_key,
+                            "status": "skipped",
+                            "published_at": None,
+                            "post_url": None,
+                            "error": None,
+                        }
+                    )
+                    lines.append("")
+                continue
+
+            if channel_key not in selected:
                 lines.append(f"## {label}")
                 lines.append("- Status: Skipped — not selected")
                 published_results.append(
@@ -95,80 +111,65 @@ def publish_to_platforms(
                     }
                 )
                 lines.append("")
-            continue
+                continue
 
-        if channel_key not in selected:
             lines.append(f"## {label}")
-            lines.append("- Status: Skipped — not selected")
-            published_results.append(
-                {
-                    "platform": channel_key,
-                    "status": "skipped",
-                    "published_at": None,
-                    "post_url": None,
-                    "error": None,
-                }
-            )
+
+            if not is_connected(client_id=client_id):
+                lines.append("- Status: Skipped — not connected")
+                published_results.append(
+                    {
+                        "platform": channel_key,
+                        "status": "skipped",
+                        "published_at": None,
+                        "post_url": None,
+                        "error": "not connected",
+                    }
+                )
+                lines.append("")
+                continue
+
+            try:
+                image_path = _channel_export_image_path(client_id, run_id, channel_key)
+                if not image_path.is_file():
+                    raise RuntimeError(f"Exported image not found: {image_path.name}")
+                caption = caption_by_channel.get(channel_key, "").strip()
+                post_id = publish_fn(str(image_path), caption)
+                lines.append("- Status: Posted")
+                lines.append(f"- Post id: {post_id}")
+                published_results.append(
+                    {
+                        "platform": channel_key,
+                        "status": "published",
+                        "published_at": datetime.now().isoformat(),
+                        "post_url": None,
+                        "error": None,
+                    }
+                )
+                any_published = True
+            except Exception as exc:
+                logger.exception("Publish to %s failed", label)
+                lines.append("- Status: Failed")
+                lines.append(f"- Error: {exc}")
+                published_results.append(
+                    {
+                        "platform": channel_key,
+                        "status": "failed",
+                        "published_at": None,
+                        "post_url": None,
+                        "error": str(exc),
+                    }
+                )
+                any_failed = True
             lines.append("")
-            continue
 
-        lines.append(f"## {label}")
-
-        if not is_connected():
-            lines.append("- Status: Skipped — not connected")
-            published_results.append(
-                {
-                    "platform": channel_key,
-                    "status": "skipped",
-                    "published_at": None,
-                    "post_url": None,
-                    "error": "not connected",
-                }
-            )
-            lines.append("")
-            continue
-
-        try:
-            image_path = _channel_export_image_path(client_id, run_id, channel_key)
-            if not image_path.is_file():
-                raise RuntimeError(f"Exported image not found: {image_path.name}")
-            caption = caption_by_channel.get(channel_key, "").strip()
-            post_id = publish_fn(str(image_path), caption)
-            lines.append("- Status: Posted")
-            lines.append(f"- Post id: {post_id}")
-            published_results.append(
-                {
-                    "platform": channel_key,
-                    "status": "published",
-                    "published_at": datetime.now().isoformat(),
-                    "post_url": None,
-                    "error": None,
-                }
-            )
-            any_published = True
-        except Exception as exc:
-            logger.exception("Publish to %s failed", label)
-            lines.append("- Status: Failed")
-            lines.append(f"- Error: {exc}")
-            published_results.append(
-                {
-                    "platform": channel_key,
-                    "status": "failed",
-                    "published_at": None,
-                    "post_url": None,
-                    "error": str(exc),
-                }
-            )
-            any_failed = True
-        lines.append("")
-
-    content = "\n".join(lines).strip() + "\n"
-    return PublishOutcome(
-        published_results=published_results,
-        any_published=any_published,
-        any_failed=any_failed,
-        content=content,
-    )
+        content = "\n".join(lines).strip() + "\n"
+        return PublishOutcome(
+            published_results=published_results,
+            any_published=any_published,
+            any_failed=any_failed,
+            content=content,
+        )
 
 
 def persist_publish_outcome(

@@ -8,9 +8,23 @@ from backend.publishing import connected_platform_rows
 from backend.run_record import PLATFORMS, normalize_platforms
 
 
+def _client_id_from_request() -> str | None:
+    raw = request.args.get("client_id") or request.args.get("client")
+    if raw is None and request.method in {"PUT", "POST", "PATCH"}:
+        body = request.get_json(silent=True) or {}
+        raw = body.get("client_id") or body.get("client")
+    text = str(raw or "").strip()
+    return text or None
+
+
 @api_bp.get("/publishing/settings")
 def get_publish_settings():
-    return jsonify(publish_env.settings_payload())
+    client_id = _client_id_from_request()
+    if client_id:
+        bad = reject_client(client_id)
+        if bad:
+            return bad
+    return jsonify(publish_env.settings_payload(client_id=client_id))
 
 
 @api_bp.put("/publishing/settings")
@@ -19,18 +33,29 @@ def put_publish_settings():
     env = body.get("env")
     if not env:
         return jsonify(detail="env is required (test or live)"), 400
+    client_id = _client_id_from_request()
+    if client_id:
+        bad = reject_client(client_id)
+        if bad:
+            return bad
     try:
-        publish_env.set_active_publish_env(str(env))
+        publish_env.set_active_publish_env(str(env), client_id=client_id)
     except ValueError as exc:
         return jsonify(detail=str(exc)), 400
-    return jsonify(publish_env.settings_payload())
+    return jsonify(publish_env.settings_payload(client_id=client_id))
 
 
 @api_bp.get("/publishing/connected-platforms")
 def list_connected_platforms():
+    client_id = _client_id_from_request()
+    if client_id:
+        bad = reject_client(client_id)
+        if bad:
+            return bad
     return jsonify(
         env=publish_env.active_publish_env(),
-        platforms=connected_platform_rows(),
+        platforms=connected_platform_rows(client_id=client_id),
+        client_id=client_id,
     )
 
 

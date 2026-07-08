@@ -1,11 +1,9 @@
 """Meta Graph API — Facebook Page and Instagram publishing.
 
-Environment (see repo `.env.example`):
-  META_PAGE_ACCESS_TOKEN — required for all calls
-  META_PAGE_ID           — required for Facebook + temp image hosting
-  META_IG_USER_ID        — required for Instagram publishing
-  META_APP_ID            — optional (OAuth setup; not used by publish helpers yet)
-  META_APP_SECRET        — optional (OAuth setup; not used by publish helpers yet)
+Credentials:
+  Test — ``.env`` META_PAGE_ACCESS_TOKEN / META_PAGE_ID / META_IG_USER_ID
+  Live — ``.env`` META_LIVE_<WORKSPACE>_PAGE_ACCESS_TOKEN / _PAGE_ID / _IG_USER_ID
+         (optional legacy fallback: META_LIVE_PAGE_* without workspace)
 """
 
 from __future__ import annotations
@@ -33,13 +31,30 @@ def _meta_creds() -> dict[str, str | None]:
     return publish_env.meta_credentials()
 
 
+def _missing_live_hint() -> str:
+    cid = publish_env.resolve_client_id()
+    if cid:
+        names = publish_env.live_env_var_names(cid)
+        return (
+            f"Set {names['meta_page_access_token']}, {names['meta_page_id']}, "
+            f"and {names['meta_ig_user_id']} in `.env`."
+        )
+    return (
+        "Pass a workspace client_id, or set META_LIVE_PAGE_* in `.env` "
+        "as a temporary fallback."
+    )
+
+
 def _page_access_token() -> str:
     token = (_meta_creds().get("page_access_token") or "").strip()
     if not token:
         env = publish_env.active_publish_env()
-        prefix = "META_LIVE_" if env == "live" else "META_"
+        if env == "live":
+            raise RuntimeError(
+                f"Live Meta page access token is not set. {_missing_live_hint()}"
+            )
         raise RuntimeError(
-            f"{prefix}PAGE_ACCESS_TOKEN is not set for {env} publishing. "
+            "META_PAGE_ACCESS_TOKEN is not set for test publishing. "
             "Add it to `.env` (see .env.example)."
         )
     return token
@@ -57,9 +72,10 @@ def _require_page_id() -> str:
     page_id = (_meta_creds().get("page_id") or "").strip()
     if not page_id:
         env = publish_env.active_publish_env()
-        prefix = "META_LIVE_" if env == "live" else "META_"
+        if env == "live":
+            raise RuntimeError(f"Live Meta page id is not set. {_missing_live_hint()}")
         raise RuntimeError(
-            f"{prefix}PAGE_ID is not set for {env} publishing. "
+            "META_PAGE_ID is not set for test publishing. "
             "Add it to `.env` (see .env.example)."
         )
     return page_id
@@ -69,9 +85,12 @@ def _require_ig_user_id() -> str:
     ig_user_id = (_meta_creds().get("ig_user_id") or "").strip()
     if not ig_user_id:
         env = publish_env.active_publish_env()
-        prefix = "META_LIVE_" if env == "live" else "META_"
+        if env == "live":
+            raise RuntimeError(
+                f"Live Instagram user id is not set. {_missing_live_hint()}"
+            )
         raise RuntimeError(
-            f"{prefix}IG_USER_ID is not set for {env} publishing. "
+            "META_IG_USER_ID is not set for test publishing. "
             "Add it to `.env` (see .env.example)."
         )
     return ig_user_id
