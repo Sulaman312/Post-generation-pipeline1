@@ -1,4 +1,4 @@
-const KEY_LINE = /^([A-Z][A-Z0-9 \-]+):\s*(.*)$/;
+const KEY_LINE = /^([A-Z][A-Z0-9 -]+):\s*(.*)$/;
 const SUB_KEY_LINE = /^\s{2,}([^:]+):\s*(.*)$/;
 
 function titleCaseFieldLabel(key) {

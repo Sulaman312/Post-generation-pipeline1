@@ -251,7 +251,7 @@ function ScheduleDatePicker({ value, minDate, disabled, onChange }) {
               ]
                 .filter(Boolean)
                 .join(" ")}
-              aria-pressed={isSelected}
+              aria-selected={isSelected}
               onClick={() => selectDay(day)}
             >
               {day}
@@ -367,7 +367,7 @@ export default function SchedulePublishModal({
   platformCount = 0,
   platformLabel = null,
 }) {
-  const minDate = useMemo(() => localDateInputValue(), [open]);
+  const minDate = useMemo(() => localDateInputValue(), []);
   const [date, setDate] = useState(minDate);
   const [timeParts, setTimeParts] = useState({ hour12: 9, minute: 0, period: "AM" });
   const [error, setError] = useState(null);

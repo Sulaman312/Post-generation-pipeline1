@@ -306,7 +306,7 @@ export default function ContextEditorDrawer({ client, open, onClose }) {
           ) : (
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
               {orderedRows.map((row) => {
-                const lbl = labelByFilename[row.filename] ?? row.filename;
+                const label = labelByFilename[row.filename] ?? row.filename;
                 return (
                   <button
                     key={row.filename}
@@ -326,7 +326,7 @@ export default function ContextEditorDrawer({ client, open, onClose }) {
                     }}
                     title={row.exists ? `${row.bytes} bytes on disk` : "Not saved yet"}
                   >
-                    <span>{row.filename}</span>
+                    <span>{label}</span>
                     {" · "}
                     <strong style={{ fontWeight: 700 }}>
                       {row.exists ? "present" : "missing"}

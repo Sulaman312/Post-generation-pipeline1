@@ -97,6 +97,8 @@ export function RunNavSection({
       cancelled = true;
       clearInterval(id);
     };
+    // Poll by client/run only; loadRun closes over latest statusOverrides.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional client/runId poll
   }, [client, runId]);
 
   const serverStatuses = run?.statuses || {};

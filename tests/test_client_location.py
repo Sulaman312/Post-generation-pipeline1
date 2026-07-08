@@ -5,8 +5,8 @@ from __future__ import annotations
 import unittest
 
 from backend.client_location import (
-    extract_client_location_from_context,
     _looks_like_street_address,
+    extract_client_location_from_context,
 )
 from backend.run_location import location_from_manifest, normalize_run_location
 

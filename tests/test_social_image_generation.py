@@ -5,7 +5,6 @@ from __future__ import annotations
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
 
 from backend import artifacts, config
 from backend.social_image_generation import load_image_prompt_markdown

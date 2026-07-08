@@ -37,7 +37,10 @@ export default function PublishPlatformControls({
   const syncPreferenceRef = useRef(null);
 
   const record = useMemo(() => runRecordFromRun(run), [run]);
-  const platformSchedules = record.platform_schedules || {};
+  const platformSchedules = useMemo(
+    () => record.platform_schedules || {},
+    [record.platform_schedules]
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -106,6 +109,8 @@ export default function PublishPlatformControls({
     initialSyncPlatformsRef.current = true;
     setSyncSchedules(schedulesAreSynced(platformSchedules, selected));
     setScheduleEditUnlocked(false);
+    // Only reset when switching runs; schedule sync is handled in the effect below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional runId-only reset
   }, [runId]);
 
   useEffect(() => {

@@ -303,7 +303,7 @@ function renderParagraphBlock(block, key) {
     }
   }
 
-  const metaLine = trimmed.match(/^([A-Z][A-Z0-9_ \-]+):\s*(.+)$/);
+  const metaLine = trimmed.match(/^([A-Z][A-Z0-9_ -]+):\s*(.+)$/);
   if (metaLine && !trimmed.includes("**") && !/^H[1-6]$/i.test(metaLine[1].trim())) {
     return (
       <div key={key} className="md-meta-line">

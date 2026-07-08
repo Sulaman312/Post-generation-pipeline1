@@ -281,7 +281,6 @@ def suggest_overlay_text(client_id: str, run_id: str):
     if bad_run:
         return bad_run
     from backend import artifacts
-
     from backend.social_steps import load_angle_intent
 
     profile = ""

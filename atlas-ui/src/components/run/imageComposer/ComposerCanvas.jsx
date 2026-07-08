@@ -135,6 +135,7 @@ export default function ComposerCanvas({
       if (!disposed) onErrorRef.current?.(err);
     });
 
+    const hostEl = host;
     return () => {
       disposed = true;
       try {
@@ -142,12 +143,12 @@ export default function ComposerCanvas({
       } catch {
         /* Fabric may already be torn down */
       }
-      const wrap = hostRef.current?.closest(".image-composer-canvas-wrap");
+      const wrap = hostEl.closest(".image-composer-canvas-wrap");
       if (wrap) {
         wrap.style.width = "";
         wrap.style.height = "";
       }
-      host.replaceChildren();
+      hostEl.replaceChildren();
     };
   }, [client, runId, primaryImage]);
 

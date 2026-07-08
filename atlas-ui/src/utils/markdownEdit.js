@@ -24,7 +24,7 @@ export function applyEdit(textarea, newValue, selectionStart, selectionEnd, onCh
 
 /** Wrap selection or placeholder with markers, e.g. **bold**. */
 export function wrapSelection(textarea, before, after, placeholder, onChange) {
-  const { start, end, value, selected, before: pre, after: post } =
+  const { start, selected, before: pre, after: post } =
     getSelection(textarea);
   const inner = selected || placeholder;
   const wrapped = `${before}${inner}${after}`;
@@ -79,7 +79,7 @@ export function setHeadingLevel(textarea, level, onChange) {
 }
 
 export function insertLink(textarea, onChange) {
-  const { start, end, value, selected, before, after } = getSelection(textarea);
+  const { start, selected, before, after } = getSelection(textarea);
   const label = selected || "link text";
   const url = "https://";
   const md = `[${label}](${url})`;
@@ -90,7 +90,7 @@ export function insertLink(textarea, onChange) {
 }
 
 export function insertHorizontalRule(textarea, onChange) {
-  const { start, end, value, before, after } = getSelection(textarea);
+  const { start, before, after } = getSelection(textarea);
   const insert = (before.endsWith("\n") || before === "" ? "" : "\n\n") + "---\n\n";
   const newValue = before + insert + after;
   applyEdit(textarea, newValue, start + insert.length, start + insert.length, onChange);

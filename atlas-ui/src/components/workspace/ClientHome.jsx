@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import * as api from "../../services/api";
 import { useToast } from "../../context/ToastContext";
 import ContextDrawer from "./ContextDrawer";
@@ -22,26 +22,25 @@ export default function ClientHome({
   const { toast } = useToast();
   const [runs, setRuns] = useState([]);
   const [loadingRuns, setLoadingRuns] = useState(true);
-  const [error, setError] = useState(null);
   const [contextOpen, setContextOpen] = useState(false);
   const [editorOpen, setEditorOpen] = useState(false);
   const [artifactSpecs, setArtifactSpecs] = useState([]);
 
-  async function loadRuns() {
+  const loadRuns = useCallback(async () => {
     setLoadingRuns(true);
     try {
       const list = await api.getRuns(client);
       setRuns(list);
     } catch (e) {
-      setError(e?.message || String(e));
+      toast(e?.message || String(e), { variant: "error" });
     } finally {
       setLoadingRuns(false);
     }
-  }
+  }, [client, toast]);
 
   useEffect(() => {
     loadRuns();
-  }, [client]);
+  }, [loadRuns]);
 
   const isOverview = workspaceView === "overview";
   const isArtifacts = workspaceView === "artifacts";

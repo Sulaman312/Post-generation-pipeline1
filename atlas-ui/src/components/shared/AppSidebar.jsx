@@ -53,10 +53,7 @@ export default function AppSidebar({
   const workspaceTitle = formatWorkspaceLabel(client);
 
   return (
-    <aside
-      className={`sb${collapsed ? " sb--collapsed" : ""}`}
-      aria-expanded={!collapsed}
-    >
+    <aside className={`sb${collapsed ? " sb--collapsed" : ""}`}>
       <div className="sb-brand">
         <div className="sb-brand-main">
           <div className="sb-brand-logo-wrap" aria-hidden>
