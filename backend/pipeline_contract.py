@@ -3,21 +3,43 @@
 from __future__ import annotations
 
 import json
+import os
 from functools import lru_cache
+from pathlib import Path
 from typing import Any
 
 from . import config
 
-_CONTRACT_PATH = (
-    config.REPO_ROOT / "atlas-ui" / "src" / "constants" / "pipeline-contract.json"
-)
+
+def _candidate_contract_paths() -> tuple[Path, ...]:
+    override = (os.getenv("PIPELINE_CONTRACT_PATH") or "").strip()
+    candidates: list[Path] = []
+    if override:
+        override_path = Path(override)
+        if not override_path.is_absolute():
+            override_path = (config.REPO_ROOT / override_path).resolve()
+        candidates.append(override_path)
+
+    candidates.extend(
+        [
+            config.REPO_ROOT / "atlas-ui" / "src" / "constants" / "pipeline-contract.json",
+            config.REPO_ROOT / "atlas-ui" / "constants" / "pipeline-contract.json",
+        ]
+    )
+    return tuple(candidates)
+
+
+def contract_path() -> Path:
+    for path in _candidate_contract_paths():
+        if path.is_file():
+            return path
+    searched = ", ".join(str(path) for path in _candidate_contract_paths())
+    raise FileNotFoundError(f"Pipeline contract not found. Tried: {searched}")
 
 
 @lru_cache(maxsize=1)
 def load_contract() -> dict[str, Any]:
-    if not _CONTRACT_PATH.is_file():
-        raise FileNotFoundError(f"Pipeline contract not found: {_CONTRACT_PATH}")
-    data = json.loads(_CONTRACT_PATH.read_text(encoding="utf-8"))
+    data = json.loads(contract_path().read_text(encoding="utf-8"))
     if not isinstance(data, dict):
         raise ValueError("pipeline-contract.json must be a JSON object")
     return data

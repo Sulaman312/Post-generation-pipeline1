@@ -1,20 +1,21 @@
 import unittest
 
 from backend import config
-from backend.pipeline_contract import load_contract, step_order
+from backend.pipeline_contract import contract_path, load_contract, step_order
 from backend.social_pipeline import STEP_ORDER
 
 
 class PipelineContractTests(unittest.TestCase):
     def test_contract_file_exists(self):
-        path = (
-            config.REPO_ROOT
-            / "atlas-ui"
-            / "src"
-            / "constants"
-            / "pipeline-contract.json"
-        )
+        path = contract_path()
         self.assertTrue(path.is_file(), f"missing contract: {path}")
+
+    def test_contract_file_is_under_known_runtime_locations(self):
+        expected_paths = {
+            config.REPO_ROOT / "atlas-ui" / "src" / "constants" / "pipeline-contract.json",
+            config.REPO_ROOT / "atlas-ui" / "constants" / "pipeline-contract.json",
+        }
+        self.assertIn(contract_path(), expected_paths)
 
     def test_backend_step_order_matches_contract(self):
         self.assertEqual(STEP_ORDER, step_order())

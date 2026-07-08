@@ -20,6 +20,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY backend/ backend/
 COPY scripts/ scripts/
 COPY main.py ./
+COPY atlas-ui/src/constants/pipeline-contract.json atlas-ui/constants/pipeline-contract.json
 COPY --from=ui-build /app/atlas-ui/build atlas-ui/build
 
 EXPOSE 8001
