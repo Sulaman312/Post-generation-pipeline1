@@ -6,3 +6,4 @@ export * from "./runs";
 export * from "./images";
 export * from "./publishing";
 export * from "./context";
+export * from "./auth";

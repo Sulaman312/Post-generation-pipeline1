@@ -80,6 +80,20 @@ LINKEDIN_ACCESS_TOKEN = (os.getenv("LINKEDIN_ACCESS_TOKEN") or "").strip() or No
 LINKEDIN_ORG_URN = (os.getenv("LINKEDIN_ORG_URN") or "").strip() or None
 LINKEDIN_PERSON_URN = (os.getenv("LINKEDIN_PERSON_URN") or "").strip() or None
 
+# App login (users + sessions stored in MongoDB)
+AUTH_ENABLED = (os.getenv("AUTH_ENABLED") or "1").strip().lower() not in (
+    "0",
+    "false",
+    "no",
+)
+AUTH_SECRET_KEY = (
+    os.getenv("AUTH_SECRET_KEY") or "contentflow-dev-secret-change-me"
+).strip()
+try:
+    AUTH_SESSION_DAYS = int(os.getenv("AUTH_SESSION_DAYS") or "7")
+except ValueError:
+    AUTH_SESSION_DAYS = 7
+
 # Perplexity Sonar (optional — Step `serp_research` uses manual placeholder if unset)
 PERPLEXITY_API_KEY = (os.getenv("PERPLEXITY_API_KEY") or "").strip() or None
 PERPLEXITY_MODEL = (os.getenv("PERPLEXITY_MODEL") or "sonar").strip() or "sonar"

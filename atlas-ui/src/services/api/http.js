@@ -23,6 +23,29 @@ export const REQUEST_TIMEOUT_MS = 30000;
 export const STEP_REQUEST_TIMEOUT_MS = 900000;
 export const STEP_POLL_INTERVAL_MS = 2000;
 
+const AUTH_TOKEN_KEY = "cf_auth_token";
+
+export function getAuthToken() {
+  try {
+    return sessionStorage.getItem(AUTH_TOKEN_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function setAuthToken(token) {
+  try {
+    if (token) sessionStorage.setItem(AUTH_TOKEN_KEY, token);
+    else sessionStorage.removeItem(AUTH_TOKEN_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+export function clearAuthToken() {
+  setAuthToken(null);
+}
+
 function isLocalBrowser() {
   if (typeof window === "undefined") return false;
   return ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
@@ -108,11 +131,13 @@ export async function request(path, options = {}) {
   }
 
   try {
+    const token = getAuthToken();
     const res = await fetch(`${BASE}${path}`, {
       ...fetchOptions,
       signal: controller.signal,
       headers: {
         Accept: "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...(fetchOptions.headers || {}),
       },
     });

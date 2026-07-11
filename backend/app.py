@@ -6,7 +6,7 @@ from pathlib import Path
 from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 
-from backend import mongo_storage
+from backend import auth_store, mongo_storage
 from backend.api.routes import api_bp
 from backend.logging_config import configure_logging, register_request_logging
 from backend.schedule_publisher import start_schedule_publisher
@@ -28,8 +28,6 @@ def _request_can_change_workspace() -> bool:
 def create_app() -> Flask:
     configure_logging(level=logging.INFO)
     logger.info("ContentFlow backend starting")
-    mongo_storage.initialize_runtime_cache()
-    start_schedule_publisher()
 
     ui_build_dir = Path(__file__).resolve().parent.parent / "atlas-ui" / "build"
     app = Flask(
@@ -37,6 +35,17 @@ def create_app() -> Flask:
         static_folder=str(ui_build_dir / "static"),
         static_url_path="/static",
     )
+    from backend import config as app_config
+
+    app.secret_key = app_config.AUTH_SECRET_KEY
+    mongo_storage.initialize_runtime_cache()
+    if app_config.AUTH_ENABLED:
+        try:
+            auth_store.ensure_default_user()
+        except Exception:
+            logger.exception("Could not seed default app login user")
+    start_schedule_publisher()
+
     # Match prior FastAPI behavior: allow browser dev servers on any port (:3000, :3001, …).
     CORS(
         app,

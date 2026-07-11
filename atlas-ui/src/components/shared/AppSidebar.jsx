@@ -8,7 +8,7 @@ import {
 } from "../../hooks/useSidebarResize";
 import { formatWorkspaceLabel } from "../../utils/formatWorkspaceLabel";
 import WorkspaceLogo from "../workspace/WorkspaceLogo";
-import { IconChevronLeft, IconChevronRight } from "./sidebar/sidebarIcons";
+import { IconChevronLeft, IconChevronRight, IconLogout } from "./sidebar/sidebarIcons";
 import { ClientNavSection } from "./sidebar/sidebarNav";
 import { RunNavSection } from "./sidebar/RunNavSection";
 
@@ -22,6 +22,8 @@ export default function AppSidebar({
   activeStepKey,
   onSelectStep,
   onGoHome,
+  onLogout,
+  authUsername = "",
   onClearRun,
   workspaceView = "overview",
   onWorkspaceViewChange,
@@ -69,6 +71,7 @@ export default function AppSidebar({
               size={40}
               className="sb-brand-logo"
               cacheKey={logoVersion}
+              displayName={workspaceTitle}
             />
           </div>
           {!collapsed ? (
@@ -125,7 +128,21 @@ export default function AppSidebar({
 
       <div className="sb-foot">
         {!collapsed ? (
-          <span>{APP_BRAND_NAME} • {stepsForPipeline().length} steps</span>
+          <div className="sb-foot-inner">
+            <span>{APP_BRAND_NAME} • {stepsForPipeline().length} steps</span>
+            {authUsername ? (
+              <button
+                type="button"
+                className="sb-foot-logout"
+                onClick={onLogout}
+                title={`Log out ${authUsername}`}
+                aria-label={`Log out ${authUsername}`}
+              >
+                <IconLogout />
+                Logout
+              </button>
+            ) : null}
+          </div>
         ) : runId ? null : (
           <span className="sb-foot-expand-hint" title="Expand sidebar" aria-hidden>
             ···

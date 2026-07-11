@@ -75,4 +75,34 @@
   font-size: 13px;
   letter-spacing: 0.02em;
   border: 1px solid var(--border);
+  padding: 4px;
+  box-sizing: border-box;
+  text-align: center;
+}
+
+.ws-logo--text .ws-logo-text {
+  display: block;
+  max-width: 100%;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ws-logo--loading {
+  background: #f1f5f9;
+  animation: ws-logo-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes ws-logo-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
 }

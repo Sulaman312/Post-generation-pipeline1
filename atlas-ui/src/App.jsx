@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import "./App.css";
+import LoginScreen from "./components/auth/LoginScreen";
 import AppSidebar from "./components/shared/AppSidebar";
+import { IconLogout } from "./components/shared/sidebar/sidebarIcons";
 import ClientsGrid from "./components/workspace/ClientsGrid";
 import WorkspaceMain from "./components/workspace/WorkspaceMain";
 import { ToastProvider } from "./context/ToastContext";
@@ -8,10 +10,14 @@ import { APP_BRAND_NAME, APP_LOGO } from "./constants/brand";
 import { appProductMeta } from "./constants/appProject";
 import { readStoredSidebarWidth } from "./hooks/useSidebarResize";
 import { useWorkspaceNavigation } from "./hooks/useWorkspaceNavigation";
+import * as api from "./services/api";
+import { getAuthToken } from "./services/api/http";
 
 const PRODUCT = appProductMeta();
 
 function App() {
+  const [authUser, setAuthUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
   const [client, setClient] = useState(null);
   const [runId, setRunId] = useState(null);
   const [activeStepKey, setActiveStepKey] = useState("client_profile_topic");
@@ -77,6 +83,54 @@ function App() {
     setLogoVersions((v) => ({ ...v, [clientId]: Date.now() }));
   }
 
+  useEffect(() => {
+    let cancelled = false;
+    async function restoreSession() {
+      if (!getAuthToken()) {
+        if (!cancelled) {
+          setAuthUser(null);
+          setAuthLoading(false);
+        }
+        return;
+      }
+      try {
+        const data = await api.getSession();
+        if (!cancelled) setAuthUser(data?.user || null);
+      } catch {
+        if (!cancelled) {
+          api.clearAuthToken();
+          setAuthUser(null);
+        }
+      } finally {
+        if (!cancelled) setAuthLoading(false);
+      }
+    }
+    restoreSession();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function handleLogout() {
+    await api.logout();
+    setAuthUser(null);
+    goHome();
+  }
+
+  if (authLoading) {
+    return (
+      <div className="login-screen">
+        <div className="empty-state">
+          <span className="spinner" /> Checking session…
+        </div>
+      </div>
+    );
+  }
+
+  if (!authUser) {
+    return <LoginScreen onLoggedIn={setAuthUser} />;
+  }
+
   if (!client) {
     return (
       <div className="layout-flat">
@@ -94,6 +148,10 @@ function App() {
               <span className="topbar-meta">{PRODUCT.workspaceTagline}</span>
             </div>
           </div>
+          <button type="button" className="btn btn-sm topbar-logout" onClick={handleLogout}>
+            <IconLogout />
+            Logout
+          </button>
         </header>
         <main className="layout-main">
           <ClientsGrid
@@ -126,6 +184,8 @@ function App() {
         activeStepKey={activeStepKey}
         onSelectStep={setActiveStepKey}
         onGoHome={goHome}
+        onLogout={handleLogout}
+        authUsername={authUser?.username}
         onClearRun={closeRun}
         workspaceView={workspaceView}
         onWorkspaceViewChange={handleWorkspaceViewChange}

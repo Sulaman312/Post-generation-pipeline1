@@ -126,6 +126,14 @@ def database_file_count() -> int:
     return int(files.count_documents({}))
 
 
+def database():
+    """Return the pymongo database handle when MongoDB is configured."""
+    if not enabled():
+        return None
+    _connect()
+    return _db
+
+
 def connection_status() -> dict[str, object]:
     """Ping MongoDB when configured; used by /health for diagnostics."""
     if not enabled():
