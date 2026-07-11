@@ -61,5 +61,19 @@ class AuthStoreTests(unittest.TestCase):
         self.assertEqual(user["username"], "sulaman312")
 
 
+    @patch("backend.auth_store.mongo_storage.database")
+    def test_resolve_session_from_cookie(self, db_mock):
+        db_mock.return_value = self.db
+        req = MagicMock()
+        req.headers = {}
+        req.cookies = {"cf_session": "cookie-token"}
+        with patch.object(
+            auth_store, "user_from_token", return_value={"username": "sulaman312"}
+        ) as user_from_token:
+            user = auth_store.resolve_request_user(req)
+        self.assertEqual(user["username"], "sulaman312")
+        user_from_token.assert_called_once_with("cookie-token")
+
+
 if __name__ == "__main__":
     unittest.main()

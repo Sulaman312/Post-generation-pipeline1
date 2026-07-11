@@ -93,6 +93,13 @@ try:
     AUTH_SESSION_DAYS = int(os.getenv("AUTH_SESSION_DAYS") or "7")
 except ValueError:
     AUTH_SESSION_DAYS = 7
+AUTH_COOKIE_NAME = (os.getenv("AUTH_COOKIE_NAME") or "cf_session").strip() or "cf_session"
+AUTH_COOKIE_SECURE = (os.getenv("AUTH_COOKIE_SECURE") or "").strip().lower() in (
+    "1",
+    "true",
+    "yes",
+)
+AUTH_COOKIE_SAMESITE = (os.getenv("AUTH_COOKIE_SAMESITE") or "Lax").strip() or "Lax"
 
 # Perplexity Sonar (optional — Step `serp_research` uses manual placeholder if unset)
 PERPLEXITY_API_KEY = (os.getenv("PERPLEXITY_API_KEY") or "").strip() or None

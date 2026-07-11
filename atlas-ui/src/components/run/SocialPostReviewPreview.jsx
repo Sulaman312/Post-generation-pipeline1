@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import * as api from "../../services/api";
+import AuthImage from "../shared/AuthImage";
 import "./ImageGenerationStep.css";
 
 export const PLATFORM_PREVIEW_ORDER = [
@@ -120,10 +121,10 @@ function Avatar({ client, brand, className = "" }) {
   return (
     <div className={`social-preview-avatar ${className}`}>
       {!failed ? (
-        <img
+        <AuthImage
           src={api.clientLogoUrl(client)}
           alt=""
-          onError={() => setFailed(true)}
+          onFailed={() => setFailed(true)}
         />
       ) : (
         <span>{initials || "CF"}</span>
@@ -220,7 +221,7 @@ function PreviewImage({ imageUrl, alt }) {
   }
   return (
     <div className="social-preview-image">
-      <img src={imageUrl} alt={alt} loading="lazy" />
+      <AuthImage src={imageUrl} alt={alt} loading="lazy" />
     </div>
   );
 }

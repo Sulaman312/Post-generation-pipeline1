@@ -1,6 +1,6 @@
 """Application login, session, and route protection."""
 
-from flask import g, jsonify, request
+from flask import g, jsonify, make_response, request
 
 from backend import auth_store, config
 from backend.api.blueprint import api_bp
@@ -14,6 +14,18 @@ def _public_path(path: str, method: str) -> bool:
     if path.startswith("/auth/meta") or path.startswith("/auth/linkedin"):
         return True
     return False
+
+
+def _session_cookie_kwargs() -> dict:
+    forwarded = (request.headers.get("X-Forwarded-Proto") or "").strip().lower()
+    secure = config.AUTH_COOKIE_SECURE or request.is_secure or forwarded == "https"
+    return {
+        "httponly": True,
+        "secure": secure,
+        "samesite": config.AUTH_COOKIE_SAMESITE,
+        "max_age": max(1, int(config.AUTH_SESSION_DAYS)) * 86400,
+        "path": "/",
+    }
 
 
 @api_bp.before_request
@@ -49,11 +61,15 @@ def app_login():
     if not user:
         return jsonify(detail="Invalid username or password"), 401
     session = auth_store.create_session(user["username"])
-    return jsonify(
-        token=session["token"],
-        user={"username": session["username"]},
-        expires_at=session["expires_at"],
+    resp = make_response(
+        jsonify(
+            token=session["token"],
+            user={"username": session["username"]},
+            expires_at=session["expires_at"],
+        )
     )
+    resp.set_cookie(config.AUTH_COOKIE_NAME, session["token"], **_session_cookie_kwargs())
+    return resp
 
 
 @api_bp.get("/auth/me")
@@ -66,10 +82,12 @@ def app_me():
 
 @api_bp.post("/auth/logout")
 def app_logout():
-    token = auth_store.bearer_token_from_request(request)
+    token = auth_store.session_token_from_request(request)
     if token:
         try:
             auth_store.delete_session(token)
         except RuntimeError as exc:
             return jsonify(detail=str(exc)), 503
-    return jsonify(ok=True)
+    resp = make_response(jsonify(ok=True))
+    resp.delete_cookie(config.AUTH_COOKIE_NAME, path="/")
+    return resp

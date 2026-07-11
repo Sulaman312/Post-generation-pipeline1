@@ -6,7 +6,7 @@ from flask import jsonify, request, send_file, send_from_directory
 
 from backend import config, image_artifacts, image_overlay, image_templates
 from backend.api.blueprint import api_bp
-from backend.api.helpers import reject_client, reject_run_id
+from backend.api.helpers import reject_client, reject_run_id, safe_run_id
 from backend.integrations import openai_chat
 
 
@@ -24,7 +24,13 @@ def _png_response(path, *, filename: str, attachment: bool = False):
         as_attachment=attachment,
         download_name=filename if attachment else None,
     )
-    resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
+    if attachment:
+        resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
+    elif request.args.get("v"):
+        # Versioned URLs (formats index cache key) — safe to cache in browser/CDN.
+        resp.headers["Cache-Control"] = "public, max-age=86400, immutable"
+    else:
+        resp.headers["Cache-Control"] = "private, max-age=300"
     return resp
 
 
@@ -163,6 +169,36 @@ def get_generated_image(client_id: str, run_id: str, filename: str):
     if not path.is_file():
         return jsonify(detail="image not found"), 404
     return _png_response(path, filename=filename)
+
+
+_BATCH_FORMATS_MAX_RUNS = 24
+
+
+@api_bp.post("/clients/<client_id>/runs/image-formats/batch")
+def batch_formats_index(client_id: str):
+    """Load format export metadata for many runs in one request (Publishing queue)."""
+    bad = reject_client(client_id)
+    if bad:
+        return bad
+    body = request.get_json(silent=True) or {}
+    raw_ids = body.get("run_ids")
+    if not isinstance(raw_ids, list):
+        return jsonify(detail="run_ids must be a list"), 400
+    if len(raw_ids) > _BATCH_FORMATS_MAX_RUNS:
+        return jsonify(
+            detail=f"run_ids exceeds maximum of {_BATCH_FORMATS_MAX_RUNS}"
+        ), 400
+
+    runs: dict[str, dict] = {}
+    for raw in raw_ids:
+        ok, _err = safe_run_id(str(raw or ""))
+        if not ok:
+            continue
+        run_id = str(raw).strip()
+        data = image_artifacts.load_formats_index(client_id, run_id)
+        runs[run_id] = data if isinstance(data, dict) else {}
+
+    return jsonify(runs=runs)
 
 
 @api_bp.get("/clients/<client_id>/runs/<run_id>/images/formats")

@@ -152,11 +152,20 @@ def bearer_token_from_request(request) -> str | None:
     return None
 
 
+def session_token_from_request(request) -> str | None:
+    token = bearer_token_from_request(request)
+    if token:
+        return token
+    if not config.AUTH_ENABLED:
+        return None
+    return (request.cookies.get(config.AUTH_COOKIE_NAME) or "").strip() or None
+
+
 def resolve_request_user(request) -> dict[str, Any] | None:
     if not config.AUTH_ENABLED:
         return {"username": "anonymous"}
     try:
-        token = bearer_token_from_request(request)
+        token = session_token_from_request(request)
         if not token:
             return None
         return user_from_token(token)

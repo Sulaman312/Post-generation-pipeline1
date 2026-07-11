@@ -1,4 +1,4 @@
-import { BASE, request } from "./http";
+import { BASE, getAuthToken, request } from "./http";
 
 export function generatedImageUrl(clientId, runId, filename) {
   return `${BASE}/clients/${encodeURIComponent(clientId)}/runs/${encodeURIComponent(
@@ -28,7 +28,12 @@ export async function downloadFormattedImage(clientId, runId, filename, cacheKey
   const url = `${formattedImageUrl(clientId, runId, filename, cacheKey)}${
     cacheKey ? "&" : "?"
   }download=1`;
-  const res = await fetch(url);
+  const res = await fetch(url, {
+    credentials: "include",
+    headers: {
+      ...(getAuthToken() ? { Authorization: `Bearer ${getAuthToken()}` } : {}),
+    },
+  });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     throw new Error(text || `Download failed (${res.status})`);
@@ -53,6 +58,21 @@ export async function getFormatsIndex(clientId, runId) {
     `/clients/${encodeURIComponent(clientId)}/runs/${encodeURIComponent(
       runId
     )}/images/formats`
+  );
+}
+
+/** Batch format indexes for Publishing queue lazy loading. */
+export async function getFormatsIndexBatch(clientId, runIds) {
+  if (!Array.isArray(runIds) || runIds.length === 0) {
+    return { runs: {} };
+  }
+  return request(
+    `/clients/${encodeURIComponent(clientId)}/runs/image-formats/batch`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ run_ids: runIds }),
+    }
   );
 }
 

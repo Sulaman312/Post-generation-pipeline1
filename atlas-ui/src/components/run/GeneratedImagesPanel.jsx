@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import * as api from "../../services/api";
 import { SOCIAL_PIPELINE_STEPS } from "../../constants/pipelineContract";
 import { isImageFile, readImageFileAsBase64 } from "../../utils/readImageFile";
+import AuthImage from "../shared/AuthImage";
 import { IconCheck, IconImages, IconTrash, IconUpload } from "./runViewIcons";
 import "./ImageGenerationStep.css";
 
@@ -152,7 +153,7 @@ export default function GeneratedImagesPanel({ client, runId, toast }) {
   }
 
   function openPreview(fn, styleLabel) {
-    setPreview({ fn, styleLabel, src: imageSrc(fn) });
+    setPreview({ fn, styleLabel });
   }
 
   return (
@@ -219,7 +220,7 @@ export default function GeneratedImagesPanel({ client, runId, toast }) {
                     title="View larger preview"
                   >
                     <div className="step4-image-frame">
-                      <img src={imageSrc(fn)} alt={styleLabel} loading="lazy" />
+                      <AuthImage src={imageSrc(fn)} alt={styleLabel} loading="lazy" />
                       <span className="step4-image-check" aria-hidden>
                         <IconCheck />
                       </span>
@@ -295,7 +296,11 @@ export default function GeneratedImagesPanel({ client, runId, toast }) {
               </button>
             </header>
             <div className="step4-preview-body">
-              <img src={preview.src} alt={preview.styleLabel} className="step4-preview-image" />
+              <AuthImage
+                src={imageSrc(preview.fn)}
+                alt={preview.styleLabel}
+                className="step4-preview-image"
+              />
             </div>
             <footer className="step4-preview-footer">
               <button

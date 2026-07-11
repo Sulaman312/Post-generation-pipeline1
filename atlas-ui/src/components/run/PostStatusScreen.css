@@ -307,6 +307,20 @@
   background: var(--panel-soft, #f1f5f9);
 }
 
+.ps-platform-thumb--loading .ps-platform-thumb-empty {
+  animation: ps-thumb-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes ps-thumb-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
 .ps-platform-text {
   display: flex;
   flex-direction: column;

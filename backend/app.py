@@ -1,6 +1,7 @@
 """Flask application factory."""
 
 import logging
+import os
 from pathlib import Path
 
 from flask import Flask, jsonify, request, send_from_directory
@@ -25,6 +26,18 @@ def _request_can_change_workspace() -> bool:
     )
 
 
+def _cors_origins() -> list[str]:
+    raw = (os.getenv("CORS_ORIGINS") or "").strip()
+    if raw:
+        return [origin.strip() for origin in raw.split(",") if origin.strip()]
+    return [
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:3001",
+    ]
+
+
 def create_app() -> Flask:
     configure_logging(level=logging.INFO)
     logger.info("ContentFlow backend starting")
@@ -46,14 +59,16 @@ def create_app() -> Flask:
             logger.exception("Could not seed default app login user")
     start_schedule_publisher()
 
-    # Match prior FastAPI behavior: allow browser dev servers on any port (:3000, :3001, …).
+    # Dev UI runs on :3001 while API is on :8001 — credentials require explicit origins (not "*").
     CORS(
         app,
         resources={
             r"/*": {
-                "origins": "*",
+                "origins": _cors_origins(),
                 "methods": ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
                 "allow_headers": "*",
+                "supports_credentials": True,
+                "max_age": 86400,
             }
         },
     )

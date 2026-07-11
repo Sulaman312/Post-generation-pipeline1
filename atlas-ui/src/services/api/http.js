@@ -46,6 +46,56 @@ export function clearAuthToken() {
   setAuthToken(null);
 }
 
+const _blobCache = new Map();
+const _blobInflight = new Map();
+
+export async function fetchAuthenticatedBlobUrl(url) {
+  const cached = _blobCache.get(url);
+  if (cached) {
+    cached.refs += 1;
+    return cached.objectUrl;
+  }
+
+  let pending = _blobInflight.get(url);
+  if (!pending) {
+    pending = (async () => {
+      const token = getAuthToken();
+      const res = await fetch(url, {
+        credentials: "include",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) {
+        throw new Error(`Authenticated fetch failed (${res.status})`);
+      }
+      const blob = await res.blob();
+      if (!blob.size) {
+        throw new Error("Authenticated fetch returned empty body");
+      }
+      const objectUrl = URL.createObjectURL(blob);
+      _blobCache.set(url, { objectUrl, refs: 0 });
+      return objectUrl;
+    })().finally(() => {
+      _blobInflight.delete(url);
+    });
+    _blobInflight.set(url, pending);
+  }
+
+  const objectUrl = await pending;
+  const entry = _blobCache.get(url);
+  if (entry) entry.refs += 1;
+  return objectUrl;
+}
+
+export function releaseAuthenticatedBlobUrl(url) {
+  const entry = _blobCache.get(url);
+  if (!entry) return;
+  entry.refs -= 1;
+  if (entry.refs <= 0) {
+    URL.revokeObjectURL(entry.objectUrl);
+    _blobCache.delete(url);
+  }
+}
+
 function isLocalBrowser() {
   if (typeof window === "undefined") return false;
   return ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
@@ -132,9 +182,12 @@ export async function request(path, options = {}) {
 
   try {
     const token = getAuthToken();
+    const sendCredentials =
+      path.startsWith("/auth/login") || path.startsWith("/auth/logout");
     const res = await fetch(`${BASE}${path}`, {
       ...fetchOptions,
       signal: controller.signal,
+      credentials: sendCredentials ? "include" : "same-origin",
       headers: {
         Accept: "application/json",
         ...(token ? { Authorization: `Bearer ${token}` } : {}),

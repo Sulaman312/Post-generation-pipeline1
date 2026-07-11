@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import * as api from "../../services/api";
+import AuthImage from "../shared/AuthImage";
 import {
   formatDimensionsLabel,
   pickCanonicalFormatOutput,
@@ -115,7 +116,7 @@ export default function TemplatePlacementPanel({ client, runId, toast }) {
           data-template-frame
           style={{ aspectRatio: SHARED_FORMAT_ASPECT }}
         >
-          <img src={url} alt={displayOutput.filename} loading="lazy" />
+          <AuthImage src={url} alt={displayOutput.filename} loading="lazy" />
         </div>
         <div className="template-card-foot">
           <button
