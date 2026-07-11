@@ -150,7 +150,7 @@ function App() {
           </div>
           <button type="button" className="btn btn-sm topbar-logout" onClick={handleLogout}>
             <IconLogout />
-            Logout
+            <span className="sb-foot-logout-label">Logout</span>
           </button>
         </header>
         <main className="layout-main">

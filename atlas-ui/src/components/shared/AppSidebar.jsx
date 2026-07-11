@@ -139,7 +139,7 @@ export default function AppSidebar({
                 aria-label={`Log out ${authUsername}`}
               >
                 <IconLogout />
-                Logout
+                <span className="sb-foot-logout-label">Logout</span>
               </button>
             ) : null}
           </div>
