@@ -446,7 +446,7 @@ def run_single_step(client_id: str, run_id: str, step_name: str):
         return jsonify(detail=str(e)), 400
 
     runner_fn = pipeline.step_runners.get(step_name)
-    if step_name in ("image_formats", "image_template"):
+    if step_name == "image_template":
         import importlib
 
         from backend import image_overlay, image_templates, social_pipeline, social_steps

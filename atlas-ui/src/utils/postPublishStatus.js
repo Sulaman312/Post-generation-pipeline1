@@ -11,6 +11,7 @@ export const PLATFORM_LABELS = {
 
 const STATUS_LABELS = {
   draft: "Draft",
+  ready: "Ready to publish",
   scheduled: "Scheduled",
   published: "Published",
   failed: "Failed",
@@ -67,6 +68,9 @@ export function platformCellDisplay(platform) {
   if (status === "draft") {
     return { status, label: "Not scheduled", detail: null };
   }
+  if (status === "ready") {
+    return { status, label: "Awaiting publish", detail: null };
+  }
   if (status === "failed") {
     return { status, label: "Failed", detail: null };
   }
@@ -78,10 +82,25 @@ export function platformCellDisplay(platform) {
   };
 }
 
-export function deriveOverallStatus(record, platforms) {
+export function deriveOverallStatus(record, platforms, run = null) {
+  if (record.status === "published") return "published";
+  if (record.status === "failed") return "failed";
   if (platforms.some((p) => p.status === "scheduled")) return "scheduled";
   if (platforms.some((p) => p.status === "failed")) return "failed";
   if (platforms.some((p) => p.status === "published")) return "published";
+  const reviewDone = run?.statuses?.review_checklist === "done";
+  const publishPending = run?.statuses?.publish !== "done";
+  const hasPublishResults = (record.published_results || []).some(
+    (row) => row?.status === "published"
+  );
+  if (
+    reviewDone &&
+    publishPending &&
+    !hasPublishResults &&
+    (record.status === "draft" || !record.status)
+  ) {
+    return "ready";
+  }
   return record.status || "draft";
 }
 
@@ -100,6 +119,7 @@ export function summarizePostPublish(run) {
   const record = runRecordFromRun(run);
   const title = socialRunTitle(run?.manual_inputs, run?.topic);
   const publishDone = run?.statuses?.publish === "done";
+  const reviewDone = run?.statuses?.review_checklist === "done";
   const resultsByPlatform = Object.fromEntries(
     (record.published_results || [])
       .filter((row) => row?.platform)
@@ -121,9 +141,12 @@ export function summarizePostPublish(run) {
     } else if (record.status === "scheduled" && record.scheduled_at) {
       status = "scheduled";
       time = record.scheduled_at;
-    } else if (publishDone) {
+    } else if (publishDone || record.status === "published") {
       status = "published";
       time = run?.timestamp || null;
+    } else if (reviewDone && run?.statuses?.publish !== "done") {
+      status = "ready";
+      time = null;
     }
 
     return {
@@ -137,7 +160,7 @@ export function summarizePostPublish(run) {
   return {
     runId: run?.run_id || "",
     title,
-    overallStatus: deriveOverallStatus(record, platforms),
+    overallStatus: deriveOverallStatus(record, platforms, run),
     scheduledAt: record.scheduled_at,
     archived: Boolean(run?.archived),
     platforms,
@@ -153,7 +176,10 @@ export function matchesPostStatusFilter(summary, filter) {
     return summary.overallStatus === "published" || summary.platforms.some((p) => p.status === "published");
   }
   if (filter === "draft") {
-    return summary.overallStatus === "draft" && !summary.platforms.some((p) => p.status !== "draft");
+    return (
+      (summary.overallStatus === "draft" || summary.overallStatus === "ready") &&
+      !summary.platforms.some((p) => ["published", "scheduled", "failed"].includes(p.status))
+    );
   }
   return true;
 }

@@ -1,10 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import * as api from "../../services/api";
+import { SOCIAL_PIPELINE_STEPS } from "../../constants/pipelineContract";
 import { isImageFile, readImageFileAsBase64 } from "../../utils/readImageFile";
 import { IconCheck, IconImages, IconTrash, IconUpload } from "./runViewIcons";
 import "./ImageGenerationStep.css";
 
 export const MAX_PRIMARY_UPLOAD_BYTES = 8 * 1024 * 1024;
+
+const NEXT_STEP_LABEL =
+  SOCIAL_PIPELINE_STEPS.find((step) => step.key === "image_template")?.label ??
+  "Brand template";
 
 export default function GeneratedImagesPanel({ client, runId, toast }) {
   const [loading, setLoading] = useState(true);
@@ -163,8 +168,8 @@ export default function GeneratedImagesPanel({ client, runId, toast }) {
                 Choose primary image
               </h3>
               <p className="step4-section-desc">
-                Pick a generated style or upload your own image — then continue to Step 5 for
-                platform exports.
+                Pick a generated style or upload your own image — then continue to{" "}
+                <strong>{NEXT_STEP_LABEL}</strong>.
               </p>
             </div>
           </div>

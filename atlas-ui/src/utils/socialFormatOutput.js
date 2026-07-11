@@ -1,7 +1,19 @@
 export const CANONICAL_FORMAT_PLATFORM = "instagram";
 export const SHARED_FORMAT_ASPECT = "1080 / 1350";
+export const SHARED_FORMAT_WIDTH = 1080;
+export const SHARED_FORMAT_HEIGHT = 1350;
 export const SHARED_FORMAT_LABEL = "All channels (1080×1350)";
+
+export function formatDimensionsLabel(width, height) {
+  const w = Number(width);
+  const h = Number(height);
+  if (!Number.isFinite(w) || !Number.isFinite(h) || w <= 0 || h <= 0) return "";
+  return `${Math.round(w)}×${Math.round(h)}`;
+}
 export const PLATFORM_ORDER = ["facebook", "instagram", "linkedin"];
+export const FORMAT_EXPORT_POLICY = "contain_blur_v4";
+export const CROP_EXPORT_POLICY = "center_crop_v1";
+export const TEMPLATE_EXPORT_POLICY = "template_figma_overlay_v1";
 
 export function pickCanonicalFormatOutput(outputs) {
   if (!Array.isArray(outputs) || outputs.length === 0) return null;

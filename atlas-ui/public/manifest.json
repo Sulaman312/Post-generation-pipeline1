@@ -1,32 +1,22 @@
 {
-  "short_name": "ContentFlow",
-  "name": "ContentFlow — Editorial Workspace",
+  "short_name": "PME KMU",
+  "name": "PME KMU — Post Generation",
   "icons": [
     {
-      "src": "contentflow-logo.png",
+      "src": "pme-kmu-logo.png",
       "type": "image/png",
-      "sizes": "512x512",
+      "sizes": "300x300",
       "purpose": "any maskable"
     },
     {
       "src": "favicon.png",
       "type": "image/png",
-      "sizes": "192x192",
+      "sizes": "300x300",
       "purpose": "any"
-    },
-    {
-      "src": "logo192.png",
-      "type": "image/png",
-      "sizes": "192x192"
-    },
-    {
-      "src": "logo512.png",
-      "type": "image/png",
-      "sizes": "512x512"
     }
   ],
   "start_url": ".",
   "display": "standalone",
-  "theme_color": "#3DDC84",
+  "theme_color": "#ffffff",
   "background_color": "#fafafa"
 }

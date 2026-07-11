@@ -35,13 +35,22 @@ export function CollapsedStepNode({ step, status, active, isRunningThis }) {
   );
 }
 
-export function CollapsedRunProgress({ steps, statuses, activeStepKey }) {
+export function CollapsedRunProgress({
+  steps,
+  statuses,
+  activeStepKey,
+  runningStepKey = null,
+}) {
   const total = steps.length;
   const doneCount = steps.filter(
     (s) => (statuses[s.key] || "pending") === "done"
   ).length;
-  const idx = steps.findIndex((s) => s.key === activeStepKey);
-  const pos = idx >= 0 ? idx + 1 : 1;
+  const runningStep = steps.find(
+    (s) => statuses[s.key] === "running" || s.key === runningStepKey
+  );
+  const activeStep = steps.find((s) => s.key === activeStepKey);
+  const highlightStep = runningStep || activeStep;
+  const pos = highlightStep?.index ?? 1;
   const pct = total > 0 ? Math.round((doneCount / total) * 100) : 0;
   const circumference = 2 * Math.PI * 14;
   const offset = circumference - (pct / 100) * circumference;
@@ -70,7 +79,7 @@ export function CollapsedRunProgress({ steps, statuses, activeStepKey }) {
   );
 }
 
-export function StepRailDot({ status, active, isRunningThis }) {
+export function StepRailDot({ status, active, isRunningThis, stepIndex = null }) {
   const showDoneTick = status === "done" && !isRunningThis;
   const showPlayHint = status === "pending" && !active && !isRunningThis;
   return (
@@ -99,7 +108,9 @@ export function StepRailDot({ status, active, isRunningThis }) {
           />
         </svg>
       ) : isRunningThis ? (
-        <span className="spinner spinner--sm sb-step-dot-spinner" aria-hidden />
+        <span className="sb-step-dot-num" aria-hidden>
+          {stepIndex ?? "·"}
+        </span>
       ) : showPlayHint ? (
         <IconPlayStep className="sb-step-dot-play" />
       ) : null}

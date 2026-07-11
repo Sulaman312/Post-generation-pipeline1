@@ -87,11 +87,11 @@
 .topbar-mark-img {
   width: 36px;
   height: 36px;
-  border-radius: 50%;
+  border-radius: var(--radius-sm);
   flex-shrink: 0;
   display: block;
-  object-fit: cover;
-  box-shadow: 0 1px 3px rgba(61, 220, 132, 0.35);
+  object-fit: contain;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
 }
 
 .sb-brand-logo.ws-logo-frame {
@@ -1214,6 +1214,25 @@ body.sb-resizing .sb {
   width: 12px;
   height: 12px;
   color: #9ca3af;
+}
+
+.sb-step-dot-num {
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  color: inherit;
+}
+
+.sb-step-dot-num--idle {
+  color: #9ca3af;
+}
+
+.sb-step-dot--running .sb-step-dot-num {
+  color: var(--running-text);
+}
+
+.sb-step-dot--active .sb-step-dot-num--idle {
+  color: #111827;
 }
 
 .sb-step-dot-spinner {
@@ -2586,12 +2605,47 @@ body.sb-resizing .sb {
 .run-artifact-body--flush:has(.channel-format-preview) {
   align-items: center;
   justify-content: center;
+  padding: 8px 12px 12px;
 }
 
 .run-content-wrap--compact .run-artifact-shell--fit:has(.channel-format-preview) {
   flex: 1;
   width: 100%;
   align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.run-content-wrap--compact .run-artifact-shell--fit:has(.channel-format-preview) .run-artifact-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.run-content-wrap--compact .run-artifact-shell--fit:has(.channel-format-preview) .run-artifact-body--flush {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.run-content-wrap--compact .run-artifact-shell--fit:has(.social-review) {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  align-self: stretch;
+}
+
+.run-content-wrap--compact .run-artifact-shell--fit .run-artifact-body--flush:has(.social-review) {
+  flex: 1;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 

@@ -359,14 +359,20 @@ export function RunNavSection({
             const statusText = formatStepStatusWithDuration(
               s,
               resolvedTiming,
-              Date.now()
+              Date.now(),
+              isRunningThis ? step.index : null
             );
             const metaSubtitle = (() => {
               if (step.key === "publish" && run) {
                 const publishMeta = publishStepSidebarMeta(run);
                 if (publishMeta) return publishMeta;
               }
-              return formatStepMetaSubtitle(s, resolvedTiming, Date.now());
+              return formatStepMetaSubtitle(
+                s,
+                resolvedTiming,
+                Date.now(),
+                isRunningThis ? step.index : null
+              );
             })();
             const timingTitle = resolvedTiming?.client
               ? "Duration measured in this browser session"
@@ -462,6 +468,7 @@ export function RunNavSection({
                             status={s}
                             active={active}
                             isRunningThis={isRunningThis}
+                            stepIndex={step.index}
                           />
                         </div>
                       )}
@@ -524,6 +531,7 @@ export function RunNavSection({
             steps={STEPS}
             statuses={statuses}
             activeStepKey={activeStepKey}
+            runningStepKey={runningStepKey}
           />
         ) : null}
       </SidebarSection>

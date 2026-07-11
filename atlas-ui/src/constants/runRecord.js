@@ -51,9 +51,14 @@ export function runRecordFromRun(run) {
       }
       return out;
     })(),
-    published_results: Array.isArray(run.published_results)
-      ? run.published_results
-      : base.published_results,
+    published_results: (() => {
+      const raw = run.published_results;
+      if (Array.isArray(raw)) return raw;
+      if (raw && typeof raw === "object") {
+        return Object.values(raw).filter((row) => row && typeof row === "object");
+      }
+      return base.published_results;
+    })(),
   };
 }
 

@@ -3,6 +3,7 @@ import {
   overallStatusLabel,
   platformCellDisplay,
   platformStatusLabel,
+  summarizePostPublish,
 } from "./postPublishStatus";
 
 describe("postPublishStatus helpers", () => {
@@ -32,5 +33,37 @@ describe("postPublishStatus helpers", () => {
 
   it("maps platform result statuses", () => {
     expect(platformStatusLabel("failed")).toBe("Failed");
+  });
+
+  it("marks published runs from published_results", () => {
+    const summary = summarizePostPublish({
+      run_id: "2026-06-20_00-11-44",
+      topic: "Test post",
+      status: "published",
+      platforms: ["facebook"],
+      published_results: [
+        {
+          platform: "facebook",
+          status: "published",
+          published_at: "2026-07-07T17:19:02.369822",
+        },
+      ],
+      statuses: { publish: "done", review_checklist: "done" },
+    });
+    expect(summary.overallStatus).toBe("published");
+    expect(summary.platforms[0].status).toBe("published");
+  });
+
+  it("marks review-complete runs as ready when publish is pending", () => {
+    const summary = summarizePostPublish({
+      run_id: "2026-07-10_23-29-34",
+      topic: "Shower partition",
+      status: "draft",
+      platforms: ["instagram", "linkedin", "facebook"],
+      published_results: [],
+      statuses: { publish: "pending", review_checklist: "done" },
+    });
+    expect(summary.overallStatus).toBe("ready");
+    expect(summary.platforms.every((p) => p.status === "ready")).toBe(true);
   });
 });

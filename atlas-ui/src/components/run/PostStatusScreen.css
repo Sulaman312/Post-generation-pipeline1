@@ -252,6 +252,11 @@
   background: #ffedd5;
 }
 
+.ps-status--ready {
+  color: #1d4ed8;
+  background: #dbeafe;
+}
+
 .ps-status--scheduled {
   color: #1d4ed8;
   background: #dbeafe;
@@ -322,6 +327,10 @@
 
 .ps-platform-status--draft {
   color: #c2410c;
+}
+
+.ps-platform-status--ready {
+  color: #1d4ed8;
 }
 
 .ps-platform-status--scheduled {

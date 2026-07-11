@@ -258,7 +258,7 @@ def run_step_4_image_generation(client_id: str, run_id: str, previous_artifact: 
         label = info.get("style_label") or fn
         lines.append(f"- **{label}** → `{fn}`")
     lines.append("")
-    lines.append("Next: select your preferred style in the UI, then continue to Step 5 (image_formats).")
+    lines.append("Next: select your preferred style in the UI, then continue to Brand template.")
 
     return _save_md(client_id, run_id, step_name, "\n".join(lines) + "\n")
 
@@ -314,7 +314,7 @@ def run_step_5_image_compose(client_id: str, run_id: str, previous_artifact: str
 
         f"- Status: {hint}\n\n"
 
-        "Next: run Step 6 (image_formats) to create platform images, then Step 7 to place the client template.\n"
+        "Next: run Brand template to create platform images with your client template.\n"
 
     )
 
@@ -377,48 +377,36 @@ def run_step_7_image_template(client_id: str, run_id: str, previous_artifact: st
 
     return _save_md(client_id, run_id, step_name, out)
 
-def run_step_6_image_formats(client_id: str, run_id: str, previous_artifact: str = "") -> str:
-
-    step_name = "image_formats"
-
+def export_channel_formats(client_id: str, run_id: str) -> dict:
+    """Export resized platform images from the selected primary (no template overlay)."""
     idx = image_artifacts.load_image_index(client_id, run_id)
 
     if not idx or not idx.images:
-
-        raise RuntimeError("No generated images found. Run Step 4 first.")
+        raise RuntimeError("No generated images found. Run image generation first.")
 
     if not idx.selected_primary:
-
-        raise RuntimeError("No primary image selected. Select one in Step 4 first.")
+        raise RuntimeError("No primary image selected. Select one in image generation first.")
 
     try:
-
         from PIL import Image
-
     except ImportError as e:
-
         raise RuntimeError("Pillow not installed. Run: pip install pillow") from e
 
     src_path = image_artifacts.generated_image_path(
-
         client_id, run_id, idx.selected_primary
-
     )
 
     if not src_path.is_file():
-
         raise RuntimeError("Selected primary image file is missing on disk.")
 
     import importlib
 
     from . import config, image_overlay, social_channels
 
-    # Allow switching EXPORT_RESIZE_MODE without restarting the API.
     importlib.reload(config)
     importlib.reload(image_overlay)
 
     outputs: dict[str, dict] = {}
-    export_lines: list[str] = []
 
     with Image.open(src_path) as im0:
         base = im0.convert("RGB")
@@ -443,32 +431,17 @@ def run_step_6_image_formats(client_id: str, run_id: str, previous_artifact: str
                 "height": int(ch["height"]),
                 "label": str(ch["label"]),
             }
-            export_lines.append(
-                f"- {ch['label']}: {fn} ({ch['width']}×{ch['height']})"
-            )
 
-    image_artifacts.save_formats_index(
-        client_id,
-        run_id,
-        {
-            "selected_primary": idx.selected_primary,
-            "generated_at": datetime.now().isoformat(timespec="seconds"),
-            "resize_policy": image_overlay.export_resize_policy(),
-            "overlay_applied": False,
-            "template_applied": False,
-            "outputs": outputs,
-        },
-    )
-
-    out = (
-        "Formatted images saved:\n\n"
-        + "\n".join(export_lines)
-        + "\n\n"
-        "Overlay: Not applied in this step.\n"
-        "Template: Applied in the Brand template step (Step 7).\n"
-    )
-
-    return _save_md(client_id, run_id, step_name, out)
+    payload = {
+        "selected_primary": idx.selected_primary,
+        "generated_at": datetime.now().isoformat(timespec="seconds"),
+        "resize_policy": image_overlay.export_resize_policy(),
+        "overlay_applied": False,
+        "template_applied": False,
+        "outputs": outputs,
+    }
+    image_artifacts.save_formats_index(client_id, run_id, payload)
+    return payload
 
 def run_step_8_captions(client_id: str, run_id: str, previous_artifact: str = "") -> str:
 

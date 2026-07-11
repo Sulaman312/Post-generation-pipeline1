@@ -1,4 +1,5 @@
 import { useCallback } from "react";
+import { APP_BRAND_NAME } from "../../constants/brand";
 import { stepsForPipeline } from "../../constants/pipelines";
 import {
   SIDEBAR_WIDTH_MAX,
@@ -123,7 +124,7 @@ export default function AppSidebar({
 
       <div className="sb-foot">
         {!collapsed ? (
-          <span>ContentFlow • {stepsForPipeline().length} steps</span>
+          <span>{APP_BRAND_NAME} • {stepsForPipeline().length} steps</span>
         ) : runId ? null : (
           <span className="sb-foot-expand-hint" title="Expand sidebar" aria-hidden>
             ···

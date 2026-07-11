@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 import * as api from "../../services/api";
 import {
+  formatDimensionsLabel,
   pickCanonicalFormatOutput,
   SHARED_FORMAT_ASPECT,
-  SHARED_FORMAT_LABEL,
+  TEMPLATE_EXPORT_POLICY,
 } from "../../utils/socialFormatOutput";
-import { TEMPLATE_EXPORT_POLICY } from "./FormattedImagesPanel";
 import "./ImageGenerationStep.css";
 
 export default function TemplatePlacementPanel({ client, runId, toast }) {
@@ -29,9 +29,7 @@ export default function TemplatePlacementPanel({ client, runId, toast }) {
       }))
       .filter((o) => o.filename);
     const canonical = pickCanonicalFormatOutput(list);
-    setDisplayOutput(
-      canonical ? { ...canonical, label: SHARED_FORMAT_LABEL } : null
-    );
+    setDisplayOutput(canonical || null);
   }, []);
 
   const applyTemplate = useCallback(
@@ -101,7 +99,7 @@ export default function TemplatePlacementPanel({ client, runId, toast }) {
     return (
       <div className="step4-shell">
         <div className="step4-empty-hint">
-          Run <strong>Step 4 — Export channel sizes</strong> first.
+          Select a primary image in <strong>Generate &amp; select image</strong> first.
         </div>
       </div>
     );
@@ -112,26 +110,27 @@ export default function TemplatePlacementPanel({ client, runId, toast }) {
   return (
     <div className="template-panel channel-format-preview">
       <div className="template-card channel-format-preview__card">
-        <div className="template-card-title">{displayOutput.label}</div>
-          <div
-            className="template-frame"
-            data-template-frame
-            style={{ aspectRatio: SHARED_FORMAT_ASPECT }}
-          >
-            <img src={url} alt={displayOutput.filename} loading="lazy" />
-          </div>
-          <div className="template-card-foot">
-            <button
-              type="button"
-              className="btn btn-sm btn-edit-artifact"
-              onClick={() => handleDownload(displayOutput.filename)}
-              disabled={downloading}
-            >
-              {downloading ? "Downloading…" : "Download"}
-            </button>
-            <span className="template-card-filename">{displayOutput.filename}</span>
-          </div>
+        <div
+          className="template-frame"
+          data-template-frame
+          style={{ aspectRatio: SHARED_FORMAT_ASPECT }}
+        >
+          <img src={url} alt={displayOutput.filename} loading="lazy" />
         </div>
+        <div className="template-card-foot">
+          <button
+            type="button"
+            className="btn btn-sm btn-edit-artifact"
+            onClick={() => handleDownload(displayOutput.filename)}
+            disabled={downloading}
+          >
+            {downloading ? "Downloading…" : "Download"}
+          </button>
+          <span className="template-card-specs">
+            {formatDimensionsLabel(displayOutput.width, displayOutput.height)}
+          </span>
+        </div>
+      </div>
     </div>
   );
 }

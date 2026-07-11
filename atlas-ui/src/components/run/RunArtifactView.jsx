@@ -12,7 +12,6 @@ import ContentAngleStructured from "./ContentAngleStructured";
 import FinalOutputDocEditor from "./FinalOutputDocEditor";
 import GeneratedImagesPanel from "./GeneratedImagesPanel";
 import ImageComposePanel from "./ImageComposePanel";
-import FormattedImagesPanel from "./FormattedImagesPanel";
 import TemplatePlacementPanel from "./TemplatePlacementPanel";
 import SocialPostReviewPreview from "./SocialPostReviewPreview";
 import "./ImageGenerationStep.css";
@@ -225,11 +224,6 @@ export default function ArtifactView({
       <ImageComposePanel client={client} runId={runId} toast={toast} />
     ) : null;
 
-  const imageFormatsPreview =
-    stepName === "image_formats" ? (
-      <FormattedImagesPanel client={client} runId={runId} toast={toast} />
-    ) : null;
-
   const imageTemplatePreview =
     stepName === "image_template" ? (
       <TemplatePlacementPanel client={client} runId={runId} toast={toast} />
@@ -247,7 +241,6 @@ export default function ArtifactView({
   const interactivePreview =
     imageComposePreview ||
     imageGenerationPreview ||
-    imageFormatsPreview ||
     imageTemplatePreview ||
     socialReviewPreview;
 

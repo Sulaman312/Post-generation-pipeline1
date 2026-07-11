@@ -188,12 +188,7 @@ def regenerate_formats(client_id: str, run_id: str):
         return bad_run
     import importlib
 
-    from backend import config, image_overlay, social_steps
-
-    # Allow switching EXPORT_RESIZE_MODE without restarting the API.
-    importlib.reload(config)
-    importlib.reload(image_overlay)
-    importlib.reload(social_steps)
+    from backend.social_steps import export_channel_formats
     try:
         idx = image_artifacts.load_formats_index(client_id, run_id) or {}
         body = request.get_json(silent=True) or {}
@@ -205,7 +200,7 @@ def regenerate_formats(client_id: str, run_id: str):
             importlib.reload(image_templates)
             data = image_templates.apply_run_template_to_formats(client_id, run_id)
         else:
-            social_steps.run_step_6_image_formats(client_id, run_id, "")
+            export_channel_formats(client_id, run_id)
             if base_only and had_template:
                 from backend import image_templates
 

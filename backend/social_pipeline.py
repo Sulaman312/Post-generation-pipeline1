@@ -15,7 +15,6 @@ STEP_RUNNERS = {
     "client_profile_topic": social_steps.run_step_1_client_profile_topic,
     "image_prompt": social_steps.run_step_3_image_prompt,
     "image_generation": social_steps.run_step_4_image_generation,
-    "image_formats": social_steps.run_step_6_image_formats,
     "image_template": social_steps.run_step_7_image_template,
     "captions": social_steps.run_step_8_captions,
     "review_checklist": social_steps.run_step_9_review_checklist,

@@ -4,7 +4,7 @@ import AppSidebar from "./components/shared/AppSidebar";
 import ClientsGrid from "./components/workspace/ClientsGrid";
 import WorkspaceMain from "./components/workspace/WorkspaceMain";
 import { ToastProvider } from "./context/ToastContext";
-import { CONTENTFLOW_LOGO } from "./constants/brand";
+import { APP_BRAND_NAME, APP_LOGO } from "./constants/brand";
 import { appProductMeta } from "./constants/appProject";
 import { readStoredSidebarWidth } from "./hooks/useSidebarResize";
 import { useWorkspaceNavigation } from "./hooks/useWorkspaceNavigation";
@@ -84,8 +84,8 @@ function App() {
           <div className="topbar-brand" onClick={goHome}>
             <img
               className="topbar-mark-img"
-              src={CONTENTFLOW_LOGO}
-              alt="ContentFlow"
+              src={APP_LOGO}
+              alt={APP_BRAND_NAME}
               width={36}
               height={36}
             />

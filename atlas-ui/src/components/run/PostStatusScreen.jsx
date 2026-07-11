@@ -81,7 +81,10 @@ function useQueuePreviews(client, runs) {
   useEffect(() => {
     let cancelled = false;
     const targets = runs.filter(
-      (run) => run?.statuses?.image_formats === "done" && run?.run_id
+      (run) =>
+        (run?.statuses?.image_template === "done" ||
+          run?.statuses?.image_formats === "done") &&
+        run?.run_id
     );
     if (!targets.length) return undefined;
 

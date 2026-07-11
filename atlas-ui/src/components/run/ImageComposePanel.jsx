@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import * as api from "../../services/api";
+import { pipelineStepLabel } from "../../constants/pipelineContract";
 import ImageComposer from "./ImageComposer";
 import "./ImageGenerationStep.css";
 
@@ -40,8 +41,8 @@ export default function ImageComposePanel({ client, runId, toast }) {
     return (
       <div className="step4-shell">
         <div className="step4-empty-hint">
-          No primary image selected. Go back to <strong>Step 4 — Image generation</strong> and
-          choose one first.
+          No primary image selected. Go back to{" "}
+          <strong>{pipelineStepLabel("image_generation")}</strong> and choose one first.
         </div>
       </div>
     );

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { pipelineStepLabel } from "../../constants/pipelineContract";
 import * as api from "../../services/api";
 import ComposerCanvas from "./imageComposer/ComposerCanvas";
 import ComposerControls from "./imageComposer/ComposerControls";
@@ -125,7 +126,7 @@ export default function ImageComposer({ client, runId, primaryImage, toast }) {
     try {
       const overlay = buildOverlayPayload(canvas, primaryImage, dimsRef.current);
       await api.saveImageOverlay(client, runId, overlay);
-      toast?.("Overlay saved. Run Export channel sizes to export with your logo & text.", {
+      toast?.("Overlay saved. Run Brand template to export with your logo & text.", {
         variant: "success",
         duration: 5000,
       });
@@ -165,7 +166,8 @@ export default function ImageComposer({ client, runId, primaryImage, toast }) {
           <div>
             <h3 className="image-composer-title">Compose image</h3>
             <p className="image-composer-desc">
-              Place logo and headline on the image, then save before running Step 6.
+              Place logo and headline on the image, then save before running{" "}
+              <strong>{pipelineStepLabel("image_template")}</strong>.
             </p>
           </div>
         </div>

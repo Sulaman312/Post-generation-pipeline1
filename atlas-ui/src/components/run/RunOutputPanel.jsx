@@ -88,7 +88,7 @@ export default function RunOutputPanel({
           <div className="run-artifact-card">
             <div className="run-artifact-body">
               <div className="empty-state empty-state-inline">
-                <span className="spinner" /> Generating{" "}
+                <span className="spinner" /> Step {step.index} · Generating{" "}
                 {step.label.toLowerCase()}…
               </div>
             </div>

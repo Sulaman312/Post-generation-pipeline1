@@ -24,39 +24,32 @@
       "index": 3
     },
     {
-      "key": "image_formats",
-      "label": "Export channel sizes",
-      "matrixLabel": "Export channel sizes",
-      "matrixCol": "RF",
-      "index": 4
-    },
-    {
       "key": "image_template",
       "label": "Brand template",
       "matrixLabel": "Brand template",
       "matrixCol": "TP",
-      "index": 5
+      "index": 4
     },
     {
       "key": "captions",
       "label": "Channel captions",
       "matrixLabel": "Channel captions",
       "matrixCol": "CP",
-      "index": 6
+      "index": 5
     },
     {
       "key": "review_checklist",
       "label": "Review",
       "matrixLabel": "Review",
       "matrixCol": "RV",
-      "index": 7
+      "index": 6
     },
     {
       "key": "publish",
       "label": "Publish",
       "matrixLabel": "Publish",
       "matrixCol": "PB",
-      "index": 8
+      "index": 7
     }
   ],
   "platforms": ["instagram", "linkedin", "facebook"],

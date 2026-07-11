@@ -32,9 +32,14 @@ class PipelineContractTests(unittest.TestCase):
             ["instagram", "linkedin", "facebook"],
         )
 
-    def test_social_pipeline_has_eight_steps(self):
+    def test_social_pipeline_has_seven_steps(self):
         contract = load_contract()
-        self.assertEqual(len(contract["steps"]), 8)
+        self.assertEqual(len(contract["steps"]), 7)
+
+    def test_social_pipeline_step_indices_match_order(self):
+        contract = load_contract()
+        for i, step in enumerate(contract["steps"], start=1):
+            self.assertEqual(step.get("index"), i)
         self.assertEqual(contract["steps"][0]["key"], "client_profile_topic")
         self.assertNotIn(
             "content_angle_intent",

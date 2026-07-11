@@ -37,10 +37,8 @@ function elapsedMsFromStartedAt(startedAt, nowMs = Date.now()) {
   return Math.max(0, nowMs - t);
 }
 
-/**
- * Status label plus duration for pipeline sidebar (e.g. `Done · 2m 15s`).
- */
-export function formatStepStatusWithDuration(status, timing, nowMs = Date.now()) {
+/** Status label plus duration for pipeline sidebar (e.g. `Done · 2m 15s`). */
+export function formatStepStatusWithDuration(status, timing, nowMs = Date.now(), stepIndex = null) {
   const base =
     status === "done"
       ? "Done"
@@ -52,13 +50,19 @@ export function formatStepStatusWithDuration(status, timing, nowMs = Date.now())
             ? "Skipped"
             : "Pending";
 
-  if (!timing) return base;
+  if (!timing) {
+    if (status === "running" && stepIndex != null) {
+      return `Step ${stepIndex} · ${base}`;
+    }
+    return base;
+  }
 
   if (status === "running") {
     const elapsed = formatStepDurationMs(
       elapsedMsFromStartedAt(timing.started_at, nowMs)
     );
-    return elapsed ? `${base} · ${elapsed}` : base;
+    const detail = elapsed ? `${base} · ${elapsed}` : base;
+    return stepIndex != null ? `Step ${stepIndex} · ${detail}` : detail;
   }
 
   const duration = formatStepDurationMs(timing.duration_ms);
@@ -69,12 +73,13 @@ export function formatStepStatusWithDuration(status, timing, nowMs = Date.now())
 }
 
 /** Subtitle under step name in sidebar (duration only, reference-style). */
-export function formatStepMetaSubtitle(status, timing, nowMs = Date.now()) {
+export function formatStepMetaSubtitle(status, timing, nowMs = Date.now(), stepIndex = null) {
   if (status === "running") {
     const elapsed = formatStepDurationLong(
       elapsedMsFromStartedAt(timing?.started_at, nowMs)
     );
-    return elapsed ? `${elapsed}…` : "Running…";
+    const detail = elapsed ? `${elapsed}…` : "Running…";
+    return stepIndex != null ? `Step ${stepIndex} · ${detail}` : detail;
   }
   if (status === "done") {
     const duration = formatStepDurationLong(timing?.duration_ms);

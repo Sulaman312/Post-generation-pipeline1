@@ -81,20 +81,30 @@ export default function RunView({
     : "Input: topic";
   const outputTabTitle = `Output: ${activeStep.label}`;
 
+  const runningStep = useMemo(
+    () => STEPS.find((s) => statuses[s.key] === "running") || null,
+    [STEPS, statuses]
+  );
+  const chromeStep = runningStep || activeStep;
+  const chromeStatus =
+    statusOverrides[chromeStep.key] ??
+    serverStatuses[chromeStep.key] ??
+    "pending";
+
   return (
     <div className="run-shell">
       <header className="run-chrome-header run-chrome-header--minimal">
         <div className="run-chrome-minimal-row">
           <div className="run-chrome-step-meta">
             <h1 className="run-page-title run-page-title--inline">
-              {activeStep.label}
+              {chromeStep.label}
             </h1>
-            <span className={`status-pill status-pill--sm ${statusClass(status)}`}>
-              <span className={`status-pip ${statusClass(status)}`} />
-              {statusLabel(status)}
+            <span className={`status-pill status-pill--sm ${statusClass(chromeStatus)}`}>
+              <span className={`status-pip ${statusClass(chromeStatus)}`} />
+              {statusLabel(chromeStatus)}
             </span>
             <span className="run-chrome-step-tag">
-              {activeStep.index}/{STEPS.length}
+              {chromeStep.index}/{STEPS.length}
             </span>
           </div>
           <div
