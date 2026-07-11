@@ -56,8 +56,14 @@ export default function AppSidebar({
   return (
     <aside className={`sb${collapsed ? " sb--collapsed" : ""}`}>
       <div className="sb-brand">
-        <div className="sb-brand-main">
-          <div className="sb-brand-logo-wrap" aria-hidden>
+        <button
+          type="button"
+          className="sb-brand-main sb-brand-home-btn"
+          onClick={onGoHome}
+          title="All workspaces"
+          aria-label={`All workspaces — ${workspaceTitle}`}
+        >
+          <div className="sb-brand-logo-wrap">
             <WorkspaceLogo
               clientId={client}
               size={40}
@@ -68,17 +74,12 @@ export default function AppSidebar({
           {!collapsed ? (
             <div className="sb-brand-text">
               <span className="sb-brand-kicker">Workspace</span>
-              <button
-                type="button"
-                className="sb-brand-name sb-brand-name--workspace sb-brand-name-btn"
-                onClick={onGoHome}
-                title="All workspaces"
-              >
+              <span className="sb-brand-name sb-brand-name--workspace">
                 {workspaceTitle}
-              </button>
+              </span>
             </div>
           ) : null}
-        </div>
+        </button>
         <button
           type="button"
           className="sb-collapse-btn"

@@ -152,6 +152,27 @@
   min-width: 0;
 }
 
+.sb-brand-home-btn {
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  color: inherit;
+  font: inherit;
+}
+
+.sb-brand-home-btn:hover .sb-brand-name--workspace {
+  color: #0d9488;
+}
+
+.sb-brand-home-btn:focus-visible {
+  outline: 2px solid var(--accent-focus);
+  outline-offset: 2px;
+}
+
 .sb-brand-logo-wrap {
   flex-shrink: 0;
   display: flex;
