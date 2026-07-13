@@ -24,6 +24,11 @@ export default function RunView({
   const error = runError;
   const [tab, setTab] = useState("output");
   const [outputEditKey, setOutputEditKey] = useState(0);
+  const [stepError, setStepError] = useState(null);
+  const [showFullTopic, setShowFullTopic] = useState(false);
+
+  const prevStatusRef = useRef(null);
+  const runChromeCacheRef = useRef({ label: "", full: "" });
 
   const serverStatuses = run?.statuses || {};
   const statuses = { ...serverStatuses, ...statusOverrides };
@@ -37,10 +42,6 @@ export default function RunView({
   const runChromeFullText = isSocial
     ? socialRunFullText(manualInputs, topic)
     : topic?.trim() || "";
-  const runChromeNeedsExpand =
-    runChromeFullText.length > runChromeLabel.length ||
-    runChromeLabel.includes("\n") ||
-    runChromeLabel.length > 48;
   if (runChromeLabel) {
     runChromeCacheRef.current = {
       label: runChromeLabel,
@@ -73,11 +74,7 @@ export default function RunView({
   const isFirstStep = activeStep.index === 1;
 
   const running = status === "running";
-  const [stepError, setStepError] = useState(null);
-  const [showFullTopic, setShowFullTopic] = useState(false);
 
-  const prevStatusRef = useRef(null);
-  const runChromeCacheRef = useRef({ label: "", full: "" });
   useEffect(() => {
     const prev = prevStatusRef.current;
     if (prev === "running" && status === "done") {
