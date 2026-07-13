@@ -92,13 +92,24 @@ export function RunNavSection({
       await loadRun();
     }
     load();
-    const id = setInterval(load, 2000);
     return () => {
       cancelled = true;
-      clearInterval(id);
     };
-    // Poll by client/run only; loadRun closes over latest statusOverrides.
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional client/runId poll
+    // Initial load only; subsequent updates come from the shared run poller.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional client/runId load
+  }, [client, runId]);
+
+  useEffect(() => {
+    function onRunUpdated(event) {
+      const detail = event.detail || {};
+      if (detail.clientId !== client || detail.runId !== runId || !detail.run) return;
+      setRun(detail.run);
+      reconcileStatusOverrides(detail.run.statuses || {});
+    }
+    window.addEventListener("cf:run-updated", onRunUpdated);
+    return () => window.removeEventListener("cf:run-updated", onRunUpdated);
+    // Reconcile against the latest overrides without recreating the listener.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [client, runId]);
 
   const serverStatuses = run?.statuses || {};
