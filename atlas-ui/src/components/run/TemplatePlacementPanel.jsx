@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import * as api from "../../services/api";
+import { useMediaReady } from "../../hooks/useMediaReady";
 import AuthImage from "../shared/AuthImage";
+import ImageSkeleton from "../shared/ImageSkeleton";
+import TextSkeleton from "../shared/TextSkeleton";
 import {
   formatDimensionsLabel,
   pickCanonicalFormatOutput,
@@ -9,10 +12,10 @@ import {
 } from "../../utils/socialFormatOutput";
 import "./ImageGenerationStep.css";
 
-export default function TemplatePlacementPanel({ client, runId, toast }) {
+export default function TemplatePlacementPanel({ client, runId, toast, skeletonOnly = false }) {
   const [cacheKey, setCacheKey] = useState("");
   const [displayOutput, setDisplayOutput] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!skeletonOnly);
   const [downloading, setDownloading] = useState(false);
 
   const syncFromFormats = useCallback((idx) => {
@@ -45,6 +48,7 @@ export default function TemplatePlacementPanel({ client, runId, toast }) {
   );
 
   useEffect(() => {
+    if (skeletonOnly) return undefined;
     let cancelled = false;
     async function load() {
       setLoading(true);
@@ -74,7 +78,7 @@ export default function TemplatePlacementPanel({ client, runId, toast }) {
     return () => {
       cancelled = true;
     };
-  }, [client, runId, toast, applyTemplate, syncFromFormats]);
+  }, [client, runId, toast, applyTemplate, syncFromFormats, skeletonOnly]);
 
   async function handleDownload(filename) {
     if (downloading || !filename) return;
@@ -88,10 +92,21 @@ export default function TemplatePlacementPanel({ client, runId, toast }) {
     }
   }
 
-  if (loading) {
+  if (skeletonOnly || loading) {
     return (
-      <div className="step4-shell">
-        <div className="step4-empty-hint">Applying client template…</div>
+      <div className="template-panel channel-format-preview template-panel--brand">
+        <div className="template-card channel-format-preview__card">
+          <div
+            className="template-frame"
+            data-template-frame
+            style={{ aspectRatio: SHARED_FORMAT_ASPECT }}
+          >
+            <ImageSkeleton variant="thumb" />
+          </div>
+          <div className="template-card-foot template-card-foot--skeleton">
+            <TextSkeleton lines={1} variant="meta" className="template-card-foot-skeleton" />
+          </div>
+        </div>
       </div>
     );
   }
@@ -109,27 +124,53 @@ export default function TemplatePlacementPanel({ client, runId, toast }) {
   const url = api.formattedImageUrl(client, runId, displayOutput.filename, cacheKey);
 
   return (
-    <div className="template-panel channel-format-preview">
+    <TemplatePreviewCard
+      url={url}
+      filename={displayOutput.filename}
+      width={displayOutput.width}
+      height={displayOutput.height}
+      downloading={downloading}
+      onDownload={() => handleDownload(displayOutput.filename)}
+    />
+  );
+}
+
+function TemplatePreviewCard({ url, filename, width, height, downloading, onDownload }) {
+  const { mediaReady, onMediaLoad } = useMediaReady(url);
+  const sizeLabel = formatDimensionsLabel(width, height);
+
+  return (
+    <div className="template-panel channel-format-preview template-panel--brand">
       <div className="template-card channel-format-preview__card">
         <div
           className="template-frame"
           data-template-frame
           style={{ aspectRatio: SHARED_FORMAT_ASPECT }}
         >
-          <AuthImage src={url} alt={displayOutput.filename} loading="lazy" />
+          <AuthImage
+            src={url}
+            alt={filename}
+            loading="eager"
+            placeholder="thumb"
+            onLoad={onMediaLoad}
+          />
         </div>
         <div className="template-card-foot">
-          <button
-            type="button"
-            className="btn btn-sm btn-edit-artifact"
-            onClick={() => handleDownload(displayOutput.filename)}
-            disabled={downloading}
-          >
-            {downloading ? "Downloading…" : "Download"}
-          </button>
-          <span className="template-card-specs">
-            {formatDimensionsLabel(displayOutput.width, displayOutput.height)}
-          </span>
+          {mediaReady ? (
+            <>
+              <button
+                type="button"
+                className="btn btn-sm btn-primary template-download-btn"
+                onClick={onDownload}
+                disabled={downloading}
+              >
+                {downloading ? "Downloading…" : "Download PNG"}
+              </button>
+              <span className="template-card-specs">{sizeLabel}</span>
+            </>
+          ) : (
+            <TextSkeleton lines={1} variant="meta" className="template-card-foot-skeleton" />
+          )}
         </div>
       </div>
     </div>

@@ -79,23 +79,31 @@ Do NOT wrap the response in code fences.
 """
 
 IMAGE_PROMPT_SYSTEM = """You write image-generation prompts for OpenAI Images.
-Given the workspace artifact summary, user idea, client profile, chosen intent/format, and LOCATION block,
-produce **four distinct visual style directions** — one prompt each. Each style must be meaningfully different
-(not random variations of the same scene).
+Given the workspace artifact summary, user idea, topic brief (intent, short angle, alternative angles),
+and LOCATION block, produce **four distinct photographic style directions** — one prompt each.
+Each style must be a real-world photograph (not a graphic design), meaningfully different in camera angle,
+framing, or scene — not random duplicates.
 
-Use EXACTLY these markdown section headings (## Photorealistic, etc.) and put the full prompt under each:
+Global rules for EVERY prompt (embed in each, do not rely on the image model inferring them):
+- Photographic / photorealistic only — real scenes, people, materials, and environments.
+- NO infographics, charts, diagrams, icons, illustrations, vector art, or flat-design layouts.
+- NO readable text of any kind — no headlines, captions, labels, numbers, logos, or watermarks on the image.
+- Use the **Short angle statement** as the primary visual story; draw scene ideas from **Alternative angles**
+  for variation across the four styles.
 
-## Photorealistic
-(detailed photorealistic prompt — scene, action, season, mood, lighting, colors, composition)
+Use EXACTLY these markdown section headings and put the full prompt under each:
 
-## Flat graphic
-(clean flat/vector-style prompt — bold shapes, limited palette, minimal photo realism)
+## Photorealistic scene
+(detailed photorealistic photograph — subject, action, season, mood, lighting, colors, composition)
 
-## Bold typographic
-(headline-led layout prompt — high contrast, clear empty zones for text overlay, strong focal point)
+## Close-up detail
+(photographic close-up or macro — texture, craftsmanship, hardware, materials; shallow depth of field)
+
+## Environmental wide
+(wide-angle photograph of the full space or setting — architecture, context, scale; not a layout mockup)
 
 ## Lifestyle warm
-(warm candid lifestyle prompt — authentic human moment, emotional connection, natural light)
+(warm candid lifestyle photograph — authentic human moment, emotional connection, natural light)
 
 Location rules:
 - When location is ENABLED: set scenes in or evocative of the exact location text provided (architecture, climate, setting).
@@ -110,29 +118,37 @@ Do NOT wrap the response in code fences.
 CLIENT_IMAGE_FROM_TEMPLATE_SYSTEM = """You are an expert prompt engineer for AI image generation.
 The user message contains:
 1) A client-specific generalized prompt template (brand, style rules, output format)
-2) A CONTENT TOPIC to apply to that template
-3) A LOCATION block — follow it for scene setting
+2) The user's post idea (USER IDEA)
+3) Topic card fields from Step 1 — primary intent, post format, short angle statement, alternative angles
+4) A CONTENT TOPIC summary (may overlap with the idea)
+5) A LOCATION block — follow it for scene setting
 
-Follow the template instructions exactly. The topic is provided at the end — produce the outputs now.
-Do not ask the user to wait or provide the topic again.
+Follow the template instructions exactly. Combine the generalized template with the user idea AND the
+topic card angles — the short angle statement is the main visual story; alternative angles suggest
+distinct camera angles or scene variations for primary vs alternate prompts.
 
 When location is ENABLED, embed the exact location text in image prompts for scene realism.
 When location is DISABLED, use non-geographic settings only.
 
+Global rules for EVERY image prompt (always apply, even if the template is silent):
+- Photographic / photorealistic only — real scenes, not graphic design.
+- NO infographics, charts, diagrams, icons, illustrations, or flat-design layouts.
+- NO readable text — no headlines, captions, labels, numbers, logos, or watermarks on the image.
+
 If the template does not specify an output format, return markdown with EXACTLY these sections:
 
 ## Caption angle
-(2-3 sentences matching the brand voice and topic)
+(2-3 sentences matching the brand voice, user idea, and short angle statement)
 
 ## Primary image prompt
-(150-250 words, highly detailed, image-model-ready, square composition)
+(150-250 words, highly detailed, image-model-ready, square composition; driven by short angle statement)
 
 ## Alternate image prompt
-(80-180 words, same topic and style, different camera angle or framing)
+(80-180 words, same topic and brand style, inspired by one alternative angle — different camera angle or framing)
 
 Rules:
 - Keep image prompts self-contained with all brand visual constraints embedded.
-- Do not include readable text, logos, or watermarks unless the template explicitly allows them.
+- Do not include readable text, logos, or watermarks on the image.
 - Output markdown only — no intro or outro outside the requested sections.
 - Do NOT wrap the response in code fences.
 """

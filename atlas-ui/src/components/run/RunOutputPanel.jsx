@@ -3,6 +3,8 @@ import * as api from "../../services/api";
 import { executeRunStep } from "../../utils/runStepAction";
 import PublishPlatformControls from "./PublishPlatformControls";
 import ArtifactView from "./RunArtifactView";
+import GeneratedImagesPanel from "./GeneratedImagesPanel";
+import StepOutputSkeleton from "./StepOutputSkeleton";
 
 export default function RunOutputPanel({
   client,
@@ -27,30 +29,31 @@ export default function RunOutputPanel({
 }) {
   const [publishActionsLocked, setPublishActionsLocked] = useState(false);
   const showInlineRun = (pipelineId || "social_media") === "social_media";
+  const isPublishStep = showInlineRun && step.key === "publish";
   const showPublishControls =
-    showInlineRun &&
-    step.key === "publish" &&
-    !inlineRunning &&
-    !running &&
-    status !== "running";
+    isPublishStep && !inlineRunning && !running && status !== "running";
 
-  const publishControls = showPublishControls ? (
-    <PublishPlatformControls
-      client={client}
-      runId={runId}
-      run={run}
-      stepKey={step.key}
-      topic={topic}
-      statuses={statuses}
-      pipelineId={pipelineId}
-      onRunUpdated={onRunComplete}
-      toast={toast}
-      onPublishActionsLockedChange={setPublishActionsLocked}
-    />
+  const publishControls = isPublishStep ? (
+    <div className={showPublishControls ? undefined : "visually-hidden"} aria-hidden={!showPublishControls}>
+      <PublishPlatformControls
+        client={client}
+        runId={runId}
+        run={run}
+        stepKey={step.key}
+        topic={topic}
+        statuses={statuses}
+        pipelineId={pipelineId}
+        onRunUpdated={onRunComplete}
+        toast={toast}
+        onPublishActionsLockedChange={setPublishActionsLocked}
+      />
+    </div>
   ) : null;
 
   const inlineRunLocked =
     showInlineRun && step.key === "publish" && publishActionsLocked;
+
+  const runLoading = run == null;
 
   async function handleInlineRun() {
     if (!showInlineRun || inlineRunLocked) return;
@@ -80,20 +83,44 @@ export default function RunOutputPanel({
     }
   }
 
-  if (inlineRunning || running || status === "running") {
+  if (runLoading) {
     return (
       <>
         {publishControls}
-        <div className="run-artifact-shell">
-          <div className="run-artifact-card">
-            <div className="run-artifact-body">
-              <div className="empty-state empty-state-inline">
-                <span className="spinner" /> Step {step.index} · Generating{" "}
-                {step.label.toLowerCase()}…
-              </div>
-            </div>
-          </div>
-        </div>
+        <StepOutputSkeleton
+          stepKey={step.key}
+          client={client}
+          runId={runId}
+          toast={toast}
+        />
+      </>
+    );
+  }
+
+  if (inlineRunning || running || status === "running") {
+    if (step.key === "image_generation") {
+      return (
+        <>
+          {publishControls}
+          <GeneratedImagesPanel
+            client={client}
+            runId={runId}
+            toast={toast}
+            generating
+          />
+        </>
+      );
+    }
+    return (
+      <>
+        {publishControls}
+        <StepOutputSkeleton
+          stepKey={step.key}
+          client={client}
+          runId={runId}
+          toast={toast}
+          label={`Step ${step.index} · Generating ${step.label.toLowerCase()}…`}
+        />
       </>
     );
   }

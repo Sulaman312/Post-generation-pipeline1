@@ -148,9 +148,9 @@ function App() {
               <span className="topbar-meta">{PRODUCT.workspaceTagline}</span>
             </div>
           </div>
-          <button type="button" className="btn btn-sm topbar-logout" onClick={handleLogout}>
+          <button type="button" className="btn btn-sm btn-logout" onClick={handleLogout}>
             <IconLogout />
-            <span className="sb-foot-logout-label">Logout</span>
+            <span className="btn-logout-label">Logout</span>
           </button>
         </header>
         <main className="layout-main">

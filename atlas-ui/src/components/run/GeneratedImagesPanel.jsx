@@ -1,21 +1,125 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import * as api from "../../services/api";
-import { SOCIAL_PIPELINE_STEPS } from "../../constants/pipelineContract";
 import { isImageFile, readImageFileAsBase64 } from "../../utils/readImageFile";
+import { useMediaReady } from "../../hooks/useMediaReady";
 import AuthImage from "../shared/AuthImage";
-import { IconCheck, IconImages, IconTrash, IconUpload } from "./runViewIcons";
+import ImageSkeleton from "../shared/ImageSkeleton";
+import TextSkeleton from "../shared/TextSkeleton";
+import { IconCheck, IconTrash, IconUpload } from "./runViewIcons";
 import "./ImageGenerationStep.css";
 
 export const MAX_PRIMARY_UPLOAD_BYTES = 8 * 1024 * 1024;
+const LOADING_PLACEHOLDER_COUNT = 4;
+const GENERATION_POLL_MS = 2000;
 
-const NEXT_STEP_LABEL =
-  SOCIAL_PIPELINE_STEPS.find((step) => step.key === "image_template")?.label ??
-  "Brand template";
+function Step4PendingCard({ generating }) {
+  return (
+    <div
+      className="step4-image-card step4-image-card--skeleton step4-image-card--pending"
+      role="listitem"
+      aria-busy={generating ? "true" : undefined}
+    >
+      <div className="step4-image-frame">
+        <ImageSkeleton variant="thumb" />
+        {generating ? (
+          <span className="step4-pending-badge">
+            <span className="spinner spinner--sm" aria-hidden />
+            Generating…
+          </span>
+        ) : null}
+      </div>
+    </div>
+  );
+}
 
-export default function GeneratedImagesPanel({ client, runId, toast }) {
-  const [loading, setLoading] = useState(true);
+function Step4ImageCard({
+  fn,
+  src,
+  styleLabel,
+  isSel,
+  isDeleting,
+  panelBusy,
+  busy,
+  onPreview,
+  onDelete,
+  onChoose,
+}) {
+  const { mediaReady, onMediaLoad } = useMediaReady(src);
+
+  return (
+    <div
+      role="listitem"
+      className={`step4-image-card${isSel ? " step4-image-card--selected" : ""}${
+        !mediaReady ? " step4-image-card--media-loading" : ""
+      }`}
+    >
+      <button
+        type="button"
+        className="step4-image-delete"
+        disabled={panelBusy || !mediaReady}
+        aria-label={`Delete ${styleLabel}`}
+        title="Delete image"
+        onClick={(e) => {
+          e.stopPropagation();
+          onDelete(fn, styleLabel);
+        }}
+      >
+        {isDeleting ? <span className="spinner spinner--sm" /> : <IconTrash />}
+      </button>
+      <button
+        type="button"
+        className="step4-image-preview"
+        onClick={() => onPreview(fn, styleLabel)}
+        disabled={panelBusy || !mediaReady}
+        aria-label={`Preview ${styleLabel}`}
+        title="View larger preview"
+      >
+        <div className="step4-image-frame">
+          <AuthImage
+            src={src}
+            alt={styleLabel}
+            loading="eager"
+            placeholder="thumb"
+            onLoad={onMediaLoad}
+          />
+          <span className="step4-image-check" aria-hidden>
+            <IconCheck />
+          </span>
+        </div>
+      </button>
+      <button
+        type="button"
+        className="step4-image-select"
+        onClick={() => onChoose(fn)}
+        disabled={panelBusy || !mediaReady}
+        aria-pressed={isSel}
+        title={isSel ? "Primary image" : "Select as primary"}
+      >
+        <div className="step4-image-footer">
+          {mediaReady ? (
+            <span className="step4-image-select-hint">
+              {busy ? "Saving…" : isSel ? "Primary" : "Select"}
+            </span>
+          ) : (
+            <TextSkeleton lines={1} variant="meta" />
+          )}
+        </div>
+      </button>
+    </div>
+  );
+}
+
+export default function GeneratedImagesPanel({
+  client,
+  runId,
+  toast,
+  skeletonOnly = false,
+  generating = false,
+}) {
+  const [loading, setLoading] = useState(!skeletonOnly || generating);
   const [images, setImages] = useState([]);
   const [imageMeta, setImageMeta] = useState({});
+  const [stylePlan, setStylePlan] = useState([]);
   const [selected, setSelected] = useState(null);
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -34,29 +138,88 @@ export default function GeneratedImagesPanel({ client, runId, toast }) {
   }, [preview]);
 
   useEffect(() => {
+    if (skeletonOnly && !generating) return undefined;
     let cancelled = false;
-    setLoading(true);
-    api
-      .listRunImages(client, runId)
-      .then((data) => {
+
+    async function refreshImages() {
+      try {
+        const data = await api.listRunImages(client, runId);
         if (cancelled) return;
         setImages(data.images || []);
         setImageMeta(data.image_meta || {});
         setSelected(data.selected_primary || null);
-      })
-      .catch(() => {
+      } catch {
         if (cancelled) return;
         setImages([]);
         setImageMeta({});
         setSelected(null);
-      })
-      .finally(() => {
+      } finally {
         if (!cancelled) setLoading(false);
+      }
+    }
+
+    refreshImages();
+    if (!generating) return () => {
+      cancelled = true;
+    };
+
+    const timer = window.setInterval(refreshImages, GENERATION_POLL_MS);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [client, runId, skeletonOnly, generating]);
+
+  useEffect(() => {
+    if (skeletonOnly && !generating) return undefined;
+    let cancelled = false;
+    api
+      .getImageStylePlan(client, runId)
+      .then((data) => {
+        if (cancelled) return;
+        setStylePlan(data.styles || []);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setStylePlan([]);
       });
     return () => {
       cancelled = true;
     };
-  }, [client, runId]);
+  }, [client, runId, skeletonOnly, generating]);
+
+  const completedByStyleKey = useMemo(() => {
+    const map = {};
+    for (const fn of images) {
+      const key = imageMeta[fn]?.style_key;
+      if (key) map[key] = fn;
+    }
+    return map;
+  }, [images, imageMeta]);
+
+  const slots = useMemo(() => {
+    if (stylePlan.length) {
+      return stylePlan.map((style) => ({
+        styleKey: style.style_key,
+        styleLabel: style.style_label || style.style_key,
+        filename: completedByStyleKey[style.style_key] || null,
+      }));
+    }
+    if (generating || (skeletonOnly && !generating)) {
+      return Array.from({ length: LOADING_PLACEHOLDER_COUNT }, (_, index) => ({
+        styleKey: `placeholder-${index}`,
+        styleLabel: null,
+        filename: null,
+      }));
+    }
+    return images.map((fn) => ({
+      styleKey: imageMeta[fn]?.style_key || fn,
+      styleLabel: imageMeta[fn]?.style_label || fn,
+      filename: fn,
+    }));
+  }, [stylePlan, completedByStyleKey, generating, skeletonOnly, images, imageMeta]);
+
+  const showSkeleton = skeletonOnly && !generating;
 
   async function choose(fn) {
     if (busy) return;
@@ -139,15 +302,6 @@ export default function GeneratedImagesPanel({ client, runId, toast }) {
     }
   }
 
-  if (loading) {
-    return (
-      <div className="empty-state empty-state-inline">
-        <span className="spinner" /> loading images…
-      </div>
-    );
-  }
-  const panelBusy = busy || uploading || Boolean(deleting);
-
   function imageSrc(fn) {
     return `${api.generatedImageUrl(client, runId, fn)}?v=${imageVersions[fn] || 0}`;
   }
@@ -156,117 +310,90 @@ export default function GeneratedImagesPanel({ client, runId, toast }) {
     setPreview({ fn, styleLabel });
   }
 
-  return (
-    <div className="step4-shell">
-      <section className="step4-section" aria-labelledby="step4-select-heading">
-        <header className="step4-section-header">
-          <div className="step4-section-heading">
-            <div className="step4-section-icon" aria-hidden>
-              <IconImages />
-            </div>
-            <div>
-              <h3 className="step4-section-title" id="step4-select-heading">
-                Choose primary image
-              </h3>
-              <p className="step4-section-desc">
-                Pick a generated style or upload your own image — then continue to{" "}
-                <strong>{NEXT_STEP_LABEL}</strong>.
-              </p>
-            </div>
-          </div>
-          {selected ? (
-            <span className="step4-primary-badge">
-              <IconCheck />
-              {selected}
-            </span>
-          ) : null}
-        </header>
+  const panelBusy = busy || uploading || Boolean(deleting);
 
+  return (
+    <div className={`step4-shell${generating ? " step4-shell--generating" : " step4-shell--compact"}`}>
+      <section
+        className="step4-section step4-section--generating"
+        aria-label="Generated images"
+      >
         <div className="step4-section-body">
-          {!images.length ? (
+          {!showSkeleton && !generating && !images.length ? (
             <p className="step4-empty-inline">No generated images yet. Upload your own below.</p>
           ) : null}
           <div className="step4-image-grid" role="list">
-            {images.map((fn) => {
-              const isSel = fn === selected;
-              const meta = imageMeta[fn] || {};
-              const styleLabel = meta.style_label || fn;
-              const isDeleting = deleting === fn;
-              return (
-                <div
-                  key={fn}
-                  role="listitem"
-                  className={`step4-image-card${isSel ? " step4-image-card--selected" : ""}`}
-                >
-                  <button
-                    type="button"
-                    className="step4-image-delete"
-                    disabled={panelBusy}
-                    aria-label={`Delete ${styleLabel}`}
-                    title="Delete image"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      removeImage(fn, styleLabel);
-                    }}
-                  >
-                    {isDeleting ? <span className="spinner spinner--sm" /> : <IconTrash />}
-                  </button>
-                  <button
-                    type="button"
-                    className="step4-image-preview"
-                    onClick={() => openPreview(fn, styleLabel)}
-                    disabled={panelBusy}
-                    aria-label={`Preview ${styleLabel}`}
-                    title="View larger preview"
+            {showSkeleton
+              ? Array.from({ length: LOADING_PLACEHOLDER_COUNT }, (_, index) => (
+                  <div
+                    key={`image-skeleton-${index}`}
+                    className="step4-image-card step4-image-card--skeleton"
+                    role="listitem"
+                    aria-hidden
                   >
                     <div className="step4-image-frame">
-                      <AuthImage src={imageSrc(fn)} alt={styleLabel} loading="lazy" />
-                      <span className="step4-image-check" aria-hidden>
-                        <IconCheck />
-                      </span>
+                      <ImageSkeleton variant="thumb" />
                     </div>
-                  </button>
-                  <button
-                    type="button"
-                    className="step4-image-select"
-                    onClick={() => choose(fn)}
-                    disabled={panelBusy}
-                    aria-pressed={isSel}
-                    title={isSel ? "Primary image" : "Select as primary"}
-                  >
-                    <div className="step4-image-footer">
-                      <span className="step4-style-chip">{styleLabel}</span>
-                      <span className="step4-image-select-hint">
-                        {busy ? "Saving…" : isSel ? "Primary" : "Select"}
-                      </span>
+                    <div className="step4-image-footer step4-image-footer--skeleton">
+                      <TextSkeleton lines={1} variant="meta" />
                     </div>
-                  </button>
-                </div>
-              );
-            })}
-            <div className="step4-image-card step4-image-card--upload" role="listitem">
-              <input
-                ref={uploadInputRef}
-                id={`step4-upload-${runId}`}
-                type="file"
-                className="step4-upload-input"
-                accept="image/png,image/jpeg,image/webp,image/gif,.png,.jpg,.jpeg,.webp,.gif"
-                onChange={onUploadInputChange}
-                disabled={panelBusy}
-              />
-              <label
-                htmlFor={`step4-upload-${runId}`}
-                className={`step4-upload-label${panelBusy ? " step4-upload-label--disabled" : ""}`}
-              >
-                <span className="step4-upload-icon" aria-hidden>
-                  {uploading ? <span className="spinner" /> : <IconUpload />}
-                </span>
-                <span className="step4-upload-title">
-                  {uploading ? "Uploading…" : "Upload your image"}
-                </span>
-                <span className="step4-upload-hint">PNG, JPG, WebP — max 8 MB. Sets as primary.</span>
-              </label>
-            </div>
+                  </div>
+                ))
+              : slots.map((slot) => {
+                  if (!slot.filename) {
+                    return (
+                      <Step4PendingCard
+                        key={slot.styleKey}
+                        generating={generating}
+                      />
+                    );
+                  }
+                  const fn = slot.filename;
+                  const meta = imageMeta[fn] || {};
+                  const styleLabel = slot.styleLabel || meta.style_label || fn;
+                  return (
+                    <Step4ImageCard
+                      key={fn}
+                      fn={fn}
+                      src={imageSrc(fn)}
+                      styleLabel={styleLabel}
+                      isSel={fn === selected}
+                      isDeleting={deleting === fn}
+                      panelBusy={panelBusy || generating}
+                      busy={busy}
+                      onPreview={openPreview}
+                      onDelete={removeImage}
+                      onChoose={choose}
+                    />
+                  );
+                })}
+            {!generating ? (
+              <div className="step4-image-card step4-image-card--upload" role="listitem">
+                <input
+                  ref={uploadInputRef}
+                  id={`step4-upload-${runId}`}
+                  type="file"
+                  className="step4-upload-input"
+                  accept="image/png,image/jpeg,image/webp,image/gif,.png,.jpg,.jpeg,.webp,.gif"
+                  onChange={onUploadInputChange}
+                  disabled={panelBusy || showSkeleton || loading}
+                />
+                <label
+                  htmlFor={`step4-upload-${runId}`}
+                  className={`step4-upload-label${
+                    panelBusy || showSkeleton || loading ? " step4-upload-label--disabled" : ""
+                  }`}
+                >
+                  <span className="step4-upload-icon" aria-hidden>
+                    {uploading ? <span className="spinner" /> : <IconUpload />}
+                  </span>
+                  <span className="step4-upload-title">
+                    {uploading ? "Uploading…" : "Upload your image"}
+                  </span>
+                  <span className="step4-upload-hint">PNG, JPG, WebP — max 8 MB. Sets as primary.</span>
+                </label>
+              </div>
+            ) : null}
           </div>
         </div>
       </section>
@@ -284,8 +411,7 @@ export default function GeneratedImagesPanel({ client, runId, toast }) {
             aria-label={preview.styleLabel}
             onClick={(e) => e.stopPropagation()}
           >
-            <header className="step4-preview-header">
-              <h4 className="step4-preview-title">{preview.styleLabel}</h4>
+            <header className="step4-preview-header step4-preview-header--compact">
               <button
                 type="button"
                 className="step4-preview-close"
@@ -300,14 +426,13 @@ export default function GeneratedImagesPanel({ client, runId, toast }) {
                 src={imageSrc(preview.fn)}
                 alt={preview.styleLabel}
                 className="step4-preview-image"
+                imgClassName="step4-preview-img"
+                placeholder="none"
+                loading="eager"
               />
             </div>
             <footer className="step4-preview-footer">
-              <button
-                type="button"
-                className="btn btn-sm"
-                onClick={() => setPreview(null)}
-              >
+              <button type="button" className="btn btn-sm" onClick={() => setPreview(null)}>
                 Close
               </button>
               {preview.fn !== selected ? (

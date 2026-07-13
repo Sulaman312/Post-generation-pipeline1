@@ -1,8 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as api from "../../services/api";
 import AuthImage from "../shared/AuthImage";
+import ImageSkeleton from "../shared/ImageSkeleton";
+import TextSkeleton from "../shared/TextSkeleton";
 import PageHeader from "../shared/PageHeader";
 import DeleteWorkspaceButton from "../shared/DeleteWorkspaceButton";
+import { useInView } from "../../hooks/useInView";
+import { useMediaReady } from "../../hooks/useMediaReady";
 import {
   PLATFORM_ORDER,
   PLATFORM_LABELS,
@@ -61,6 +65,7 @@ function runNeedsPreview(run) {
 
 const PREVIEW_BATCH_FLUSH_MS = 50;
 const PREVIEW_BATCH_MAX = 16;
+const QUEUE_SKELETON_ROWS = 6;
 
 function previewFromIndex(idx) {
   if (!idx || typeof idx !== "object") return null;
@@ -148,18 +153,27 @@ function useLazyQueuePreviews(client) {
   return { previews, loadPreview };
 }
 
-function rowIsNearRoot(el, root, marginPx = 240) {
-  const rootRect = root
-    ? root.getBoundingClientRect()
-    : {
-        top: 0,
-        left: 0,
-        bottom: window.innerHeight,
-        right: window.innerWidth,
-      };
-  const elRect = el.getBoundingClientRect();
+function PostQueueSkeletonRow({ index }) {
   return (
-    elRect.bottom >= rootRect.top - marginPx && elRect.top <= rootRect.bottom + marginPx
+    <tr className="ps-row ps-row--skeleton" aria-hidden>
+      <td className="ps-cell ps-cell--post">
+        <TextSkeleton lines={2} variant="title" className="ps-text-skeleton" />
+        <TextSkeleton lines={1} variant="meta" className="ps-text-skeleton ps-text-skeleton--meta" />
+      </td>
+      {PLATFORM_ORDER.map((key) => (
+        <td key={key} className="ps-cell ps-cell--platform">
+          <div className="ps-platform">
+            <div className="ps-platform-thumb">
+              <ImageSkeleton variant="thumb" />
+            </div>
+            <TextSkeleton lines={2} variant="meta" className="ps-text-skeleton ps-text-skeleton--platform" />
+          </div>
+        </td>
+      ))}
+      <td className="ps-cell ps-cell--action">
+        <span className="ps-skeleton-open" />
+      </td>
+    </tr>
   );
 }
 
@@ -170,43 +184,23 @@ function PostQueueRow({
   previewPending,
   onLoadPreview,
   onOpenRun,
-  scrollRootRef,
 }) {
-  const rowRef = useRef(null);
-  const marginPx = 240;
+  const shouldWatch = previewPending && preview == null;
+  const { ref: rowSentinelRef, inView } = useInView({
+    rootMargin: "240px 0px",
+    disabled: !shouldWatch,
+  });
 
   useEffect(() => {
-    if (!previewPending || preview != null) return undefined;
-    const el = rowRef.current;
-    if (!el) return undefined;
-
-    const root = scrollRootRef?.current || null;
-
-    if (rowIsNearRoot(el, root, marginPx)) {
-      onLoadPreview(summary.runId);
-      return undefined;
-    }
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((entry) => entry.isIntersecting)) {
-          onLoadPreview(summary.runId);
-          observer.disconnect();
-        }
-      },
-      { root, rootMargin: `${marginPx}px 0px`, threshold: 0 }
-    );
-
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [summary.runId, onLoadPreview, previewPending, preview, scrollRootRef]);
+    if (!shouldWatch || !inView) return;
+    onLoadPreview(summary.runId);
+  }, [shouldWatch, inView, summary.runId, onLoadPreview]);
 
   const platformMap = Object.fromEntries(summary.platforms.map((p) => [p.key, p]));
   const scheduleLabel = formatPostDateTime(summary.scheduledAt);
 
   return (
     <tr
-      ref={rowRef}
       className="ps-row"
       tabIndex={0}
       onClick={() => onOpenRun?.(summary.runId)}
@@ -218,6 +212,7 @@ function PostQueueRow({
       }}
     >
       <td className="ps-cell ps-cell--post">
+        <div ref={rowSentinelRef} className="ps-row-sentinel" aria-hidden />
         <div className="ps-post-title">{summary.title}</div>
         <div className="ps-post-meta">
           <span className={`ps-status ps-status--${summary.overallStatus}`}>
@@ -263,24 +258,36 @@ function PostQueueRow({
 function PlatformCell({ platformKey, platform, imageUrl, thumbLoading = false }) {
   const label = PLATFORM_LABELS[platformKey] || platformKey;
   const { status, label: statusLabel, detail } = platformCellDisplay(platform);
+  const { mediaReady, onMediaLoad } = useMediaReady(imageUrl || "");
+  const textPending = Boolean(imageUrl) && !mediaReady;
 
   return (
     <td className="ps-cell ps-cell--platform" aria-label={`${label}: ${statusLabel}${detail ? `, ${detail}` : ""}`}>
       <div className="ps-platform">
-        <div
-          className={`ps-platform-thumb${
-            thumbLoading ? " ps-platform-thumb--loading" : ""
-          }`}
-        >
+        <div className="ps-platform-thumb">
           {imageUrl ? (
-            <AuthImage src={imageUrl} alt="" loading="lazy" />
+            <AuthImage
+              src={imageUrl}
+              alt=""
+              loading="eager"
+              placeholder="thumb"
+              onLoad={onMediaLoad}
+            />
+          ) : thumbLoading ? (
+            <ImageSkeleton variant="thumb" />
           ) : (
             <span className="ps-platform-thumb-empty" aria-hidden />
           )}
         </div>
         <div className="ps-platform-text">
-          <span className={`ps-platform-status ps-platform-status--${status}`}>{statusLabel}</span>
-          {detail ? <span className="ps-platform-detail">{detail}</span> : null}
+          {textPending ? (
+            <TextSkeleton lines={2} variant="meta" className="ps-text-skeleton ps-text-skeleton--platform" />
+          ) : (
+            <>
+              <span className={`ps-platform-status ps-platform-status--${status}`}>{statusLabel}</span>
+              {detail ? <span className="ps-platform-detail">{detail}</span> : null}
+            </>
+          )}
         </div>
       </div>
     </td>
@@ -288,7 +295,6 @@ function PlatformCell({ platformKey, platform, imageUrl, thumbLoading = false })
 }
 
 export default function PostStatusScreen({ client, onOpenRun, onClientDeleted }) {
-  const scrollRootRef = useRef(null);
   const [runs, setRuns] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
@@ -398,10 +404,29 @@ export default function PostStatusScreen({ client, onOpenRun, onClientDeleted })
         </div>
       </header>
 
-      <section className="ps-panel" ref={scrollRootRef} aria-label="Publishing queue">
+      <section className="ps-panel" aria-label="Publishing queue">
         {loading && summaries.length === 0 ? (
-          <div className="ps-empty">
-            <span className="spinner" /> Loading queue…
+          <div className="ps-table-wrap">
+            <table className="ps-table">
+              <thead>
+                <tr>
+                  <th scope="col">Post</th>
+                  {PLATFORM_ORDER.map((key) => (
+                    <th key={key} scope="col">
+                      {PLATFORM_LABELS[key]}
+                    </th>
+                  ))}
+                  <th scope="col" className="ps-th-action">
+                    <span className="visually-hidden">Open</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {Array.from({ length: QUEUE_SKELETON_ROWS }, (_, index) => (
+                  <PostQueueSkeletonRow key={`skeleton-${index}`} index={index} />
+                ))}
+              </tbody>
+            </table>
           </div>
         ) : summaries.length === 0 ? (
           <div className="ps-empty">
@@ -435,7 +460,6 @@ export default function PostStatusScreen({ client, onOpenRun, onClientDeleted })
                     previewPending={runNeedsPreview(runsById[summary.runId])}
                     onLoadPreview={loadPreview}
                     onOpenRun={onOpenRun}
-                    scrollRootRef={scrollRootRef}
                   />
                 ))}
               </tbody>

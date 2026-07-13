@@ -39,9 +39,9 @@
     },
     {
       "key": "review_checklist",
-      "label": "Review",
-      "matrixLabel": "Review",
-      "matrixCol": "RV",
+      "label": "Preview",
+      "matrixLabel": "Preview",
+      "matrixCol": "PV",
       "index": 6
     },
     {

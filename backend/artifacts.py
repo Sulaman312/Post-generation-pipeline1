@@ -70,8 +70,8 @@ _BUILTIN_SPECS: list[dict[str, str]] = [
             "- (palette, lighting, mood, composition, props, things to avoid)\n\n"
             "For each topic, output:\n"
             "1. A short content angle/caption idea (2-3 sentences)\n"
-            "2. A full image generation prompt (150-250 words)\n"
-            "3. One alternate camera angle/variation\n\n"
+            "2. A full image generation prompt (150-250 words) — photographic only, no infographics, no text on image\n"
+            "3. One alternate camera angle/variation — also photographic, no text on image\n\n"
             "Wait for me to give you the topic before generating anything."
         ),
     },

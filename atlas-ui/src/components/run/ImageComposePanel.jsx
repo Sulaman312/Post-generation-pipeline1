@@ -1,14 +1,17 @@
 import { useEffect, useState } from "react";
 import * as api from "../../services/api";
+import ImageSkeleton from "../shared/ImageSkeleton";
+import TextSkeleton from "../shared/TextSkeleton";
 import { pipelineStepLabel } from "../../constants/pipelineContract";
 import ImageComposer from "./ImageComposer";
 import "./ImageGenerationStep.css";
 
-export default function ImageComposePanel({ client, runId, toast }) {
-  const [loading, setLoading] = useState(true);
+export default function ImageComposePanel({ client, runId, toast, skeletonOnly = false }) {
+  const [loading, setLoading] = useState(!skeletonOnly);
   const [primaryImage, setPrimaryImage] = useState(null);
 
   useEffect(() => {
+    if (skeletonOnly) return undefined;
     let cancelled = false;
     setLoading(true);
     api
@@ -27,12 +30,15 @@ export default function ImageComposePanel({ client, runId, toast }) {
     return () => {
       cancelled = true;
     };
-  }, [client, runId]);
+  }, [client, runId, skeletonOnly]);
 
-  if (loading) {
+  if (skeletonOnly || loading) {
     return (
-      <div className="empty-state empty-state-inline">
-        <span className="spinner" /> loading…
+      <div className="step4-shell step4-shell--skeleton">
+        <div className="image-composer-skeleton">
+          <ImageSkeleton variant="media" className="image-composer-skeleton__canvas" />
+          <TextSkeleton lines={5} variant="body" className="image-composer-skeleton__controls" />
+        </div>
       </div>
     );
   }

@@ -206,8 +206,18 @@
 }
 
 .ps-cell--post {
+  position: relative;
   min-width: 280px;
   width: 32%;
+}
+
+.ps-row-sentinel {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1px;
+  height: 1px;
+  pointer-events: none;
 }
 
 .ps-post-title {
@@ -290,10 +300,17 @@
   border-radius: 8px;
   overflow: hidden;
   border: 1px solid var(--border, #e2e8f0);
-  background: var(--panel-soft, #f8fafc);
+  background: #e4e6eb;
 }
 
-.ps-platform-thumb img {
+.ps-platform-thumb .auth-image,
+.ps-platform-thumb .image-skeleton {
+  width: 100%;
+  height: 100%;
+}
+
+.ps-platform-thumb img,
+.ps-platform-thumb .auth-image__img {
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -304,21 +321,34 @@
   display: block;
   width: 100%;
   height: 100%;
-  background: var(--panel-soft, #f1f5f9);
+  background: #e4e6eb;
 }
 
-.ps-platform-thumb--loading .ps-platform-thumb-empty {
-  animation: ps-thumb-pulse 1.2s ease-in-out infinite;
+.ps-row--skeleton {
+  pointer-events: none;
 }
 
-@keyframes ps-thumb-pulse {
-  0%,
-  100% {
-    opacity: 0.45;
-  }
-  50% {
-    opacity: 1;
-  }
+.ps-text-skeleton {
+  max-width: 320px;
+}
+
+.ps-text-skeleton--meta {
+  margin-top: 8px;
+  max-width: 120px;
+}
+
+.ps-text-skeleton--platform {
+  flex: 1;
+  min-width: 0;
+  max-width: 88px;
+}
+
+.ps-skeleton-open {
+  display: inline-block;
+  width: 52px;
+  height: 10px;
+  border-radius: 999px;
+  background: #e4e6eb;
 }
 
 .ps-platform-text {

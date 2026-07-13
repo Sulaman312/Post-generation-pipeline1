@@ -52,6 +52,30 @@ def list_run_images(client_id: str, run_id: str):
     )
 
 
+@api_bp.get("/clients/<client_id>/runs/<run_id>/images/style-plan")
+def image_style_plan(client_id: str, run_id: str):
+    """Style labels and prompts from image_prompt.md for progressive Step 4 UI."""
+    bad = reject_client(client_id)
+    if bad:
+        return bad
+    bad_run = reject_run_id(run_id)
+    if bad_run:
+        return bad_run
+    from backend import social_image_generation
+
+    styles = social_image_generation.list_style_plan(client_id, run_id)
+    return jsonify(
+        styles=[
+            {
+                "style_key": s.get("style_key") or "",
+                "style_label": s.get("style_label") or "",
+                "prompt": s.get("prompt") or "",
+            }
+            for s in styles
+        ]
+    )
+
+
 @api_bp.post("/clients/<client_id>/runs/<run_id>/images/select")
 def select_run_image(client_id: str, run_id: str):
     bad = reject_client(client_id)

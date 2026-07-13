@@ -17,6 +17,7 @@ def health():
     return jsonify(
         ok=True,
         service="ContentFlow API",
+        hydrated=mongo_storage.hydration_complete(),
         persistence="mongodb" if mongo.get("configured") else "filesystem",
         database=mongo.get("database"),
         mongodb=mongo,

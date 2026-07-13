@@ -17,8 +17,10 @@ class ApiRunsIntegrationTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.original_dir = config.CLIENTS_DIR
         self.original_mongo = config.MONGODB_URI
+        self.original_auth = config.AUTH_ENABLED
         config.CLIENTS_DIR = Path(self.temp.name) / "clients"
         config.MONGODB_URI = None
+        config.AUTH_ENABLED = False
         config.CLIENTS_DIR.mkdir(parents=True, exist_ok=True)
 
         from backend.app import create_app
@@ -34,6 +36,7 @@ class ApiRunsIntegrationTests(unittest.TestCase):
         self._schedule_patcher.stop()
         config.CLIENTS_DIR = self.original_dir
         config.MONGODB_URI = self.original_mongo
+        config.AUTH_ENABLED = self.original_auth
         self.temp.cleanup()
 
     def _create_client(self, client_id: str = "acme") -> None:

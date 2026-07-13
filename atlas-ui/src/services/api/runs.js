@@ -1,10 +1,17 @@
 import {
   BASE,
+  REQUEST_TIMEOUT_MS,
   STEP_POLL_INTERVAL_MS,
   STEP_REQUEST_TIMEOUT_MS,
   delay,
   request,
 } from "./http";
+import {
+  fetchArtifactCached,
+  invalidateArtifactCache,
+  readCachedArtifact,
+  writeCachedArtifact,
+} from "./artifactCache";
 
 export function runLogoUrl(clientId, runId) {
   return `${BASE}/clients/${encodeURIComponent(clientId)}/runs/${encodeURIComponent(
@@ -148,7 +155,7 @@ export async function scheduleRun(clientId, runId, payload) {
 export async function getRun(clientId, runId, signal = null) {
   return request(
     `/clients/${encodeURIComponent(clientId)}/runs/${encodeURIComponent(runId)}`,
-    { signal }
+    { signal, timeoutMs: STEP_REQUEST_TIMEOUT_MS }
   );
 }
 
@@ -183,16 +190,21 @@ async function waitForStep(clientId, runId, stepName, signal) {
 }
 
 export async function getArtifact(clientId, runId, stepName) {
-  const data = await request(
-    `/clients/${encodeURIComponent(clientId)}/runs/${encodeURIComponent(
-      runId
-    )}/artifacts/${encodeURIComponent(stepName)}`
-  );
-  return data.content ?? "";
+  return fetchArtifactCached(clientId, runId, stepName, async () => {
+    const data = await request(
+      `/clients/${encodeURIComponent(clientId)}/runs/${encodeURIComponent(
+        runId
+      )}/artifacts/${encodeURIComponent(stepName)}`,
+      { timeoutMs: REQUEST_TIMEOUT_MS }
+    );
+    return data.content ?? "";
+  });
 }
 
+export { readCachedArtifact, invalidateArtifactCache };
+
 export async function saveArtifact(clientId, runId, stepName, content) {
-  return request(
+  const result = await request(
     `/clients/${encodeURIComponent(clientId)}/runs/${encodeURIComponent(
       runId
     )}/artifacts/${encodeURIComponent(stepName)}`,
@@ -202,6 +214,8 @@ export async function saveArtifact(clientId, runId, stepName, content) {
       body: JSON.stringify({ content }),
     }
   );
+  writeCachedArtifact(clientId, runId, stepName, content);
+  return result;
 }
 
 export async function runStep(

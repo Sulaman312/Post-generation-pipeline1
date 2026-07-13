@@ -102,6 +102,18 @@ export async function listRunImages(clientId, runId) {
   };
 }
 
+/** Style labels and prompts from Step 3 image_prompt.md (progressive Step 4 UI). */
+export async function getImageStylePlan(clientId, runId) {
+  const data = await request(
+    `/clients/${encodeURIComponent(clientId)}/runs/${encodeURIComponent(
+      runId
+    )}/images/style-plan`
+  );
+  return {
+    styles: Array.isArray(data.styles) ? data.styles : [],
+  };
+}
+
 export async function regenerateStyleImage(clientId, runId, styleKey) {
   return request(
     `/clients/${encodeURIComponent(clientId)}/runs/${encodeURIComponent(

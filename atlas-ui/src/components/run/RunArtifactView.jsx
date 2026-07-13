@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import * as api from "../../services/api";
 import MarkdownArtifactPanel from "../shared/MarkdownArtifactPanel";
+import TextSkeleton from "../shared/TextSkeleton";
+import { isInteractiveOutputStep } from "../../utils/stepOutputKind";
 import { copyFormattedMarkdown } from "../../utils/markdownExport";
 import { splitFinalOutput } from "../../utils/parseFinalOutput";
 import { parseTopicCard } from "../../utils/parseTopicCard";
@@ -119,10 +121,21 @@ export default function ArtifactView({
   }, [headerEditKey, readOnly, useHeaderEdit]);
 
   useEffect(() => {
+    if (isInteractiveOutputStep(stepName)) {
+      setLoading(false);
+      return undefined;
+    }
     const key = `${client}|${runId}|${stepName}`;
     lastKey.current = key;
+    const cached = api.readCachedArtifact(client, runId, stepName);
+    if (cached != null) {
+      setContent(cached);
+      setDraft(cached);
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
     let cancelled = false;
-    setLoading(true);
     api
       .getArtifact(client, runId, stepName)
       .then((c) => {
@@ -265,11 +278,23 @@ export default function ArtifactView({
     .filter(Boolean)
     .join(" ");
 
+  if (isInteractiveOutputStep(stepName)) {
+    return (
+      <div className={artifactShellClass}>
+        <div className="run-artifact-card">
+          <div className="run-artifact-body run-artifact-body--flush">{interactivePreview}</div>
+        </div>
+      </div>
+    );
+  }
+
   if (loading) {
     return (
       <div className="run-artifact-shell">
-        <div className="empty-state">
-          <span className="spinner" /> loading…
+        <div className="run-artifact-card">
+          <div className="run-artifact-body run-artifact-body--skeleton">
+            <TextSkeleton lines={8} variant="body" />
+          </div>
         </div>
       </div>
     );

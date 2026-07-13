@@ -2,9 +2,8 @@ import unittest
 from datetime import timedelta
 from unittest.mock import MagicMock, patch
 
-from werkzeug.security import check_password_hash, generate_password_hash
-
 from backend import auth_store
+from werkzeug.security import check_password_hash, generate_password_hash
 
 
 class AuthStoreTests(unittest.TestCase):
@@ -18,49 +17,53 @@ class AuthStoreTests(unittest.TestCase):
             auth_store.SESSIONS_COLLECTION: self.sessions,
         }[name]
 
+    @patch("backend.auth_store.config.AUTH_ENABLED", True)
+    @patch("backend.auth_store.mongo_storage.enabled", return_value=True)
     @patch("backend.auth_store.mongo_storage.database")
-    def test_ensure_default_user_inserts_hashed_password(self, db_mock):
+    def test_ensure_default_user_inserts_hashed_password(self, db_mock, _enabled_mock):
         db_mock.return_value = self.db
-        auth_store.ensure_default_user("sulaman312", "admin123")
+        auth_store.ensure_default_user("admin", "admin123")
         self.users.insert_one.assert_called_once()
         payload = self.users.insert_one.call_args.args[0]
-        self.assertEqual(payload["username"], "sulaman312")
+        self.assertEqual(payload["username"], "admin")
         self.assertTrue(check_password_hash(payload["password_hash"], "admin123"))
 
     @patch("backend.auth_store.mongo_storage.database")
     def test_authenticate_rejects_bad_password(self, db_mock):
         db_mock.return_value = self.db
         self.users.find_one.return_value = {
-            "username": "sulaman312",
+            "username": "admin",
             "password_hash": generate_password_hash("admin123"),
         }
-        self.assertIsNone(auth_store.authenticate("sulaman312", "wrong"))
+        self.assertIsNone(auth_store.authenticate("admin", "wrong"))
         self.assertEqual(
-            auth_store.authenticate("sulaman312", "admin123")["username"],
-            "sulaman312",
+            auth_store.authenticate("admin", "admin123")["username"],
+            "admin",
         )
 
+    @patch("backend.auth_store.config.AUTH_ENABLED", True)
     @patch("backend.auth_store.mongo_storage.database")
     def test_create_and_resolve_session(self, db_mock):
         db_mock.return_value = self.db
         self.sessions.find_one.return_value = {
             "token": "abc123",
-            "username": "sulaman312",
+            "username": "admin",
             "expires_at": auth_store._now() + timedelta(days=1),
         }
-        self.users.find_one.return_value = {"username": "sulaman312"}
-        session = auth_store.create_session("sulaman312")
-        self.assertEqual(session["username"], "sulaman312")
+        self.users.find_one.return_value = {"username": "admin"}
+        session = auth_store.create_session("admin")
+        self.assertEqual(session["username"], "admin")
         self.assertTrue(session["token"])
         self.sessions.insert_one.assert_called_once()
 
         req = MagicMock()
         req.headers = {"Authorization": f"Bearer {session['token']}"}
-        with patch.object(auth_store, "user_from_token", return_value={"username": "sulaman312"}):
+        with patch.object(auth_store, "user_from_token", return_value={"username": "admin"}):
             user = auth_store.resolve_request_user(req)
-        self.assertEqual(user["username"], "sulaman312")
+        self.assertEqual(user["username"], "admin")
 
 
+    @patch("backend.auth_store.config.AUTH_ENABLED", True)
     @patch("backend.auth_store.mongo_storage.database")
     def test_resolve_session_from_cookie(self, db_mock):
         db_mock.return_value = self.db
@@ -68,10 +71,10 @@ class AuthStoreTests(unittest.TestCase):
         req.headers = {}
         req.cookies = {"cf_session": "cookie-token"}
         with patch.object(
-            auth_store, "user_from_token", return_value={"username": "sulaman312"}
+            auth_store, "user_from_token", return_value={"username": "admin"}
         ) as user_from_token:
             user = auth_store.resolve_request_user(req)
-        self.assertEqual(user["username"], "sulaman312")
+        self.assertEqual(user["username"], "admin")
         user_from_token.assert_called_once_with("cookie-token")
 
 

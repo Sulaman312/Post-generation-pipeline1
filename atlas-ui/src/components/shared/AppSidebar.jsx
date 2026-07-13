@@ -1,6 +1,4 @@
 import { useCallback } from "react";
-import { APP_BRAND_NAME } from "../../constants/brand";
-import { stepsForPipeline } from "../../constants/pipelines";
 import {
   SIDEBAR_WIDTH_MAX,
   SIDEBAR_WIDTH_MIN,
@@ -127,27 +125,32 @@ export default function AppSidebar({
       </div>
 
       <div className="sb-foot">
-        {!collapsed ? (
-          <div className="sb-foot-inner">
-            <span>{APP_BRAND_NAME} • {stepsForPipeline().length} steps</span>
-            {authUsername ? (
-              <button
-                type="button"
-                className="sb-foot-logout"
-                onClick={onLogout}
-                title={`Log out ${authUsername}`}
-                aria-label={`Log out ${authUsername}`}
-              >
-                <IconLogout />
-                <span className="sb-foot-logout-label">Logout</span>
-              </button>
-            ) : null}
+        {!collapsed && authUsername ? (
+          <div className="sb-foot-card">
+            <div className="sb-foot-profile">
+              <div className="sb-foot-avatar" aria-hidden="true">
+                {authUsername.charAt(0).toUpperCase()}
+              </div>
+              <div className="sb-foot-profile-text">
+                <span className="sb-foot-user">{authUsername}</span>
+              </div>
+            </div>
+            <button
+              type="button"
+              className="sb-foot-logout-btn"
+              onClick={onLogout}
+              title={`Log out ${authUsername}`}
+              aria-label={`Log out ${authUsername}`}
+            >
+              <IconLogout />
+              <span className="sb-foot-logout-label">Logout</span>
+            </button>
           </div>
-        ) : runId ? null : (
+        ) : collapsed && !runId ? (
           <span className="sb-foot-expand-hint" title="Expand sidebar" aria-hidden>
             ···
           </span>
-        )}
+        ) : null}
       </div>
 
       {!collapsed && onSidebarWidthChange ? (

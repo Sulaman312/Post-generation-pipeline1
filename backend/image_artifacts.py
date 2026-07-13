@@ -94,6 +94,50 @@ def save_generated_images(
     )
 
 
+def begin_generated_batch(client_id: str, run_id: str) -> None:
+    """Clear prior generated previews before a new Step 4 batch."""
+    root = images_root(client_id, run_id) / "generated"
+    for path in root.glob("image_*.png"):
+        try:
+            path.unlink()
+        except OSError:
+            pass
+    _write_index(
+        client_id,
+        run_id,
+        {"images": [], "selected_primary": None, "meta": {}},
+    )
+
+
+def append_generated_image(
+    client_id: str,
+    run_id: str,
+    *,
+    png_blob: bytes,
+    style: dict[str, str],
+) -> ImageIndex:
+    """Save one generated style image and update the index immediately."""
+    idx = load_image_index(client_id, run_id)
+    images = list(idx.images) if idx else []
+    meta = dict(idx.meta) if idx else {}
+    selected = idx.selected_primary if idx else None
+
+    next_num = len(images) + 1
+    filename = f"image_{next_num:02d}.png"
+    root = images_root(client_id, run_id) / "generated"
+    (root / filename).write_bytes(png_blob)
+    images.append(filename)
+    meta[filename] = {
+        "style_key": str(style.get("style_key") or ""),
+        "style_label": str(style.get("style_label") or ""),
+    }
+    return _write_index(
+        client_id,
+        run_id,
+        {"images": images, "selected_primary": selected, "meta": meta},
+    )
+
+
 def replace_style_image(
     client_id: str,
     run_id: str,

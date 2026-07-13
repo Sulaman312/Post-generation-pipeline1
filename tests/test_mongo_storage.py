@@ -60,7 +60,9 @@ class MongoStorageTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.original_uri = config.MONGODB_URI
         self.original_dir = config.CLIENTS_DIR
+        self.original_auth = config.AUTH_ENABLED
         config.MONGODB_URI = "mongodb://test.invalid"
+        config.AUTH_ENABLED = False
         config.CLIENTS_DIR = Path(self.temp.name) / "cache"
         self.files = FakeFilesCollection()
         self.bucket = FakeBucket()
@@ -70,10 +72,37 @@ class MongoStorageTests(unittest.TestCase):
         mongo_storage._snapshot = {}
         mongo_storage._known_paths = set()
         mongo_storage._hydration_complete = True
+        self._connect_patcher = patch(
+            "backend.mongo_storage._connect",
+            return_value=(self.files, self.bucket),
+        )
+        self._connect_patcher.start()
+        self._schedule_patcher = patch(
+            "backend.schedule_publisher.start_schedule_publisher"
+        )
+        self._schedule_patcher.start()
+
+    def _patch_app_startup(self):
+        return patch(
+            "backend.mongo_storage.initialize_runtime_cache",
+            return_value=0,
+        )
+
+    def _immediate_step_threads(self):
+        original_thread = threading.Thread
+
+        class ImmediateThread(original_thread):
+            def start(self):
+                self.run()
+
+        return patch("backend.step_jobs.threading.Thread", ImmediateThread)
 
     def tearDown(self):
+        self._schedule_patcher.stop()
+        self._connect_patcher.stop()
         config.MONGODB_URI = self.original_uri
         config.CLIENTS_DIR = self.original_dir
+        config.AUTH_ENABLED = self.original_auth
         mongo_storage._client = None
         mongo_storage._db = None
         mongo_storage._files = None
@@ -190,23 +219,27 @@ class MongoStorageTests(unittest.TestCase):
     def test_flask_mutations_are_written_through(self):
         from backend.app import create_app
 
-        app = create_app()
-        client = app.test_client()
-        response = client.post(
-            "/clients/client-a", json={"display_name": "Client A"}
-        )
-        self.assertEqual(response.status_code, 200)
-        self.assertIn("client-a/workspace.json", self.files.docs)
+        with self._patch_app_startup():
+            app = create_app()
+            client = app.test_client()
+            response = client.post(
+                "/clients/client-a", json={"display_name": "Client A"}
+            )
+            self.assertEqual(response.status_code, 200)
+            mongo_storage.sync_cache()
+            self.assertIn("client-a/workspace.json", self.files.docs)
 
-        response = client.delete("/clients/client-a")
-        self.assertEqual(response.status_code, 200)
-        self.assertNotIn("client-a/workspace.json", self.files.docs)
+            response = client.delete("/clients/client-a")
+            self.assertEqual(response.status_code, 200)
+            mongo_storage.sync_cache()
+            self.assertNotIn("client-a/workspace.json", self.files.docs)
 
     def test_pipeline_step_returns_202_then_persists_background_result(self):
         from backend import artifacts
         from backend.app import create_app
 
-        app = create_app()
+        with self._patch_app_startup():
+            app = create_app()
         artifacts.save_run_manifest(
             "client-a",
             "run-a",
@@ -256,7 +289,8 @@ class MongoStorageTests(unittest.TestCase):
         from backend import artifacts
         from backend.app import create_app
 
-        app = create_app()
+        with self._patch_app_startup(), self._immediate_step_threads():
+            app = create_app()
         artifacts.save_run_manifest(
             "client-a",
             "run-error",

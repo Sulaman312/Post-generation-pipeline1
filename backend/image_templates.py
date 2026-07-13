@@ -387,6 +387,26 @@ def footer_top_from_format(
     return frame_h
 
 
+def photo_zone_from_format(
+    fmt: dict[str, Any] | None,
+    frame_h: int,
+    *,
+    pad: int = 2,
+) -> tuple[int, int] | None:
+    """Photo area from frame top to the footer overlay (logo/footer drawn on top)."""
+    if not isinstance(fmt, dict) or frame_h < 1:
+        return None
+
+    footer_y = footer_top_from_format(fmt, frame_h)
+    if footer_y <= 0 or footer_y >= frame_h:
+        return None
+
+    bottom = max(pad + 1, footer_y - pad)
+    if bottom < int(frame_h * 0.25):
+        return None
+    return (0, bottom)
+
+
 def content_band_from_format(
     fmt: dict[str, Any] | None,
     frame_h: int,
@@ -639,26 +659,34 @@ def apply_run_template_to_formats(client_id: str, run_id: str) -> dict[str, Any]
 
     with Image.open(src_path) as im0:
         base = im0.convert("RGB")
-        for ch in social_channels.SOCIAL_CHANNELS:
-            rendered = image_overlay.export_formatted_image(
-                base,
-                None,
-                logo_path=None,
-                target_w=int(ch["width"]),
-                target_h=int(ch["height"]),
-                resize_mode=image_overlay.export_resize_mode(),
+
+        def _band_for_channel(ch: dict) -> tuple[int, int] | None:
+            fmt = format_spec_for_platform(
+                client_id, run_template, str(ch["key"])
             )
-            rendered = apply_template(
+            return photo_zone_from_format(fmt, int(ch["height"]))
+
+        def _apply_template_overlay(rendered: Image.Image, ch: dict) -> Image.Image:
+            return apply_template(
                 rendered,
                 client_id=client_id,
                 run_template=run_template,
                 platform_key=str(ch["key"]),
             )
+
+        rendered_by_key = image_overlay.render_branded_channel_exports(
+            base,
+            content_band_for=_band_for_channel,
+            post_render=_apply_template_overlay,
+        )
+        for ch in social_channels.SOCIAL_CHANNELS:
+            key = str(ch["key"])
+            rendered = rendered_by_key[key]
             fn = str(ch["filename"])
             out_path = image_artifacts.format_image_path(client_id, run_id, fn)
             rendered.save(out_path, format="PNG", optimize=True)
             base_fn = f"base_{fn}"
-            outputs[str(ch["key"])] = {
+            outputs[key] = {
                 "filename": fn,
                 "base_filename": base_fn,
                 "width": int(ch["width"]),
@@ -669,7 +697,7 @@ def apply_run_template_to_formats(client_id: str, run_id: str) -> dict[str, Any]
     payload = {
         "selected_primary": idx.selected_primary,
         "generated_at": datetime.now().isoformat(timespec="seconds"),
-        "resize_policy": image_overlay.TEMPLATE_FIGMA_POLICY,
+        "resize_policy": image_overlay.TEMPLATE_EXPORT_POLICY,
         "overlay_applied": False,
         "template_applied": True,
         "template": run_template,

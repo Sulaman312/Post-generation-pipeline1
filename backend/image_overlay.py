@@ -199,6 +199,37 @@ def compute_fit_placement_in_band(
     return (paste_left, paste_top, paste_w, paste_h)
 
 
+def compute_cover_placement(
+    src_w: int, src_h: int, target_w: int, target_h: int
+) -> tuple[int, int, int, int]:
+    """Return (paste_left, paste_top, paste_w, paste_h) — cover frame, center crop."""
+    cover_scale = max(float(target_w) / float(src_w), float(target_h) / float(src_h))
+    paste_w = max(1, int(round(src_w * cover_scale)))
+    paste_h = max(1, int(round(src_h * cover_scale)))
+    paste_left = (target_w - paste_w) // 2
+    paste_top = (target_h - paste_h) // 2
+    return (paste_left, paste_top, paste_w, paste_h)
+
+
+def compute_cover_placement_in_band(
+    src_w: int,
+    src_h: int,
+    target_w: int,
+    band_top: int,
+    band_bottom: int,
+) -> tuple[int, int, int, int]:
+    """Cover a horizontal band edge-to-edge; center-crop overflow."""
+    band_top = max(0, int(band_top))
+    band_bottom = max(band_top + 1, int(band_bottom))
+    band_h = band_bottom - band_top
+    cover_scale = max(float(target_w) / float(src_w), float(band_h) / float(src_h))
+    paste_w = max(1, int(round(src_w * cover_scale)))
+    paste_h = max(1, int(round(src_h * cover_scale)))
+    paste_left = (target_w - paste_w) // 2
+    paste_top = band_top + (band_h - paste_h) // 2
+    return (paste_left, paste_top, paste_w, paste_h)
+
+
 def _blurred_cover_background(
     base: Image.Image,
     target_w: int,
@@ -472,15 +503,17 @@ def export_for_brand_template(
     target_h: int,
     content_band: tuple[int, int] | None = None,
 ) -> Image.Image:
-    """Stack layout: contain the full photo above the footer, never crop or cover it."""
-    photo_h = target_h
-    if content_band is not None:
-        photo_h = max(1, min(target_h, int(content_band[1])))
-
+    """Stack layout: cover the template photo zone; footer/logo drawn on top."""
     src_w, src_h = base.size
-    paste_left, paste_top, paste_w, paste_h = compute_fit_placement(
-        src_w, src_h, target_w, photo_h
-    )
+    if content_band is not None:
+        band_top, band_bottom = content_band
+        paste_left, paste_top, paste_w, paste_h = compute_cover_placement_in_band(
+            src_w, src_h, target_w, band_top, band_bottom
+        )
+    else:
+        paste_left, paste_top, paste_w, paste_h = compute_cover_placement(
+            src_w, src_h, target_w, target_h
+        )
 
     bg = _edge_row_color(base)
     canvas = Image.new("RGB", (target_w, target_h), bg)
@@ -489,7 +522,7 @@ def export_for_brand_template(
     return canvas
 
 
-TEMPLATE_EXPORT_POLICY = "template_stack_contain_v12"
+TEMPLATE_EXPORT_POLICY = "template_stack_cover_v13"
 TEMPLATE_FIGMA_POLICY = "template_figma_overlay_v1"
 
 

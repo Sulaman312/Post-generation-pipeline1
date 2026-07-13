@@ -8,6 +8,7 @@ from . import artifacts, config, image_artifacts, social_channels, social_input,
 from .context_summary import generate_context_summary
 from .integrations import openai_chat
 from .run_location import location_from_manifest, location_prompt_block
+from .social_image_styles import extract_markdown_section
 
 logger = logging.getLogger(__name__)
 
@@ -153,6 +154,70 @@ def _content_topic_block(manifest: dict) -> str:
         return topic
     return _user_idea_block(manifest)
 
+
+def _topic_card_angles_block(client_id: str, run_id: str) -> str:
+    """Short angle + alternatives from Step 1 topic brief for image prompt generation."""
+    brief = artifacts.load_artifact(client_id, run_id, "client_profile_topic").strip()
+    if not brief:
+        return ""
+    sections: list[str] = []
+    for heading in (
+        "Primary intent",
+        "Post format",
+        "Short angle statement",
+        "Alternative angles",
+    ):
+        body = extract_markdown_section(brief, heading)
+        if body:
+            sections.append(f"## {heading}\n{body}")
+    if not sections:
+        return ""
+    return (
+        "---TOPIC CARD (Step 1 — use for visual direction)---\n"
+        + "\n\n".join(sections)
+        + "\n---END TOPIC CARD---\n"
+    )
+
+
+def _image_prompt_user_message(
+    client_id: str,
+    run_id: str,
+    manifest: dict,
+    *,
+    image_style: str,
+) -> str:
+    """Build Step 3 user message: template + idea + topic card angles + location."""
+    parts: list[str] = []
+    if image_style:
+        parts.append(image_style)
+
+    idea = _user_idea_block(manifest).strip()
+    if idea:
+        parts.append(f"---USER IDEA---\n{idea}\n---END USER IDEA---")
+
+    topic = _content_topic_block(manifest).strip()
+    if topic:
+        parts.append(f"---CONTENT TOPIC---\n{topic}\n---END CONTENT TOPIC---")
+
+    angles = _topic_card_angles_block(client_id, run_id)
+    if angles:
+        parts.append(angles)
+
+    if not image_style:
+        context = _context_block(client_id, run_id)
+        parts.insert(
+            0,
+            "---WORKSPACE ARTIFACT SUMMARY---\n"
+            f"{context}\n"
+            "---END WORKSPACE ARTIFACT SUMMARY---",
+        )
+        brief = _topic_brief_block(client_id, run_id).strip()
+        if brief:
+            parts.append(brief)
+
+    parts.append(_location_block(client_id, run_id))
+    return "\n\n".join(p for p in parts if p.strip())
+
 def run_step_1_client_profile_topic(
 
     client_id: str, run_id: str, previous_artifact: str = ""
@@ -213,30 +278,17 @@ def run_step_3_image_prompt(
 
     manifest = _load_manifest(client_id, run_id)
     image_style = _image_style_block(client_id)
-
-    if image_style:
-        topic = _content_topic_block(manifest)
-        user_msg = (
-            f"{image_style}\n\n"
-            "---CONTENT TOPIC---\n"
-            f"{topic}\n"
-            "---END CONTENT TOPIC---\n\n"
-            f"{_location_block(client_id, run_id)}\n"
-        )
-        system_msg = social_prompts.CLIENT_IMAGE_FROM_TEMPLATE_SYSTEM
-    else:
-        context = _context_block(client_id, run_id)
-        user_msg = (
-            "---WORKSPACE ARTIFACT SUMMARY---\n"
-            f"{context}\n"
-            "---END WORKSPACE ARTIFACT SUMMARY---\n\n"
-            "---USER IDEA---\n"
-            f"{_user_idea_block(manifest)}\n"
-            "---END USER IDEA---\n\n"
-            f"{_topic_brief_block(client_id, run_id)}\n\n"
-            f"{_location_block(client_id, run_id)}\n"
-        )
-        system_msg = social_prompts.IMAGE_PROMPT_SYSTEM
+    user_msg = _image_prompt_user_message(
+        client_id,
+        run_id,
+        manifest,
+        image_style=image_style,
+    )
+    system_msg = (
+        social_prompts.CLIENT_IMAGE_FROM_TEMPLATE_SYSTEM
+        if image_style
+        else social_prompts.IMAGE_PROMPT_SYSTEM
+    )
 
     out = _chat(system_msg, user_msg, step_label="Social Step 3")
 

@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 USERS_COLLECTION = "app_users"
 SESSIONS_COLLECTION = "app_sessions"
 
-DEFAULT_USERNAME = "sulaman312"
+DEFAULT_USERNAME = "admin"
 DEFAULT_PASSWORD = "admin123"
 
 

@@ -3,7 +3,6 @@ import unittest
 from pathlib import Path
 
 from backend.image_overlay import (
-    compute_fit_placement,
     export_for_brand_template,
     export_formatted_image,
 )
@@ -111,23 +110,21 @@ class ImageExportFitTests(unittest.TestCase):
         self.assertGreaterEqual(bottom, 400)
         self.assertLessEqual(bottom, 430)
 
-    def test_brand_template_contains_full_source_above_footer(self):
+    def test_brand_template_covers_photo_zone_above_footer(self):
         base = Image.new("RGB", (800, 400), (255, 0, 0))
         for x in range(400, 800):
             for y in range(400):
                 base.putpixel((x, y), (0, 0, 255))
         photo_h = 413
         out = export_for_brand_template(base, 1200, 630, (0, photo_h))
-        paste_left, paste_top, paste_w, paste_h = compute_fit_placement(
-            base.size[0], base.size[1], 1200, photo_h
-        )
-        mid_y = paste_top + paste_h // 2
-        self.assertEqual(out.getpixel((paste_left + paste_w // 4, mid_y)), (255, 0, 0))
-        self.assertEqual(
-            out.getpixel((paste_left + (3 * paste_w) // 4, mid_y)),
-            (0, 0, 255),
-        )
-        self.assertLessEqual(paste_top + paste_h, photo_h)
+        self.assertEqual(out.size, (1200, 630))
+        # Cover mode fills the band width edge-to-edge.
+        self.assertEqual(out.getpixel((0, photo_h // 2)), (255, 0, 0))
+        self.assertEqual(out.getpixel((1199, photo_h // 2)), (0, 0, 255))
+        # Photo must not extend into the footer zone below the band.
+        footer_pixel = out.getpixel((600, photo_h + 5))
+        self.assertNotEqual(footer_pixel, (255, 0, 0))
+        self.assertNotEqual(footer_pixel, (0, 0, 255))
 
 
 if __name__ == "__main__":

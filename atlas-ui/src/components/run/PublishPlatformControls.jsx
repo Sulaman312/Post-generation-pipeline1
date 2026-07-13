@@ -2,7 +2,17 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as api from "../../services/api";
 import { PLATFORMS, hasPendingSchedule, isPlatformRetryable, runRecordFromRun, unpublishedSelectedPlatforms } from "../../constants/runRecord";
 import { PLATFORM_LABELS } from "../../utils/postPublishStatus";
-import { schedulesAreSynced } from "../../utils/publishSchedules";
+import {
+  allPublishablePlatformsSelected,
+  clearStoredPlatformSelection,
+  deriveSyncSchedules,
+  platformsEqual,
+  platformsFromRecord,
+  readStoredPlatformSelection,
+  selectionInitKey,
+  sortPlatforms,
+  writeStoredPlatformSelection,
+} from "../../utils/publishPlatformSelection";
 import SchedulePublishModal, { formatScheduleLabel } from "./SchedulePublishModal";
 import PlatformSwitch from "./publish/PlatformSwitch";
 import PublishEnvToggle from "./publish/PublishEnvToggle";
@@ -26,21 +36,42 @@ export default function PublishPlatformControls({
   const [envAvailability, setEnvAvailability] = useState({ test: true, live: false });
   const [switchingEnv, setSwitchingEnv] = useState(false);
   const [selected, setSelected] = useState([]);
-  const [saving, setSaving] = useState(false);
+  const [syncOptOut, setSyncOptOut] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [scheduleTarget, setScheduleTarget] = useState(null);
   const [scheduling, setScheduling] = useState(false);
-  const [syncSchedules, setSyncSchedules] = useState(true);
   const [scheduleEditUnlocked, setScheduleEditUnlocked] = useState(false);
-  const initialSyncPlatformsRef = useRef(true);
-  const syncPreferenceRef = useRef(null);
+  const selectionInitKeyRef = useRef("");
+  const userEditedPlatformsRef = useRef(false);
+  const platformSaveInFlightRef = useRef(new Set());
+  const selectedRef = useRef([]);
+  const prevAllSelectedRef = useRef(false);
+  const runScopeRef = useRef("");
 
   const record = useMemo(() => runRecordFromRun(run), [run]);
   const platformSchedules = useMemo(
     () => record.platform_schedules || {},
     [record.platform_schedules]
   );
+
+  const publishedByPlatform = useMemo(() => {
+    const map = {};
+    for (const row of record.published_results || []) {
+      if (row?.platform) map[row.platform] = row;
+    }
+    return map;
+  }, [record.published_results]);
+
+  const allSelected = useMemo(
+    () => allPublishablePlatformsSelected(connected, publishedByPlatform, selected),
+    [connected, publishedByPlatform, selected]
+  );
+  const syncSchedules = deriveSyncSchedules(allSelected, syncOptOut);
+
+  useEffect(() => {
+    selectedRef.current = selected;
+  }, [selected]);
 
   useEffect(() => {
     let cancelled = false;
@@ -99,100 +130,115 @@ export default function PublishPlatformControls({
   }
 
   useEffect(() => {
-    const allowed = new Set(connected);
-    const next = (record.platforms || []).filter((p) => allowed.has(p));
-    setSelected(next);
-  }, [record.platforms, connected]);
-
-  useEffect(() => {
-    syncPreferenceRef.current = null;
-    initialSyncPlatformsRef.current = true;
-    setSyncSchedules(schedulesAreSynced(platformSchedules, selected));
+    const scope = `${client}|${runId}`;
+    if (runScopeRef.current === scope) return;
+    runScopeRef.current = scope;
+    selectionInitKeyRef.current = "";
+    userEditedPlatformsRef.current = false;
+    prevAllSelectedRef.current = false;
+    clearStoredPlatformSelection(client, runId);
+    setSyncOptOut(false);
     setScheduleEditUnlocked(false);
-    // Only reset when switching runs; schedule sync is handled in the effect below.
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional runId-only reset
-  }, [runId]);
+  }, [client, runId]);
 
   useEffect(() => {
-    const synced = schedulesAreSynced(platformSchedules, selected);
-    if (!synced) {
-      syncPreferenceRef.current = null;
-      setSyncSchedules(false);
-      return;
+    if (!run || loadingConnected || !connected.length) return;
+
+    const initKey = selectionInitKey(runId, connected);
+    if (selectionInitKeyRef.current === initKey) return;
+
+    selectionInitKeyRef.current = initKey;
+    const stored = readStoredPlatformSelection(client, runId);
+    if (stored) {
+      userEditedPlatformsRef.current = true;
+      setSelected(platformsFromRecord(stored, connected));
+    } else {
+      setSelected(platformsFromRecord(record.platforms, connected));
     }
-    if (syncPreferenceRef.current === null) {
-      setSyncSchedules(true);
+    setSyncOptOut(false);
+  }, [client, runId, run, loadingConnected, connected, record.platforms]);
+
+  useEffect(() => {
+    if (!prevAllSelectedRef.current && allSelected) {
+      setSyncOptOut(false);
     }
-  }, [platformSchedules, selected]);
+    prevAllSelectedRef.current = allSelected;
+  }, [allSelected]);
+
+  const applyPlatformSelection = useCallback(
+    (platforms) => {
+      const normalized = sortPlatforms(platforms);
+      userEditedPlatformsRef.current = true;
+      writeStoredPlatformSelection(client, runId, normalized);
+      setSelected(normalized);
+      onRunUpdated?.({ platforms: normalized });
+      return normalized;
+    },
+    [client, runId, onRunUpdated]
+  );
 
   const persistPlatforms = useCallback(
-    async (platforms) => {
-      setSaving(true);
+    async (platforms, { trackPlatform = null } = {}) => {
+      const normalized = sortPlatforms(platforms);
+      const previous = selectedRef.current;
+      applyPlatformSelection(normalized);
+      if (trackPlatform) {
+        platformSaveInFlightRef.current.add(trackPlatform);
+      }
       try {
-        const updated = await api.updateRunPlatforms(client, runId, platforms);
-        setSelected(updated.platforms || platforms);
-        await onRunUpdated?.(updated);
+        const updated = await api.updateRunPlatforms(client, runId, normalized);
+        writeStoredPlatformSelection(client, runId, normalized);
+        onRunUpdated?.({ ...updated, platforms: normalized });
+        return updated;
       } catch (e) {
+        userEditedPlatformsRef.current = true;
+        writeStoredPlatformSelection(client, runId, previous);
+        setSelected(previous);
+        onRunUpdated?.({ platforms: previous });
         toast?.(e?.message || String(e), { variant: "error", duration: 9000 });
         throw e;
       } finally {
-        setSaving(false);
+        if (trackPlatform) {
+          platformSaveInFlightRef.current.delete(trackPlatform);
+        }
       }
     },
-    [client, runId, onRunUpdated, toast]
+    [applyPlatformSelection, client, runId, onRunUpdated, toast]
   );
-
-  const publishedByPlatform = useMemo(() => {
-    const map = {};
-    for (const row of record.published_results || []) {
-      if (row?.platform) map[row.platform] = row;
-    }
-    return map;
-  }, [record.published_results]);
 
   const selectAllPublishablePlatforms = useCallback(async () => {
     const allPublishable = connected
       .filter((platform) => !publishedByPlatform[platform])
       .sort((a, b) => PLATFORMS.indexOf(a) - PLATFORMS.indexOf(b));
-    const current = (record.platforms || []).filter((p) => connected.includes(p));
-    const alreadyAllSelected =
-      allPublishable.length === current.length &&
-      allPublishable.every((platform) => current.includes(platform));
-    if (alreadyAllSelected || allPublishable.length === 0) return;
-
-    setSelected(allPublishable);
-    try {
-      await persistPlatforms(allPublishable);
-    } catch {
-      setSelected(current);
+    if (platformsEqual(allPublishable, selectedRef.current) || allPublishable.length === 0) {
+      return;
     }
-  }, [connected, publishedByPlatform, record.platforms, persistPlatforms]);
-
-  useEffect(() => {
-    if (!syncSchedules || loadingConnected || !initialSyncPlatformsRef.current) return;
-    initialSyncPlatformsRef.current = false;
-    void selectAllPublishablePlatforms();
-  }, [syncSchedules, loadingConnected, connected, selectAllPublishablePlatforms]);
+    await persistPlatforms(allPublishable);
+  }, [connected, publishedByPlatform, persistPlatforms]);
 
   async function handleSyncSchedulesChange(checked) {
-    syncPreferenceRef.current = checked;
-    setSyncSchedules(checked);
-    if (!checked || saving) return;
+    if (!checked) {
+      setSyncOptOut(true);
+      return;
+    }
+    setSyncOptOut(false);
     await selectAllPublishablePlatforms();
   }
 
-  async function handleToggle(platform) {
-    if (saving || !connected.includes(platform)) return;
-    const next = selected.includes(platform)
-      ? selected.filter((p) => p !== platform)
-      : [...selected, platform].sort(
-          (a, b) => PLATFORMS.indexOf(a) - PLATFORMS.indexOf(b)
-        );
-    setSelected(next);
+  async function handleToggle(platform, enabled) {
+    if (!connected.includes(platform) || platformSaveInFlightRef.current.has(platform)) {
+      return;
+    }
+    const current = selectedRef.current;
+    const next = enabled
+      ? sortPlatforms([...new Set([...current, platform])])
+      : current.filter((p) => p !== platform);
+    if (platformsEqual(next, current)) return;
+
     try {
-      await persistPlatforms(next);
+      await persistPlatforms(next, { trackPlatform: platform });
     } catch {
-      setSelected((record.platforms || []).filter((p) => connected.includes(p)));
+      // Error toast and rollback handled in persistPlatforms.
     }
   }
 
@@ -247,7 +293,7 @@ export default function PublishPlatformControls({
         scheduled_at: scheduledAt,
         platform_schedules: updates,
       });
-      await onRunUpdated?.(updated);
+      onRunUpdated?.(updated);
       setScheduleOpen(false);
       setScheduleTarget(null);
       setScheduleEditUnlocked(false);
@@ -361,8 +407,8 @@ export default function PublishPlatformControls({
           ) : (
             <>
               {" "}
-              — add META_LIVE_&lt;WORKSPACE&gt;_* / LINKEDIN_LIVE_&lt;WORKSPACE&gt;_*
-              in <code>.env</code>
+              — add META_LIVE_&lt;WORKSPACE&gt;_* / LINKEDIN_LIVE_&lt;WORKSPACE&gt;_* in{" "}
+              <code>.env</code>
             </>
           )}
         </p>
@@ -396,8 +442,8 @@ export default function PublishPlatformControls({
                 >
                   <PlatformSwitch
                     checked={active}
-                    disabled={saving || published}
-                    onChange={() => handleToggle(platform)}
+                    disabled={published}
+                    onChange={(enabled) => handleToggle(platform, enabled)}
                     label={`Publish to ${PLATFORM_LABELS[platform] || platform}`}
                   />
                   <span className="ppc-name">{PLATFORM_LABELS[platform] || platform}</span>
@@ -407,9 +453,7 @@ export default function PublishPlatformControls({
                         {rowState.label}
                       </span>
                     ) : !active ? (
-                      <span className="ppc-schedule-text ppc-schedule-text--muted">
-                        Off
-                      </span>
+                      <span className="ppc-schedule-text ppc-schedule-text--muted">Off</span>
                     ) : retryable ? (
                       <span className="ppc-schedule-text ppc-schedule-text--warning">
                         {rowState.detail || rowState.label}

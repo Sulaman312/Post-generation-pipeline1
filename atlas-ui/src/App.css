@@ -49,6 +49,17 @@
   min-height: 0;
 }
 
+/* Publishing queue: keep scroll inside the panel, not the whole page */
+.layout-main:has(.post-status-page) {
+  overflow: hidden;
+  height: 100vh;
+}
+
+.layout-main:has(.post-status-page) > .post-status-page {
+  flex: 1;
+  min-height: 0;
+}
+
 .topbar {
   display: flex;
   align-items: center;
@@ -69,7 +80,7 @@
   user-select: none;
 }
 
-.topbar-logout {
+.btn-logout {
   flex-shrink: 0;
   display: inline-flex;
   flex-direction: row;
@@ -80,16 +91,20 @@
   background: #fef2f2;
 }
 
-.topbar-logout:hover:not(:disabled) {
+.btn-logout:hover:not(:disabled) {
   color: #b91c1c;
   border-color: #fca5a5;
   background: #fee2e2;
 }
 
-.topbar-logout .sb-foot-logout-icon {
+.btn-logout .sb-foot-logout-icon {
   width: 15px;
   height: 15px;
   order: 0;
+}
+
+.btn-logout-label {
+  order: 1;
 }
 
 .topbar-mark {
@@ -1826,64 +1841,111 @@ body.sb-resizing .sb {
 }
 
 .sb-foot {
-  padding: 14px 18px;
+  padding: 12px 14px 14px;
   border-top: 1px solid var(--border);
-  font-family: var(--font-sans);
-  font-size: 11.5px;
-  font-weight: 400;
-  color: #475569;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
   flex-shrink: 0;
-  letter-spacing: 0.01em;
-  line-height: 1.35;
-  background: #fafbfc;
+  background: var(--sidebar-bg);
 }
 
-.sb-foot-inner {
+.sb-foot-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--panel-soft);
+  box-shadow: var(--shadow-sm);
+}
+
+.sb-foot-profile {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+}
+
+.sb-foot-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #e2e8f0;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.sb-foot-profile-text {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 6px;
-  width: 100%;
+  gap: 2px;
+  min-width: 0;
 }
 
-.sb-foot-logout {
-  margin: 0;
-  padding: 4px 0;
-  border: none;
-  background: transparent;
-  color: #dc2626;
-  font: inherit;
-  font-size: 11.5px;
+.sb-foot-user {
+  color: var(--text);
+  font-size: 12.5px;
   font-weight: 600;
-  cursor: pointer;
-  display: inline-flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 6px;
+  letter-spacing: 0.005em;
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.sb-foot-logout-icon {
+.sb-foot-logout-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  margin: 0;
+  padding: 6px 9px;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  background: var(--error-soft);
+  color: var(--error-text);
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    color 0.15s ease,
+    background 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.sb-foot-logout-btn:hover {
+  color: #991b1b;
+  background: #fee2e2;
+  border-color: #fca5a5;
+}
+
+.sb-foot-logout-btn:focus-visible {
+  outline: 2px solid var(--accent-focus);
+  outline-offset: 1px;
+}
+
+.sb-foot-logout-btn .sb-foot-logout-icon {
   width: 14px;
   height: 14px;
   flex-shrink: 0;
-  order: 0;
 }
 
 .sb-foot-logout-label {
-  order: 1;
+  white-space: nowrap;
 }
 
-.sb-foot-logout:hover {
-  color: #b91c1c;
-}
-
-.sb-foot-logout:focus-visible {
-  outline: 2px solid var(--accent-focus);
-  outline-offset: 2px;
-  border-radius: var(--radius-sm);
+.sb-foot-logout-btn:active:not(:disabled) {
+  transform: translateY(0.5px);
 }
 
 /* ============================================================
@@ -2085,6 +2147,19 @@ body.sb-resizing .sb {
 .btn-sm {
   padding: 8px 13px;
   font-size: 12.5px;
+}
+.btn.btn-logout {
+  color: #dc2626;
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+.btn.btn-logout:hover:not(:disabled) {
+  color: #b91c1c;
+  border-color: #fca5a5;
+  background: #fee2e2;
+}
+.btn.btn-logout .sb-foot-logout-icon {
+  color: inherit;
 }
 .btn:disabled {
   opacity: 0.52;
@@ -2654,6 +2729,12 @@ body.sb-resizing .sb {
 
 .run-artifact-body--flush .step4-shell {
   padding: 0;
+  gap: 0;
+}
+
+.run-artifact-body--flush .step4-shell--compact,
+.run-artifact-body--flush .step4-shell--generating {
+  padding: 1cm 0 0;
   gap: 0;
 }
 

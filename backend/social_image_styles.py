@@ -7,23 +7,23 @@ import re
 STYLE_PRESETS: tuple[dict[str, str], ...] = (
     {
         "key": "photorealistic",
-        "label": "Photorealistic",
+        "label": "Photorealistic scene",
         "description": "Photorealistic scene, natural lighting, believable local trade context.",
     },
     {
-        "key": "flat_graphic",
-        "label": "Flat graphic",
-        "description": "Clean flat or vector-style graphic with bold shapes and minimal clutter.",
+        "key": "close_up_detail",
+        "label": "Close-up detail",
+        "description": "Macro or close-up photograph of materials, craftsmanship, or product in context.",
     },
     {
-        "key": "bold_typographic",
-        "label": "Bold typographic",
-        "description": "Strong headline-led layout, high contrast, clear text-safe zones.",
+        "key": "environmental_wide",
+        "label": "Environmental wide",
+        "description": "Wide environmental photograph showing space, setting, and scale — not a graphic layout.",
     },
     {
         "key": "lifestyle_warm",
         "label": "Lifestyle warm",
-        "description": "Warm authentic lifestyle moment with candid human connection.",
+        "description": "Warm authentic lifestyle photograph with candid human connection.",
     },
 )
 
@@ -41,6 +41,11 @@ CLIENT_STYLE_PRESETS: tuple[dict[str, str], ...] = (
 )
 
 PRESET_BY_KEY = {p["key"]: p for p in (*STYLE_PRESETS, *CLIENT_STYLE_PRESETS)}
+
+
+def extract_markdown_section(markdown: str, label: str) -> str:
+    """Public helper: body text under a ## heading that matches label."""
+    return _extract_section(markdown, label)
 
 
 def _normalize_heading(text: str) -> str:

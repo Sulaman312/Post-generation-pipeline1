@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 import * as api from "../../services/api";
+import { useMediaReady } from "../../hooks/useMediaReady";
 import AuthImage from "../shared/AuthImage";
+import ImageSkeleton from "../shared/ImageSkeleton";
+import TextSkeleton from "../shared/TextSkeleton";
 import "./ImageGenerationStep.css";
 
 export const PLATFORM_PREVIEW_ORDER = [
@@ -40,13 +43,16 @@ export function clientLabelFromId(client) {
     .replace(/\b\w/g, (m) => m.toUpperCase());
 }
 
-export default function SocialPostReviewPreview({ client, runId, toast }) {  const [captions, setCaptions] = useState({});
+export default function SocialPostReviewPreview({ client, runId, toast, skeletonOnly = false }) {
+  const [captions, setCaptions] = useState({});
   const [formats, setFormats] = useState({});
   const [cacheKey, setCacheKey] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!skeletonOnly);
   const brand = clientLabelFromId(client);
+  const contentPending = skeletonOnly || loading;
 
   useEffect(() => {
+    if (skeletonOnly) return undefined;
     let cancelled = false;
     async function load() {
       setLoading(true);
@@ -71,39 +77,34 @@ export default function SocialPostReviewPreview({ client, runId, toast }) {  con
     return () => {
       cancelled = true;
     };
-  }, [client, runId, toast]);
+  }, [client, runId, toast, skeletonOnly]);
 
   return (
     <div className="social-review">
       <section className="social-review-platforms" aria-label="Platform feed previews">
-        {loading ? (
-          <div className="empty-state empty-state-inline">
-            <span className="spinner" /> loading previews...
-          </div>
-        ) : (
-          <div className="social-preview-grid">
-            {PLATFORM_PREVIEW_ORDER.map((platform) => {
-              const info = formats[platform.key] || {};
-              const imageUrl = info.filename
-                ? api.formattedImageUrl(client, runId, info.filename, cacheKey)
-                : "";
-              return (
-                <div key={platform.key} className="social-preview-column">
-                  <div className={`social-preview-label social-preview-label--${platform.tone}`}>
-                    {platform.title}
-                  </div>
-                  <PlatformPostCard
-                    platform={platform}
-                    brand={brand}
-                    client={client}
-                    caption={captions[platform.key] || ""}
-                    imageUrl={imageUrl}
-                  />
+        <div className="social-preview-grid">
+          {PLATFORM_PREVIEW_ORDER.map((platform) => {
+            const info = formats[platform.key] || {};
+            const imageUrl = info.filename
+              ? api.formattedImageUrl(client, runId, info.filename, cacheKey)
+              : "";
+            return (
+              <div key={platform.key} className="social-preview-column">
+                <div className={`social-preview-label social-preview-label--${platform.tone}`}>
+                  {platform.title}
                 </div>
-              );
-            })}
-          </div>
-        )}
+                <PlatformPostCard
+                  platform={platform}
+                  brand={brand}
+                  client={client}
+                  caption={contentPending ? null : captions[platform.key] || ""}
+                  imageUrl={imageUrl}
+                  contentPending={contentPending}
+                />
+              </div>
+            );
+          })}
+        </div>
       </section>
     </div>
   );
@@ -124,6 +125,8 @@ function Avatar({ client, brand, className = "" }) {
         <AuthImage
           src={api.clientLogoUrl(client)}
           alt=""
+          placeholder="thumb"
+          loading="eager"
           onFailed={() => setFailed(true)}
         />
       ) : (
@@ -133,7 +136,17 @@ function Avatar({ client, brand, className = "" }) {
   );
 }
 
-function PlatformPostCard({ platform, brand, client, caption, imageUrl }) {
+function PlatformPostCard({
+  platform,
+  brand,
+  client,
+  caption,
+  imageUrl,
+  contentPending = false,
+}) {
+  const { mediaReady, onMediaLoad } = useMediaReady(imageUrl || "");
+  const captionPending = contentPending || (Boolean(imageUrl) && !mediaReady);
+
   if (platform.tone === "ig") {
     return (
       <article className="social-preview-card social-preview-card--instagram">
@@ -145,14 +158,19 @@ function PlatformPostCard({ platform, brand, client, caption, imageUrl }) {
           </div>
           <span className="social-preview-more">...</span>
         </div>
-        <PreviewImage imageUrl={imageUrl} alt={`${platform.title} post`} />
+        <PreviewImage
+          imageUrl={imageUrl}
+          alt={`${platform.title} post`}
+          pending={contentPending}
+          onMediaLoad={onMediaLoad}
+        />
         <div className="ig-actions" aria-hidden>
           <span>♡</span><span>💬</span><span>↗</span><span className="ig-save">▱</span>
         </div>
         <div className="ig-likes">Liked by local businesses and others</div>
         <div className="ig-caption">
           <strong>{brand.toLowerCase().replace(/\s+/g, "")}</strong>{" "}
-          <CaptionText text={caption} />
+          <CaptionText text={caption} pending={captionPending} />
         </div>
         <div className="ig-meta">View all comments</div>
         <div className="ig-time">JUST NOW</div>
@@ -171,8 +189,15 @@ function PlatformPostCard({ platform, brand, client, caption, imageUrl }) {
           </div>
           <span className="social-preview-more">...</span>
         </div>
-        <div className="fb-caption"><CaptionText text={caption} /></div>
-        <PreviewImage imageUrl={imageUrl} alt={`${platform.title} post`} />
+        <div className="fb-caption">
+          <CaptionText text={caption} pending={captionPending} />
+        </div>
+        <PreviewImage
+          imageUrl={imageUrl}
+          alt={`${platform.title} post`}
+          pending={contentPending}
+          onMediaLoad={onMediaLoad}
+        />
         <div className="fb-social-row"><span>👍 ❤️ 24</span><span>3 comments · 2 shares</span></div>
         <div className="fb-actions"><span>Like</span><span>Comment</span><span>Share</span></div>
       </article>
@@ -189,15 +214,25 @@ function PlatformPostCard({ platform, brand, client, caption, imageUrl }) {
         </div>
         <button type="button">+ Follow</button>
       </div>
-      <div className="li-caption"><CaptionText text={caption} /></div>
-      <PreviewImage imageUrl={imageUrl} alt={`${platform.title} post`} />
+      <div className="li-caption">
+        <CaptionText text={caption} pending={captionPending} />
+      </div>
+      <PreviewImage
+        imageUrl={imageUrl}
+        alt={`${platform.title} post`}
+        pending={contentPending}
+        onMediaLoad={onMediaLoad}
+      />
       <div className="li-social-row"><span>👍 💡 18</span><span>4 comments · 1 repost</span></div>
       <div className="li-actions"><span>Like</span><span>Comment</span><span>Repost</span><span>Send</span></div>
     </article>
   );
 }
 
-function CaptionText({ text }) {
+function CaptionText({ text, pending = false }) {
+  if (pending) {
+    return <TextSkeleton lines={4} variant="caption" className="social-preview-caption-skeleton" />;
+  }
   if (!String(text || "").trim()) {
     return <span className="social-preview-empty">No caption generated yet.</span>;
   }
@@ -215,13 +250,23 @@ function CaptionText({ text }) {
     ));
 }
 
-function PreviewImage({ imageUrl, alt }) {
-  if (!imageUrl) {
+function PreviewImage({ imageUrl, alt, pending = false, onMediaLoad }) {
+  if (!imageUrl && !pending) {
     return <div className="social-preview-image social-preview-image--empty">Run template export first</div>;
   }
   return (
     <div className="social-preview-image">
-      <AuthImage src={imageUrl} alt={alt} loading="lazy" />
+      {imageUrl ? (
+        <AuthImage
+          src={imageUrl}
+          alt={alt}
+          loading="eager"
+          placeholder="media"
+          onLoad={onMediaLoad}
+        />
+      ) : (
+        <ImageSkeleton variant="media" />
+      )}
     </div>
   );
 }
