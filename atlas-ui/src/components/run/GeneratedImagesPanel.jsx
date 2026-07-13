@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as api from "../../services/api";
+import { warmAuthenticatedBlobCacheMany } from "../../services/api/http";
 import { isImageFile, readImageFileAsBase64 } from "../../utils/readImageFile";
 import { useMediaReady } from "../../hooks/useMediaReady";
 import AuthImage from "../shared/AuthImage";
@@ -159,6 +160,13 @@ export default function GeneratedImagesPanel({
           for (const fn of nextImages) {
             if (!(fn in next)) next[fn] = Date.now();
           }
+          // Prefetch all thumbs in parallel (shared blob cache).
+          void warmAuthenticatedBlobCacheMany(
+            nextImages.map(
+              (fn) =>
+                `${api.generatedImageUrl(client, runId, fn)}?v=${next[fn] || 0}`
+            )
+          );
           return next;
         });
       } catch {

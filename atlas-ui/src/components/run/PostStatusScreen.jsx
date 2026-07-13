@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as api from "../../services/api";
+import { warmAuthenticatedBlobCacheMany } from "../../services/api/http";
 import AuthImage from "../shared/AuthImage";
 import ImageSkeleton from "../shared/ImageSkeleton";
 import TextSkeleton from "../shared/TextSkeleton";
@@ -110,14 +111,31 @@ function useLazyQueuePreviews(client) {
     try {
       const data = await api.getFormatsIndexBatch(client, chunk);
       const runs = data?.runs || {};
+      const warmUrls = [];
       setPreviews((prev) => {
         const next = { ...prev };
         for (const runId of chunk) {
           if (next[runId] !== undefined) continue;
-          next[runId] = previewFromIndex(runs[runId]);
+          const preview = previewFromIndex(runs[runId]);
+          next[runId] = preview;
+          if (preview?.formats) {
+            for (const platformKey of PLATFORM_ORDER) {
+              const url = platformImageUrl(
+                client,
+                runId,
+                preview.formats,
+                preview.cacheKey,
+                platformKey
+              );
+              if (url) warmUrls.push(url);
+            }
+          }
         }
         return next;
       });
+      if (warmUrls.length) {
+        void warmAuthenticatedBlobCacheMany(warmUrls);
+      }
     } catch {
       setPreviews((prev) => {
         const next = { ...prev };

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useInView } from "../../hooks/useInView";
 import { fetchAuthenticatedBlobUrl, getAuthToken, releaseAuthenticatedBlobUrl } from "../../services/api/http";
 import ImageSkeleton from "./ImageSkeleton";
@@ -43,6 +43,8 @@ export default function AuthImage({
   );
   const [failed, setFailed] = useState(false);
   const [decoded, setDecoded] = useState(false);
+  const onFailedRef = useRef(onFailed);
+  onFailedRef.current = onFailed;
 
   useEffect(() => {
     setDecoded(false);
@@ -66,7 +68,7 @@ export default function AuthImage({
         if (!cancelled) {
           setBlobSrc(null);
           setFailed(true);
-          onFailed?.();
+          onFailedRef.current?.();
         }
       }
     })();
@@ -75,7 +77,7 @@ export default function AuthImage({
       cancelled = true;
       if (src) releaseAuthenticatedBlobUrl(src);
     };
-  }, [src, useBlob, onFailed, shouldLoad]);
+  }, [src, useBlob, shouldLoad]);
 
   const handleDecode = () => {
     setDecoded(true);
@@ -87,7 +89,15 @@ export default function AuthImage({
     setUseBlob(true);
   };
 
-  if (!src || failed) return null;
+  if (!src) return null;
+
+  if (failed) {
+    return (
+      <span ref={visibilityRef} className={`auth-image auth-image--failed ${className}`.trim()}>
+        <ImageSkeleton variant={placeholder === "thumb" ? "thumb" : "media"} />
+      </span>
+    );
+  }
 
   const showPlaceholder = placeholder !== "none";
   const resolvedSrc = useBlob ? blobSrc : src;
@@ -122,7 +132,7 @@ export default function AuthImage({
           onLoad={handleDecode}
           onError={useBlob ? () => {
             setFailed(true);
-            onFailed?.();
+            onFailedRef.current?.();
           } : handleNativeError}
           {...props}
         />

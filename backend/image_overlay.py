@@ -533,20 +533,30 @@ def render_branded_channel_exports(
     post_render: Callable[[Image.Image, dict[str, str | int]], Image.Image] | None = None,
 ) -> dict[str, Image.Image]:
     """Export platform images: photo underlay + brand template on top."""
+    from concurrent.futures import ThreadPoolExecutor
+
     from . import social_channels
 
-    out: dict[str, Image.Image] = {}
-    for ch in social_channels.SOCIAL_CHANNELS:
+    channels = list(social_channels.SOCIAL_CHANNELS)
+
+    def _render_one(ch: dict[str, str | int]) -> tuple[str, Image.Image]:
+        # Copy so workers never share a mutable PIL image.
         band = content_band_for(ch)
         rendered = export_for_brand_template(
-            base,
+            base.copy(),
             int(ch["width"]),
             int(ch["height"]),
             band,
         )
         if post_render is not None:
             rendered = post_render(rendered, ch)
-        out[str(ch["key"])] = rendered
+        return str(ch["key"]), rendered
+
+    out: dict[str, Image.Image] = {}
+    workers = min(len(channels), 3) or 1
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        for key, rendered in pool.map(_render_one, channels):
+            out[key] = rendered
     return out
 
 
@@ -575,13 +585,16 @@ def render_channel_exports(
     post_render: Callable[[Image.Image, dict[str, str | int]], Image.Image] | None = None,
 ) -> dict[str, Image.Image]:
     """Export one image per social channel using the active resize policy."""
+    from concurrent.futures import ThreadPoolExecutor
+
     from . import social_channels
 
     mode = export_resize_mode()
-    out: dict[str, Image.Image] = {}
-    for ch in social_channels.SOCIAL_CHANNELS:
+    channels = list(social_channels.SOCIAL_CHANNELS)
+
+    def _render_one(ch: dict[str, str | int]) -> tuple[str, Image.Image]:
         rendered = export_formatted_image(
-            base,
+            base.copy(),
             overlay,
             logo_path=logo_path,
             target_w=int(ch["width"]),
@@ -590,7 +603,13 @@ def render_channel_exports(
         )
         if post_render is not None:
             rendered = post_render(rendered, ch)
-        out[str(ch["key"])] = rendered
+        return str(ch["key"]), rendered
+
+    out: dict[str, Image.Image] = {}
+    workers = min(len(channels), 3) or 1
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        for key, rendered in pool.map(_render_one, channels):
+            out[key] = rendered
     return out
 
 

@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import * as api from "../../services/api";
+import { warmAuthenticatedBlobCacheMany } from "../../services/api/http";
 import { useMediaReady } from "../../hooks/useMediaReady";
 import AuthImage from "../shared/AuthImage";
 import ImageSkeleton from "../shared/ImageSkeleton";
@@ -49,6 +50,16 @@ export function parsePlatformCaptions(markdown) {
   return clean;
 }
 
+function previewImageUrls(client, runId, outputs, cacheKey) {
+  const urls = PLATFORM_PREVIEW_ORDER.map((platform) => {
+    const filename = outputs?.[platform.key]?.filename;
+    return filename ? api.formattedImageUrl(client, runId, filename, cacheKey) : "";
+  }).filter(Boolean);
+  const logoUrl = api.clientLogoUrl(client);
+  if (logoUrl) urls.unshift(logoUrl);
+  return urls;
+}
+
 export function clientLabelFromId(client) {
   return String(client || "Client")
     .replace(/[_-]+/g, " ")
@@ -74,9 +85,16 @@ export default function SocialPostReviewPreview({ client, runId, toast, skeleton
           api.getFormatsIndex(client, runId),
         ]);
         if (cancelled) return;
+        const outputs = idx?.outputs || {};
+        const generatedAt = idx?.generated_at || "";
+        // Show captions immediately; warm all platform images + logo in parallel
+        // so AuthImage mounts hit cache / share the same in-flight fetches.
+        void warmAuthenticatedBlobCacheMany(
+          previewImageUrls(client, runId, outputs, generatedAt)
+        );
         setCaptions(parsePlatformCaptions(captionMd));
-        setFormats(idx?.outputs || {});
-        setCacheKey(idx?.generated_at || "");
+        setFormats(outputs);
+        setCacheKey(generatedAt);
       } catch (e) {
         if (!cancelled) {
           toast?.(e?.message || String(e), { variant: "error", duration: 9000 });
@@ -124,6 +142,7 @@ export default function SocialPostReviewPreview({ client, runId, toast, skeleton
 
 function Avatar({ client, brand, className = "" }) {
   const [failed, setFailed] = useState(false);
+  const handleFailed = useCallback(() => setFailed(true), []);
   const initials = brand
     .split(/\s+/)
     .filter(Boolean)
@@ -139,7 +158,7 @@ function Avatar({ client, brand, className = "" }) {
           alt=""
           placeholder="thumb"
           loading="eager"
-          onFailed={() => setFailed(true)}
+          onFailed={handleFailed}
         />
       ) : (
         <span>{initials || "CF"}</span>

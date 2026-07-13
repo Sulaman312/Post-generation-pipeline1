@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import * as api from "../../services/api";
+import { warmAuthenticatedBlobCache } from "../../services/api/http";
 import { useMediaReady } from "../../hooks/useMediaReady";
 import AuthImage from "../shared/AuthImage";
 import ImageSkeleton from "../shared/ImageSkeleton";
@@ -19,7 +20,8 @@ export default function TemplatePlacementPanel({ client, runId, toast, skeletonO
   const [downloading, setDownloading] = useState(false);
 
   const syncFromFormats = useCallback((idx) => {
-    setCacheKey(idx?.generated_at || "");
+    const generatedAt = idx?.generated_at || "";
+    setCacheKey(generatedAt);
     const raw = idx?.outputs || {};
     const list = Object.entries(raw)
       .map(([platformKey, info]) => ({
@@ -34,7 +36,12 @@ export default function TemplatePlacementPanel({ client, runId, toast, skeletonO
       .filter((o) => o.filename);
     const canonical = pickCanonicalFormatOutput(list);
     setDisplayOutput(canonical || null);
-  }, []);
+    if (canonical?.filename) {
+      void warmAuthenticatedBlobCache(
+        api.formattedImageUrl(client, runId, canonical.filename, generatedAt)
+      );
+    }
+  }, [client, runId]);
 
   const applyTemplate = useCallback(
     async (templateId) => {

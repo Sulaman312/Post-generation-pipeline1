@@ -49,6 +49,53 @@ export function clearAuthToken() {
 const _blobCache = new Map();
 const _blobInflight = new Map();
 
+async function fetchAuthenticatedBlobEntry(url) {
+  const token = getAuthToken();
+  const res = await fetch(url, {
+    credentials: "include",
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) {
+    throw new Error(`Authenticated fetch failed (${res.status})`);
+  }
+  const blob = await res.blob();
+  if (!blob.size) {
+    throw new Error("Authenticated fetch returned empty body");
+  }
+  const objectUrl = URL.createObjectURL(blob);
+  return { objectUrl, refs: 0 };
+}
+
+function startAuthenticatedBlobFetch(url) {
+  let pending = _blobInflight.get(url);
+  if (!pending) {
+    pending = fetchAuthenticatedBlobEntry(url)
+      .then((entry) => {
+        _blobCache.set(url, entry);
+        return entry;
+      })
+      .finally(() => {
+        _blobInflight.delete(url);
+      });
+    _blobInflight.set(url, pending);
+  }
+  return pending;
+}
+
+/** Preload authenticated images without holding a consumer ref. */
+export async function warmAuthenticatedBlobCache(url) {
+  if (!url) return;
+  if (_blobCache.has(url)) return;
+  await startAuthenticatedBlobFetch(url);
+}
+
+/** Preload several authenticated images in parallel (best-effort). */
+export async function warmAuthenticatedBlobCacheMany(urls) {
+  const unique = [...new Set((urls || []).filter(Boolean))];
+  if (!unique.length) return;
+  await Promise.allSettled(unique.map((url) => warmAuthenticatedBlobCache(url)));
+}
+
 export async function fetchAuthenticatedBlobUrl(url) {
   const cached = _blobCache.get(url);
   if (cached) {
@@ -56,34 +103,9 @@ export async function fetchAuthenticatedBlobUrl(url) {
     return cached.objectUrl;
   }
 
-  let pending = _blobInflight.get(url);
-  if (!pending) {
-    pending = (async () => {
-      const token = getAuthToken();
-      const res = await fetch(url, {
-        credentials: "include",
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-      if (!res.ok) {
-        throw new Error(`Authenticated fetch failed (${res.status})`);
-      }
-      const blob = await res.blob();
-      if (!blob.size) {
-        throw new Error("Authenticated fetch returned empty body");
-      }
-      const objectUrl = URL.createObjectURL(blob);
-      _blobCache.set(url, { objectUrl, refs: 0 });
-      return objectUrl;
-    })().finally(() => {
-      _blobInflight.delete(url);
-    });
-    _blobInflight.set(url, pending);
-  }
-
-  const objectUrl = await pending;
-  const entry = _blobCache.get(url);
-  if (entry) entry.refs += 1;
-  return objectUrl;
+  const entry = await startAuthenticatedBlobFetch(url);
+  entry.refs += 1;
+  return entry.objectUrl;
 }
 
 export function releaseAuthenticatedBlobUrl(url) {
