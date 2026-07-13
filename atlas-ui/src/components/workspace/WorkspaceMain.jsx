@@ -15,6 +15,7 @@ export default function WorkspaceMain({
   onArtifactFilenameChange,
   activeStepKey,
   stepStatusOverrides,
+  onPatchStepStatus,
   onOpenRun,
   onClientDeleted,
   onSelectStep,
@@ -87,6 +88,7 @@ export default function WorkspaceMain({
       onRefreshRun={onRefreshRun}
       activeStepKey={activeStepKey}
       statusOverrides={stepStatusOverrides}
+      onPatchStepStatus={onPatchStepStatus}
       onSelectStep={onSelectStep}
       onBack={onBackFromRun}
     />

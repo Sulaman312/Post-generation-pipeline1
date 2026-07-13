@@ -15,6 +15,7 @@ export default function RunView({
   onRefreshRun,
   activeStepKey,
   statusOverrides = {},
+  onPatchStepStatus,
   onSelectStep,
   onBack,
 }) {
@@ -59,7 +60,6 @@ export default function RunView({
 
   const running = status === "running";
   const [stepError, setStepError] = useState(null);
-  const [inlineRunning, setInlineRunning] = useState(false);
   const [showFullTopic, setShowFullTopic] = useState(false);
 
   const prevStatusRef = useRef(null);
@@ -89,10 +89,7 @@ export default function RunView({
     [STEPS, statuses]
   );
   const chromeStep = runningStep || activeStep;
-  const chromeStatus =
-    statusOverrides[chromeStep.key] ??
-    serverStatuses[chromeStep.key] ??
-    "pending";
+  const chromeStatus = statuses[chromeStep.key] ?? "pending";
 
   return (
     <div className="run-shell">
@@ -201,8 +198,8 @@ export default function RunView({
             pipelineId={pipelineId}
             topic={topic}
             statuses={statuses}
-            inlineRunning={inlineRunning}
-            onInlineRunningChange={setInlineRunning}
+            onPatchStepStatus={onPatchStepStatus}
+            onRefreshRun={refreshRun}
             onStepError={setStepError}
             onRunComplete={refreshRun}
             onShowOutput={() => setTab("output")}

@@ -20,8 +20,8 @@ export default function RunOutputPanel({
   pipelineId,
   topic,
   statuses,
-  inlineRunning,
-  onInlineRunningChange,
+  onPatchStepStatus,
+  onRefreshRun,
   onStepError,
   onRunComplete,
   onShowOutput,
@@ -31,7 +31,7 @@ export default function RunOutputPanel({
   const showInlineRun = (pipelineId || "social_media") === "social_media";
   const isPublishStep = showInlineRun && step.key === "publish";
   const showPublishControls =
-    isPublishStep && !inlineRunning && !running && status !== "running";
+    isPublishStep && !running && status !== "running";
 
   const publishControls = isPublishStep ? (
     <div className={showPublishControls ? undefined : "visually-hidden"} aria-hidden={!showPublishControls}>
@@ -57,9 +57,15 @@ export default function RunOutputPanel({
 
   async function handleInlineRun() {
     if (!showInlineRun || inlineRunLocked) return;
-    if (inlineRunning) return;
+    if (running || status === "running") return;
     onStepError?.(null);
-    onInlineRunningChange?.(true);
+    onPatchStepStatus?.(step.key, "running");
+    onRefreshRun?.();
+    window.dispatchEvent(
+      new CustomEvent("cf:run-step-started", {
+        detail: { clientId: client, runId, stepKey: step.key },
+      })
+    );
     try {
       await executeRunStep(
         api,
@@ -77,9 +83,8 @@ export default function RunOutputPanel({
     } catch (e) {
       const msg = e?.message || String(e);
       onStepError?.(msg);
+      onPatchStepStatus?.(step.key, null);
       toast?.(msg, { variant: "error", duration: 12000 });
-    } finally {
-      onInlineRunningChange?.(false);
     }
   }
 
@@ -97,7 +102,7 @@ export default function RunOutputPanel({
     );
   }
 
-  if (inlineRunning || running || status === "running") {
+  if (running || status === "running") {
     if (step.key === "image_generation") {
       return (
         <>

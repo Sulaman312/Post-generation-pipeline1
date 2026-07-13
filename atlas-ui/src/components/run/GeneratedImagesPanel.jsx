@@ -213,12 +213,26 @@ export default function GeneratedImagesPanel({
   const expectedSlotCount = stylePlan.length || LOADING_PLACEHOLDER_COUNT;
 
   const slots = useMemo(() => {
+    const usedFilenames = new Set();
+
     if (stylePlan.length) {
-      return stylePlan.map((style) => ({
-        styleKey: style.style_key,
-        styleLabel: style.style_label || style.style_key,
-        filename: completedByStyleKey[style.style_key] || null,
-      }));
+      const planned = stylePlan.map((style) => {
+        const filename = completedByStyleKey[style.style_key] || null;
+        if (filename) usedFilenames.add(filename);
+        return {
+          styleKey: style.style_key,
+          styleLabel: style.style_label || style.style_key,
+          filename,
+        };
+      });
+      const uploads = images
+        .filter((fn) => !usedFilenames.has(fn))
+        .map((fn) => ({
+          styleKey: imageMeta[fn]?.style_key || fn,
+          styleLabel: imageMeta[fn]?.style_label || "Your upload",
+          filename: fn,
+        }));
+      return [...planned, ...uploads];
     }
 
     // Style plan still loading — show each image as soon as the API returns it.

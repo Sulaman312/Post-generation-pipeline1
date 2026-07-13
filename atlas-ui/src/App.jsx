@@ -27,7 +27,7 @@ function App() {
   const [artifactFilename, setArtifactFilename] = useState(null);
   const [logoVersions, setLogoVersions] = useState({});
   const [stepStatusOverrides, setStepStatusOverrides] = useState({});
-  const { run, error: runError, refreshRun } = useRunPolling(client, runId);
+  const { run, error: runError, refreshRun } = useRunPolling(client, runId, stepStatusOverrides);
 
   const {
     goHome,
@@ -215,6 +215,7 @@ function App() {
           onArtifactFilenameChange={setArtifactFilename}
           activeStepKey={activeStepKey}
           stepStatusOverrides={stepStatusOverrides}
+          onPatchStepStatus={patchStepStatus}
           onOpenRun={openRun}
           onClientDeleted={handleClientDeleted}
           onSelectStep={setActiveStepKey}

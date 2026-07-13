@@ -9,6 +9,13 @@ function hasRunningStep(run) {
   return Object.values(run?.statuses || {}).some((status) => status === "running");
 }
 
+function hasActiveWork(run, statusOverrides) {
+  if (Object.values(statusOverrides || {}).some((status) => status === "running")) {
+    return true;
+  }
+  return hasRunningStep(run);
+}
+
 function announceRunUpdate(client, runId, run) {
   if (typeof window === "undefined" || !run) return;
   window.dispatchEvent(
@@ -23,7 +30,7 @@ function isDocumentVisible() {
 }
 
 /** Poll run manifest while a run view is open; listens for step-complete events. */
-export function useRunPolling(client, runId) {
+export function useRunPolling(client, runId, statusOverrides = {}) {
   const [run, setRun] = useState(null);
   const [error, setError] = useState(null);
   const refreshSequenceRef = useRef(0);
@@ -102,7 +109,7 @@ export function useRunPolling(client, runId) {
       }
       const nextRun = await refreshRun();
       if (cancelled) return;
-      const delay = hasRunningStep(nextRun) ? ACTIVE_POLL_MS : IDLE_POLL_MS;
+      const delay = hasActiveWork(nextRun, statusOverrides) ? ACTIVE_POLL_MS : IDLE_POLL_MS;
       timer = window.setTimeout(poll, delay);
     }
 
@@ -122,18 +129,28 @@ export function useRunPolling(client, runId) {
       refreshSequenceRef.current += 1;
       platformsOverrideRef.current = null;
     };
-  }, [client, enabled, refreshRun, runId]);
+  }, [client, enabled, refreshRun, runId, statusOverrides]);
 
   useEffect(() => {
     if (!enabled) return undefined;
+
+    function onStepStarted(e) {
+      const d = e.detail;
+      if (d?.clientId !== client || d?.runId !== runId) return;
+      refreshRun();
+    }
 
     function onStepComplete(e) {
       const d = e.detail;
       if (d?.clientId !== client || d?.runId !== runId) return;
       refreshRun();
     }
+    window.addEventListener("cf:run-step-started", onStepStarted);
     window.addEventListener("cf:run-step-complete", onStepComplete);
-    return () => window.removeEventListener("cf:run-step-complete", onStepComplete);
+    return () => {
+      window.removeEventListener("cf:run-step-started", onStepStarted);
+      window.removeEventListener("cf:run-step-complete", onStepComplete);
+    };
   }, [client, enabled, refreshRun, runId]);
 
   return { run, error, refreshRun };

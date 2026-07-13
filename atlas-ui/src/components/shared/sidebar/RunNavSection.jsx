@@ -66,6 +66,9 @@ export function RunNavSection({
       if (override === "pending" && server === "running") {
         continue;
       }
+      if (override === "running" && (server === "pending" || server === "running")) {
+        continue;
+      }
       onPatchStepStatus?.(stepKey, null);
     }
   }
@@ -152,6 +155,13 @@ export function RunNavSection({
     if (!canRunStep(stepKey, statuses, topic, pipelineId) && st !== "done") return;
 
     onSelectStep(stepKey);
+    onPatchStepStatus?.(stepKey, "running");
+    onRefreshRun?.();
+    window.dispatchEvent(
+      new CustomEvent("cf:run-step-started", {
+        detail: { clientId: client, runId, stepKey },
+      })
+    );
     const ac = new AbortController();
     runAbortRef.current = ac;
     setRunningStepKey(stepKey);
@@ -325,8 +335,9 @@ export function RunNavSection({
             const publishStepLocked =
               step.key === "publish" && publishScheduleLocked;
             const isRunningThis =
-              (s === "running" || runningStepKey === step.key) &&
-              s !== "pending";
+              runningStepKey === step.key ||
+              (s === "running" && statusOverrides[step.key] !== "pending");
+            const displayStatus = isRunningThis ? "running" : s;
             const pausable =
               isRunningThis &&
               (runningStepKey === step.key || s === "running");
@@ -347,7 +358,7 @@ export function RunNavSection({
               };
             }
             const statusText = formatStepStatusWithDuration(
-              s,
+              displayStatus,
               resolvedTiming,
               Date.now(),
               isRunningThis ? step.index : null
@@ -358,7 +369,7 @@ export function RunNavSection({
                 if (publishMeta) return publishMeta;
               }
               return formatStepMetaSubtitle(
-                s,
+                displayStatus,
                 resolvedTiming,
                 Date.now(),
                 isRunningThis ? step.index : null
