@@ -30,10 +30,23 @@ export function formatStepDurationLong(ms) {
   return `${hr} hr`;
 }
 
-function elapsedMsFromStartedAt(startedAt, nowMs = Date.now()) {
+function parseStartedAtMs(startedAt) {
   if (!startedAt) return null;
-  const t = Date.parse(startedAt);
+  const raw = String(startedAt).trim();
+  if (!raw) return null;
+  // Server timestamps without a zone are UTC (Koyeb); browsers treat naive ISO as local.
+  const normalized =
+    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(raw) && !/[zZ]|[+-]\d{2}:\d{2}$/.test(raw)
+      ? `${raw}Z`
+      : raw;
+  const t = Date.parse(normalized);
   if (Number.isNaN(t)) return null;
+  return t;
+}
+
+function elapsedMsFromStartedAt(startedAt, nowMs = Date.now()) {
+  const t = parseStartedAtMs(startedAt);
+  if (t == null) return null;
   return Math.max(0, nowMs - t);
 }
 

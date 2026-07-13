@@ -10,7 +10,7 @@ import "./ImageGenerationStep.css";
 
 export const MAX_PRIMARY_UPLOAD_BYTES = 8 * 1024 * 1024;
 const LOADING_PLACEHOLDER_COUNT = 4;
-const GENERATION_POLL_MS = 2000;
+const GENERATION_POLL_MS = 1500;
 
 function Step4PendingCard({ generating }) {
   return (
@@ -145,9 +145,22 @@ export default function GeneratedImagesPanel({
       try {
         const data = await api.listRunImages(client, runId);
         if (cancelled) return;
-        setImages(data.images || []);
+        const nextImages = data.images || [];
+        setImages(nextImages);
         setImageMeta(data.image_meta || {});
         setSelected(data.selected_primary || null);
+        setImageVersions((prev) => {
+          if (!nextImages.length) return {};
+          const next = { ...prev };
+          const seen = new Set(nextImages);
+          for (const fn of Object.keys(next)) {
+            if (!seen.has(fn)) delete next[fn];
+          }
+          for (const fn of nextImages) {
+            if (!(fn in next)) next[fn] = Date.now();
+          }
+          return next;
+        });
       } catch {
         if (cancelled) return;
         setImages([]);
@@ -197,6 +210,8 @@ export default function GeneratedImagesPanel({
     return map;
   }, [images, imageMeta]);
 
+  const expectedSlotCount = stylePlan.length || LOADING_PLACEHOLDER_COUNT;
+
   const slots = useMemo(() => {
     if (stylePlan.length) {
       return stylePlan.map((style) => ({
@@ -205,6 +220,23 @@ export default function GeneratedImagesPanel({
         filename: completedByStyleKey[style.style_key] || null,
       }));
     }
+
+    // Style plan still loading — show each image as soon as the API returns it.
+    if (images.length) {
+      const completed = images.map((fn) => ({
+        styleKey: imageMeta[fn]?.style_key || fn,
+        styleLabel: imageMeta[fn]?.style_label || fn,
+        filename: fn,
+      }));
+      const pendingCount = Math.max(0, expectedSlotCount - completed.length);
+      const pending = Array.from({ length: pendingCount }, (_, index) => ({
+        styleKey: `pending-${index}`,
+        styleLabel: null,
+        filename: null,
+      }));
+      return [...completed, ...pending];
+    }
+
     if (generating || (skeletonOnly && !generating)) {
       return Array.from({ length: LOADING_PLACEHOLDER_COUNT }, (_, index) => ({
         styleKey: `placeholder-${index}`,
@@ -217,7 +249,15 @@ export default function GeneratedImagesPanel({
       styleLabel: imageMeta[fn]?.style_label || fn,
       filename: fn,
     }));
-  }, [stylePlan, completedByStyleKey, generating, skeletonOnly, images, imageMeta]);
+  }, [
+    stylePlan,
+    completedByStyleKey,
+    generating,
+    skeletonOnly,
+    images,
+    imageMeta,
+    expectedSlotCount,
+  ]);
 
   const showSkeleton = skeletonOnly && !generating;
 

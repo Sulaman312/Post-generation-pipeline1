@@ -6,7 +6,7 @@ import os
 import re
 import shutil
 import threading
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -411,7 +411,11 @@ def load_context_debug(client_id: str, step_name: str) -> str:
 
 
 def _now_iso() -> str:
-    return datetime.now().isoformat(timespec="milliseconds")
+    return (
+        datetime.now(timezone.utc)
+        .isoformat(timespec="milliseconds")
+        .replace("+00:00", "Z")
+    )
 
 
 def _duration_ms(started_at: str | None, finished_at: str | None) -> int | None:
@@ -514,8 +518,16 @@ def infer_step_timings_from_artifacts(
             continue
         mtime = path.stat().st_mtime
         duration_ms = max(0, int((mtime - prev_ts) * 1000))
-        finished_at = datetime.fromtimestamp(mtime).isoformat(timespec="milliseconds")
-        started_at = datetime.fromtimestamp(prev_ts).isoformat(timespec="milliseconds")
+        finished_at = (
+            datetime.fromtimestamp(mtime, tz=timezone.utc)
+            .isoformat(timespec="milliseconds")
+            .replace("+00:00", "Z")
+        )
+        started_at = (
+            datetime.fromtimestamp(prev_ts, tz=timezone.utc)
+            .isoformat(timespec="milliseconds")
+            .replace("+00:00", "Z")
+        )
         inferred[name] = {
             "started_at": started_at,
             "finished_at": finished_at,

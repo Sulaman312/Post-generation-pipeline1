@@ -2734,7 +2734,7 @@ body.sb-resizing .sb {
 
 .run-artifact-body--flush .step4-shell--compact,
 .run-artifact-body--flush .step4-shell--generating {
-  padding: 1cm 0 0;
+  padding: 1cm 0 1cm;
   gap: 0;
 }
 

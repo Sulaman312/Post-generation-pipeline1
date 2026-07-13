@@ -182,8 +182,8 @@ Location rules (from the LOCATION block):
 - When DISABLED: write captions with no city, region, or local geography at all.
 - Never output placeholder tokens like [City Name] or [Your City].
 
-Under each platform you may include (as a bullet where helpful):
-- Suggested posting time window (local time)
+Do not include suggested posting times, scheduling notes, or location-tag suggestions in the captions.
+Those belong in scheduling/review steps only — publish uses caption text verbatim.
 """
 
 REVIEW_CHECKLIST_SYSTEM = """You are a QA editor.

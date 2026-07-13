@@ -13,7 +13,22 @@ export const PLATFORM_PREVIEW_ORDER = [
 ];
 
 export const PUBLISH_META_LINE =
-  /^\s*(?:[-*•]\s*)?\*{0,2}\s*Suggested\s+(?:location\s+tag|posting\s+time\s+window)\s*:/i;
+  /^\s*(?:[-*•]\s*)?\*{0,2}\s*(?:Suggested\s+(?:location\s+tag|posting\s+time(?:\s+window)?)|(?:Recommended|Best|Ideal)\s+(?:posting\s+)?time(?:\s+to\s+post|\s+window)?|Posting\s+time\s+(?:suggestion|window|recommendation))\s*:.+$/i;
+
+const INLINE_PUBLISH_META =
+  /\s*(?:[-*•]\s*)?\*{0,2}\s*(?:Suggested\s+(?:location\s+tag|posting\s+time(?:\s+window)?)|(?:Recommended|Best|Ideal)\s+(?:posting\s+)?time(?:\s+to\s+post|\s+window)?|Posting\s+time\s+(?:suggestion|window|recommendation))\s*:[^\n]*/gi;
+
+function sanitizeCaptionText(text) {
+  return String(text || "")
+    .split(/\r?\n/)
+    .map((line) => {
+      if (PUBLISH_META_LINE.test(line)) return "";
+      return line.replace(INLINE_PUBLISH_META, "").trimEnd();
+    })
+    .filter((line) => line.trim())
+    .join("\n")
+    .trim();
+}
 
 export function parsePlatformCaptions(markdown) {
   const sections = {};
@@ -29,10 +44,7 @@ export function parsePlatformCaptions(markdown) {
   }
   const clean = {};
   for (const [key, lines] of Object.entries(sections)) {
-    clean[key] = lines
-      .filter((line) => !PUBLISH_META_LINE.test(line))
-      .join("\n")
-      .trim();
+    clean[key] = sanitizeCaptionText(lines.join("\n"));
   }
   return clean;
 }

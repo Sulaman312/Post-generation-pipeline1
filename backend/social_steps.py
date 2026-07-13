@@ -12,10 +12,22 @@ from .social_image_styles import extract_markdown_section
 
 logger = logging.getLogger(__name__)
 
+_PUBLISH_META_PREFIX = (
+    r"(?:"
+    r"Suggested\s+(?:location\s+tag|posting\s+time(?:\s+window)?)"
+    r"|(?:Recommended|Best|Ideal)\s+(?:posting\s+)?time(?:\s+to\s+post|\s+window)?"
+    r"|Posting\s+time\s+(?:suggestion|window|recommendation)"
+    r")"
+)
 _PUBLISH_META_LINE = re.compile(
-    r"^\s*(?:[-*•]\s*)?\*{0,2}\s*Suggested\s+(?:location\s+tag|posting\s+time\s+window)\s*:",
+    rf"^\s*(?:[-*•]\s*)?\*{{0,2}}\s*{_PUBLISH_META_PREFIX}\s*:.*$",
     re.IGNORECASE,
 )
+_INLINE_PUBLISH_META = re.compile(
+    rf"\s*(?:[-*•]\s*)?\*{{0,2}}\s*{_PUBLISH_META_PREFIX}\s*:[^\n]*",
+    re.IGNORECASE,
+)
+
 
 def sanitize_caption_for_publish(text: str) -> str:
     """Remove scheduling/location suggestions that should not be posted."""
@@ -23,8 +35,23 @@ def sanitize_caption_for_publish(text: str) -> str:
     for line in (text or "").splitlines():
         if _PUBLISH_META_LINE.match(line):
             continue
-        lines.append(line)
+        cleaned = _INLINE_PUBLISH_META.sub("", line).rstrip()
+        if cleaned.strip():
+            lines.append(cleaned)
     return "\n".join(lines).strip()
+
+
+def _rebuild_captions_markdown(sections: dict[str, str]) -> str:
+    blocks: list[str] = []
+    for key, heading in (
+        ("instagram", "## Instagram"),
+        ("linkedin", "## LinkedIn"),
+        ("facebook", "## Facebook"),
+    ):
+        body = (sections.get(key) or "").strip()
+        if body:
+            blocks.append(f"{heading}\n{body}")
+    return "\n\n".join(blocks).strip() + ("\n" if blocks else "")
 
 def _chat(system_msg: str, user_msg: str, *, step_label: str) -> str:
 
@@ -566,8 +593,10 @@ def run_step_8_captions(client_id: str, run_id: str, previous_artifact: str = ""
     )
 
     out = _chat(social_prompts.CAPTIONS_SYSTEM, user_msg, step_label="Social Step 8")
+    sections = _split_captions_by_channel(out)
+    clean = _rebuild_captions_markdown(sections)
 
-    return _save_md(client_id, run_id, step_name, out.strip() + "\n")
+    return _save_md(client_id, run_id, step_name, clean)
 
 def run_step_9_review_checklist(
 
