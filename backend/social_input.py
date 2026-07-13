@@ -7,6 +7,7 @@ import re
 SOCIAL_FIELD_KEYS: tuple[str, ...] = (
     "paragraph",
     "additional_details",
+    "caption_language",
     # legacy structured fields (still accepted for older runs)
     "trade",
     "city",
@@ -17,6 +18,7 @@ SOCIAL_FIELD_KEYS: tuple[str, ...] = (
 
 _FIELD_LABELS: dict[str, str] = {
     "additional_details": "Additional details",
+    "caption_language": "Caption language",
     "trade": "Business type",
     "city": "City / location",
     "audience": "Customer type",
@@ -25,11 +27,27 @@ _FIELD_LABELS: dict[str, str] = {
 }
 
 
+def normalize_caption_language(raw: str | None) -> str:
+    """Return 'en' or 'fr' for caption generation."""
+    val = (raw or "en").strip().lower()
+    if val in {"fr", "french", "français", "francais"}:
+        return "fr"
+    return "en"
+
+
+def caption_language_label(lang: str) -> str:
+    return "French" if normalize_caption_language(lang) == "fr" else "English"
+
+
 def sanitize_social_manual_inputs(raw: dict | None) -> dict[str, str] | None:
     if not isinstance(raw, dict):
         return None
     out: dict[str, str] = {}
+    if isinstance(raw, dict) and "caption_language" in raw:
+        out["caption_language"] = normalize_caption_language(raw.get("caption_language"))
     for key in SOCIAL_FIELD_KEYS:
+        if key == "caption_language":
+            continue
         val = raw.get(key)
         if val is None:
             continue
@@ -107,10 +125,19 @@ def format_manual_block(manual: dict | None) -> str:
         lines.append(details)
         lines.append("--- END ADDITIONAL DETAILS ---")
 
+    lang = normalize_caption_language(manual.get("caption_language"))
+    lang_label = caption_language_label(lang)
+    lines.append("")
+    lines.append(f"--- CAPTION LANGUAGE: {lang_label} ---")
+    lines.append(
+        f"Write all Instagram, LinkedIn, and Facebook caption text in {lang_label}."
+    )
+    lines.append("--- END CAPTION LANGUAGE ---")
+
     structured = [
         f"{_FIELD_LABELS[k]}: {manual[k]}"
         for k in SOCIAL_FIELD_KEYS
-        if k not in ("paragraph", "additional_details")
+        if k not in ("paragraph", "additional_details", "caption_language")
         and (manual.get(k) or "").strip()
     ]
     if structured:

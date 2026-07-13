@@ -6,6 +6,23 @@ import ArtifactView from "./RunArtifactView";
 import GeneratedImagesPanel from "./GeneratedImagesPanel";
 import StepOutputSkeleton from "./StepOutputSkeleton";
 
+function ImageGenerationOutput({ client, runId, toast, generating = false }) {
+  return (
+    <div className="run-artifact-shell run-artifact-shell--fit">
+      <div className="run-artifact-card">
+        <div className="run-artifact-body run-artifact-body--flush">
+          <GeneratedImagesPanel
+            client={client}
+            runId={runId}
+            toast={toast}
+            generating={generating}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function RunOutputPanel({
   client,
   runId,
@@ -53,7 +70,7 @@ export default function RunOutputPanel({
   const inlineRunLocked =
     showInlineRun && step.key === "publish" && publishActionsLocked;
 
-  const runLoading = run == null;
+  const runLoading = run == null && !running && status !== "running";
 
   async function handleInlineRun() {
     if (!showInlineRun || inlineRunLocked) return;
@@ -102,20 +119,24 @@ export default function RunOutputPanel({
     );
   }
 
-  if (running || status === "running") {
-    if (step.key === "image_generation") {
+  if (step.key === "image_generation") {
+    const isGenerating = running || status === "running";
+    if (isGenerating || status === "done") {
       return (
         <>
           {publishControls}
-          <GeneratedImagesPanel
+          <ImageGenerationOutput
             client={client}
             runId={runId}
             toast={toast}
-            generating
+            generating={isGenerating}
           />
         </>
       );
     }
+  }
+
+  if (running || status === "running") {
     return (
       <>
         {publishControls}

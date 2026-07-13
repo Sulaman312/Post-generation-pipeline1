@@ -1,0 +1,3 @@
+export const SOCIAL_POST_IDEA_MAX = 8000;
+export const SOCIAL_ADDITIONAL_DETAILS_MAX = 8000;
+export const SOCIAL_LOCATION_MAX = 500;

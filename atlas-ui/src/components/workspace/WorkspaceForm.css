@@ -118,11 +118,11 @@
 }
 
 .workspace-form-field--idea {
-  margin-bottom: 14px;
+  margin-bottom: 18px;
 }
 
 .workspace-form-field--details {
-  margin-bottom: 16px;
+  margin-bottom: 20px;
 }
 
 .workspace-form-textarea--idea {
@@ -139,7 +139,55 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 12px;
-  margin-top: 8px;
+  margin-top: 20px;
+}
+
+.workspace-form-submit.btn-primary {
+  background: var(--pipeline-emerald, #10b981);
+  border-color: var(--pipeline-emerald, #10b981);
+  color: #fff;
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(16, 185, 129, 0.24);
+}
+
+.workspace-form-submit.btn-primary:hover:not(:disabled) {
+  background: var(--pipeline-emerald-dark, #059669);
+  border-color: var(--pipeline-emerald-dark, #059669);
+}
+
+.workspace-form-settings {
+  margin-top: 0;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+
+.workspace-form-settings-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.workspace-form-setting-card {
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #fafbfc;
+}
+
+.workspace-form-setting-card--location {
+  min-width: 0;
+}
+
+.workspace-form-location-error {
+  margin: 10px 0 0;
+}
+
+.workspace-form-location-expand {
+  margin-top: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #fafbfc;
 }
 
 .workspace-form-error {
@@ -149,6 +197,12 @@
 
 @media (max-width: 720px) {
   .workspace-form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .workspace-form-settings-row {
     grid-template-columns: 1fr;
   }
 }

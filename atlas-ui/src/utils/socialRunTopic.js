@@ -35,6 +35,20 @@ export function socialAdditionalDetails(manual) {
   return String(manual.additional_details || "").trim();
 }
 
+/** Caption language for Step 7 generation: "en" or "fr". */
+export function captionLanguageFromManual(manual) {
+  const raw = String(manual?.caption_language || "en").trim().toLowerCase();
+  return raw === "fr" || raw === "french" || raw === "français" || raw === "francais"
+    ? "fr"
+    : "en";
+}
+
+export function captionLanguageLabel(lang) {
+  return captionLanguageFromManual({ caption_language: lang }) === "fr"
+    ? "French"
+    : "English";
+}
+
 /** @deprecated Use socialPostParagraph — kept for search/tooltips */
 export function socialPostIdeaText(manual) {
   return socialPostParagraph(manual);

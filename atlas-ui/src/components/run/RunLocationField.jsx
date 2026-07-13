@@ -1,3 +1,6 @@
+import ToggleSwitch from "../shared/ToggleSwitch";
+import LocationValueInput from "./LocationValueInput";
+import { looksLikeStreetAddress } from "../../utils/clientLocation";
 import "./RunLocationField.css";
 
 export default function RunLocationField({
@@ -8,54 +11,82 @@ export default function RunLocationField({
   onLocationValueChange,
   disabled = false,
   idPrefix = "loc",
+  embedded = false,
+  compact = false,
+  locationRequired = false,
 }) {
+  const switchId = `${idPrefix}-use-location`;
   const inputId = `${idPrefix}-value`;
-  const toggleId = `${idPrefix}-toggle`;
   const clientDefault = (defaultLocation || "").trim();
+  const enabled = Boolean(useLocation);
 
-  function handleToggleChange(checked) {
-    onUseLocationChange?.(checked);
-    if (checked && !(locationValue || "").trim() && clientDefault) {
+  function handleSwitchChange(next) {
+    onUseLocationChange?.(next);
+    if (next && !(locationValue || "").trim() && clientDefault) {
       onLocationValueChange?.(clientDefault);
     }
   }
 
   return (
-    <div className="run-location-field">
-      <div className="run-location-field-head">
-        <label className="run-location-toggle" htmlFor={toggleId}>
-          <input
-            id={toggleId}
-            type="checkbox"
-            className="run-location-toggle-input"
-            checked={Boolean(useLocation)}
-            onChange={(ev) => handleToggleChange(ev.target.checked)}
-            disabled={disabled}
-          />
-          <span className="run-location-toggle-track" aria-hidden />
-          <span className="run-location-toggle-label">Use location</span>
-        </label>
+    <div
+      className={`run-location-field${
+        embedded ? " run-location-field--embedded" : ""
+      }${compact ? " run-location-field--compact" : ""}${
+        enabled ? " run-location-field--enabled" : ""
+      }`}
+    >
+      <div className="run-location-field-top">
+        <span className="run-location-title" id={`${idPrefix}-location-label`}>
+          Location in captions
+        </span>
+        <ToggleSwitch
+          id={switchId}
+          checked={enabled}
+          disabled={disabled}
+          ariaLabel="Include location in captions"
+          onChange={handleSwitchChange}
+        />
       </div>
-      {useLocation ? (
-        <div className="run-location-value">
-          <p className="run-location-hint muted">
-            City or region for this post — not a street address.
-          </p>
-          <div className="workspace-form-field workspace-form-field--wide">
-          <label className="label" htmlFor={inputId}>
-            Location text
-          </label>
-          <input
-            id={inputId}
-            type="text"
-            className="input"
-            value={locationValue || ""}
-            onChange={(ev) => onLocationValueChange?.(ev.target.value)}
-            disabled={disabled}
-            placeholder="e.g. Lausanne and surrounding areas"
-            maxLength={500}
-          />
-          </div>
+
+      {!compact && !enabled ? (
+        <p className="run-location-hint muted">
+          Location is off for this post.
+        </p>
+      ) : null}
+
+      {compact && !enabled ? (
+        <p className="run-location-hint muted run-location-hint--compact">
+          Off — captions will not mention geography.
+        </p>
+      ) : null}
+
+      {enabled ? (
+        <div
+          className={`run-location-value${
+            compact ? " run-location-value--compact" : ""
+          }`}
+        >
+          {compact ? (
+            <LocationValueInput
+              id={inputId}
+              value={locationValue}
+              onChange={onLocationValueChange}
+              disabled={disabled}
+              required={locationRequired}
+              showStreetWarning
+            />
+          ) : (
+            <div className="workspace-form-field workspace-form-field--wide run-location-input-wrap">
+              <LocationValueInput
+                id={inputId}
+                value={locationValue}
+                onChange={onLocationValueChange}
+                disabled={disabled}
+                required={locationRequired}
+                showStreetWarning={!looksLikeStreetAddress(clientDefault)}
+              />
+            </div>
+          )}
         </div>
       ) : null}
     </div>

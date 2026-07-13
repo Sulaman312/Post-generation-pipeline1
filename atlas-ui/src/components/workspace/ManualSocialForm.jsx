@@ -1,13 +1,20 @@
 import { useEffect, useState } from "react";
 import * as api from "../../services/api";
 import { PIPELINE_IDS } from "../../constants/pipelines";
+import {
+  SOCIAL_ADDITIONAL_DETAILS_MAX,
+  SOCIAL_POST_IDEA_MAX,
+} from "../../constants/socialFormLimits";
 import { socialRunTitle } from "../../utils/socialRunTopic";
+import FormCharCounter from "../shared/FormCharCounter";
+import CaptionLanguageField from "../run/CaptionLanguageField";
 import RunLocationField from "../run/RunLocationField";
 import "./WorkspaceForm.css";
 
 const EMPTY = () => ({
   paragraph: "",
   additional_details: "",
+  caption_language: "en",
 });
 
 export default function ManualSocialForm({ client, onOpenRun, onCreated }) {
@@ -17,6 +24,7 @@ export default function ManualSocialForm({ client, onOpenRun, onCreated }) {
   const [clientDefaultLocation, setClientDefaultLocation] = useState("");
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState(null);
+  const [locationError, setLocationError] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -50,6 +58,11 @@ export default function ManualSocialForm({ client, onOpenRun, onCreated }) {
     const paragraph = (fields.paragraph || "").trim();
     if (creating || !paragraph) return;
 
+    if (useLocation && !(locationValue || "").trim()) {
+      setLocationError("Enter a city or region when location is on.");
+      return;
+    }
+
     const topic = socialRunTitle(
       {
         paragraph,
@@ -59,6 +72,7 @@ export default function ManualSocialForm({ client, onOpenRun, onCreated }) {
     );
     setCreating(true);
     setError(null);
+    setLocationError(null);
 
     try {
       const result = await api.createRun(client, topic, {
@@ -66,6 +80,7 @@ export default function ManualSocialForm({ client, onOpenRun, onCreated }) {
         manual_inputs: {
           paragraph,
           additional_details: (fields.additional_details || "").trim(),
+          caption_language: fields.caption_language === "fr" ? "fr" : "en",
         },
         use_location: useLocation,
         location_value: useLocation ? (locationValue || "").trim() : "",
@@ -81,13 +96,20 @@ export default function ManualSocialForm({ client, onOpenRun, onCreated }) {
     }
   }
 
-  const canSubmit = Boolean((fields.paragraph || "").trim());
+  const paragraph = (fields.paragraph || "").trim();
+  const locationReady = !useLocation || Boolean((locationValue || "").trim());
+  const canSubmit = Boolean(paragraph) && locationReady;
 
   return (
     <form className="workspace-form-form" onSubmit={handleSubmit}>
       <div className="workspace-form-field workspace-form-field--wide workspace-form-field--idea">
         <label className="label" htmlFor="msf-paragraph">
           Post idea
+          <span className="workspace-form-req" aria-hidden>
+            {" "}
+            *
+          </span>
+          <span className="visually-hidden"> (required)</span>
         </label>
         <textarea
           id="msf-paragraph"
@@ -97,7 +119,14 @@ export default function ManualSocialForm({ client, onOpenRun, onCreated }) {
           onChange={(ev) => setField("paragraph", ev.target.value)}
           disabled={creating}
           placeholder="Describe your post in a short paragraph — message, audience, tone, season, call to action, etc."
+          maxLength={SOCIAL_POST_IDEA_MAX}
           required
+          aria-describedby="msf-paragraph-counter"
+        />
+        <FormCharCounter
+          id="msf-paragraph-counter"
+          value={fields.paragraph}
+          max={SOCIAL_POST_IDEA_MAX}
         />
       </div>
 
@@ -114,23 +143,60 @@ export default function ManualSocialForm({ client, onOpenRun, onCreated }) {
           onChange={(ev) => setField("additional_details", ev.target.value)}
           disabled={creating}
           placeholder="Anything extra — links, hashtags, offers, brand notes…"
+          maxLength={SOCIAL_ADDITIONAL_DETAILS_MAX}
+          aria-describedby="msf-details-counter"
+        />
+        <FormCharCounter
+          id="msf-details-counter"
+          value={fields.additional_details}
+          max={SOCIAL_ADDITIONAL_DETAILS_MAX}
         />
       </div>
 
-      <RunLocationField
-        idPrefix="msf"
-        useLocation={useLocation}
-        locationValue={locationValue}
-        defaultLocation={clientDefaultLocation}
-        onUseLocationChange={setUseLocation}
-        onLocationValueChange={setLocationValue}
-        disabled={creating}
-      />
+      <div className="workspace-form-settings">
+        <div className="workspace-form-settings-row">
+          <div className="workspace-form-setting-card">
+            <CaptionLanguageField
+              idPrefix="msf-caption-lang"
+              value={fields.caption_language}
+              onChange={(value) => setField("caption_language", value)}
+              disabled={creating}
+              embedded
+              compact
+            />
+          </div>
+          <div className="workspace-form-setting-card workspace-form-setting-card--location">
+            <RunLocationField
+              idPrefix="msf"
+              useLocation={useLocation}
+              locationValue={locationValue}
+              defaultLocation={clientDefaultLocation}
+              onUseLocationChange={(next) => {
+                setUseLocation(next);
+                if (locationError) setLocationError(null);
+              }}
+              onLocationValueChange={(value) => {
+                setLocationValue(value);
+                if (locationError) setLocationError(null);
+              }}
+              disabled={creating}
+              embedded
+              compact
+              locationRequired={useLocation}
+            />
+          </div>
+        </div>
+        {locationError ? (
+          <p className="workspace-form-error workspace-form-location-error" role="alert">
+            {locationError}
+          </p>
+        ) : null}
+      </div>
 
       <div className="workspace-form-actions">
         <button
           type="submit"
-          className="btn btn-primary"
+          className="btn btn-primary workspace-form-submit"
           disabled={!canSubmit || creating}
         >
           {creating ? (

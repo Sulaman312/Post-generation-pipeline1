@@ -41,6 +41,20 @@ export default function RunView({
     runChromeFullText.length > runChromeLabel.length ||
     runChromeLabel.includes("\n") ||
     runChromeLabel.length > 48;
+  if (runChromeLabel) {
+    runChromeCacheRef.current = {
+      label: runChromeLabel,
+      full: runChromeFullText,
+    };
+  }
+  const displayChromeLabel = runChromeLabel || runChromeCacheRef.current.label;
+  const displayChromeFullText = runChromeLabel
+    ? runChromeFullText
+    : runChromeCacheRef.current.full;
+  const displayChromeNeedsExpand =
+    displayChromeFullText.length > displayChromeLabel.length ||
+    displayChromeLabel.includes("\n") ||
+    displayChromeLabel.length > 48;
   const STEPS = useMemo(() => stepsForPipeline(pipelineId), [pipelineId]);
 
   const activeStep = useMemo(
@@ -63,6 +77,7 @@ export default function RunView({
   const [showFullTopic, setShowFullTopic] = useState(false);
 
   const prevStatusRef = useRef(null);
+  const runChromeCacheRef = useRef({ label: "", full: "" });
   useEffect(() => {
     const prev = prevStatusRef.current;
     if (prev === "running" && status === "done") {
@@ -133,8 +148,8 @@ export default function RunView({
             </button>
           </div>
         </div>
-        {runChromeLabel ? (
-          runChromeNeedsExpand ? (
+        {displayChromeLabel ? (
+          displayChromeNeedsExpand ? (
             <button
               type="button"
               className={`run-chrome-topic-bar run-chrome-topic-bar--minimal${
@@ -145,13 +160,13 @@ export default function RunView({
               aria-label={showFullTopic ? "Hide full title" : "Show full title"}
             >
               <span className="run-chrome-topic run-chrome-topic--minimal">
-                {showFullTopic ? runChromeFullText : runChromeLabel}
+                {showFullTopic ? displayChromeFullText : displayChromeLabel}
               </span>
             </button>
           ) : (
             <p className="run-chrome-topic-bar run-chrome-topic-bar--minimal run-chrome-topic-bar--static">
               <span className="run-chrome-topic run-chrome-topic--minimal run-chrome-topic--expanded">
-                {runChromeLabel}
+                {displayChromeLabel}
               </span>
             </p>
           )

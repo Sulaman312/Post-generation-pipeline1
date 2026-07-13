@@ -1,6 +1,5 @@
 import { BASE, request } from "./http";
-import { getContextFile } from "./context";
-import { locationFromContextResponse } from "../../utils/clientLocation";
+import { locationFromApiResponse } from "../../utils/clientLocation";
 
 export function clientLogoUrl(clientId) {
   return `${BASE}/clients/${encodeURIComponent(clientId)}/logo`;
@@ -76,8 +75,10 @@ export async function deleteClient(clientId) {
 }
 
 export async function getClientLocation(clientId) {
-  const data = await getContextFile(clientId, "context.md");
-  return locationFromContextResponse(data);
+  const data = await request(
+    `/clients/${encodeURIComponent(clientId)}/location`
+  );
+  return locationFromApiResponse(data);
 }
 
 export async function getContextSummary(clientId) {

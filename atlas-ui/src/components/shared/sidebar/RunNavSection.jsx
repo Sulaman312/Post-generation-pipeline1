@@ -54,6 +54,7 @@ export function RunNavSection({
   const [showFullTopic, setShowFullTopic] = useState(false);
   const runAbortRef = useRef(null);
   const stepRunStartRef = useRef({});
+  const topicCacheRef = useRef({ topic: "", topicFullText: "" });
 
   function reconcileStatusOverrides(serverStatuses) {
     for (const stepKey of Object.keys(statusOverrides)) {
@@ -97,14 +98,24 @@ export function RunNavSection({
   const serverStatuses = run?.statuses || {};
   const statuses = { ...serverStatuses, ...statusOverrides };
   const storedTopic = run?.topic || "";
-  const pipelineId = run?.pipeline_id || "article";
+  const pipelineId = run?.pipeline_id || "social_media";
   const isSocial = isSocialPipeline(pipelineId);
-  const topic = isSocial
+  const computedTopic = isSocial
     ? socialRunTitle(run?.manual_inputs, storedTopic)
     : storedTopic;
-  const topicFullText = isSocial
+  const computedTopicFullText = isSocial
     ? socialRunFullText(run?.manual_inputs, storedTopic)
-    : storedTopic.trim() || topic;
+    : storedTopic.trim() || computedTopic;
+  if (computedTopic) {
+    topicCacheRef.current = {
+      topic: computedTopic,
+      topicFullText: computedTopicFullText,
+    };
+  }
+  const topic = computedTopic || topicCacheRef.current.topic;
+  const topicFullText = computedTopic
+    ? computedTopicFullText
+    : topicCacheRef.current.topicFullText;
   const topicNeedsExpand =
     topicFullText.length > topic.length ||
     topic.includes("\n") ||
@@ -254,7 +265,7 @@ export function RunNavSection({
 
   function handleBack() {
     onClearRun?.();
-    if ((run?.pipeline_id || "article") === "social_media") onGoToSocialMatrix?.();
+    if ((run?.pipeline_id || "social_media") === "social_media") onGoToSocialMatrix?.();
     else onGoToMatrix?.();
   }
 

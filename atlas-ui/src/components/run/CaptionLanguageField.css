@@ -1,0 +1,52 @@
+.caption-language-field {
+  margin-top: 0;
+  padding-top: 0;
+}
+
+.caption-language-field:not(.caption-language-field--embedded) {
+  margin-top: 4px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.caption-language-field-top {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.caption-language-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text, #111827);
+}
+
+.caption-language-pill {
+  max-width: 240px;
+}
+
+.caption-language-pill .pill-toggle-option {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0;
+  padding: 9px 8px;
+}
+
+.caption-language-field--compact .caption-language-pill {
+  max-width: none;
+}
+
+.caption-language-field--compact .caption-language-field-top {
+  gap: 8px;
+}
+
+.caption-language-hint {
+  margin: 8px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.caption-language-hint strong {
+  font-weight: 650;
+  color: var(--text, #111827);
+}

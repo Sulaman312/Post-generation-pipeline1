@@ -259,8 +259,8 @@ export default function GeneratedImagesPanel({
       return [...completed, ...pending];
     }
 
-    if (generating || (skeletonOnly && !generating)) {
-      return Array.from({ length: LOADING_PLACEHOLDER_COUNT }, (_, index) => ({
+    if (generating || loading || (skeletonOnly && !generating)) {
+      return Array.from({ length: expectedSlotCount || LOADING_PLACEHOLDER_COUNT }, (_, index) => ({
         styleKey: `placeholder-${index}`,
         styleLabel: null,
         filename: null,
@@ -279,6 +279,7 @@ export default function GeneratedImagesPanel({
     images,
     imageMeta,
     expectedSlotCount,
+    loading,
   ]);
 
   const showSkeleton = skeletonOnly && !generating;
@@ -381,7 +382,7 @@ export default function GeneratedImagesPanel({
         aria-label="Generated images"
       >
         <div className="step4-section-body">
-          {!showSkeleton && !generating && !images.length ? (
+          {!showSkeleton && !generating && !loading && !images.length ? (
             <p className="step4-empty-inline">No generated images yet. Upload your own below.</p>
           ) : null}
           <div className="step4-image-grid" role="list">

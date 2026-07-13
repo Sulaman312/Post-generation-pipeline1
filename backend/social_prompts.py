@@ -158,6 +158,8 @@ CAPTIONS_SYSTEM = """You are a copywriter producing platform-specific captions f
 The user has already composed the final image (including any on-image headline). Use the overlay text,
 export sizes, brief context, and LOCATION block below. Write captions that match what the audience will actually see.
 
+Respect the CAPTION LANGUAGE block in the user message. All caption body text and hashtags must be written in that language (English or French). Keep platform section headings exactly as specified below.
+
 Return markdown with EXACTLY these headings:
 
 ## Instagram

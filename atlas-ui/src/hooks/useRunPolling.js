@@ -35,6 +35,8 @@ export function useRunPolling(client, runId, statusOverrides = {}) {
   const [error, setError] = useState(null);
   const refreshSequenceRef = useRef(0);
   const platformsOverrideRef = useRef(null);
+  const statusOverridesRef = useRef(statusOverrides);
+  statusOverridesRef.current = statusOverrides;
   const enabled = Boolean(client && runId);
 
   const applyRun = useCallback((nextRun) => {
@@ -109,7 +111,9 @@ export function useRunPolling(client, runId, statusOverrides = {}) {
       }
       const nextRun = await refreshRun();
       if (cancelled) return;
-      const delay = hasActiveWork(nextRun, statusOverrides) ? ACTIVE_POLL_MS : IDLE_POLL_MS;
+      const delay = hasActiveWork(nextRun, statusOverridesRef.current)
+        ? ACTIVE_POLL_MS
+        : IDLE_POLL_MS;
       timer = window.setTimeout(poll, delay);
     }
 
@@ -129,7 +133,7 @@ export function useRunPolling(client, runId, statusOverrides = {}) {
       refreshSequenceRef.current += 1;
       platformsOverrideRef.current = null;
     };
-  }, [client, enabled, refreshRun, runId, statusOverrides]);
+  }, [client, enabled, refreshRun, runId]);
 
   useEffect(() => {
     if (!enabled) return undefined;
