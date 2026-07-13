@@ -46,6 +46,48 @@ def test_parse_markdown_client_prompts():
     assert styles[1]["style_key"] == "variation_2"
 
 
+def test_parse_numbered_variation_blocks():
+    markdown = """\
+## Caption angle
+Caption text here.
+
+**Variation 1: CLOSE-UP DETAIL SHOT**
+Intimate close-up of two hands gently clasped together.
+
+**Variation 2: WIDER ENVIRONMENTAL SHOT**
+Peaceful room with a wooden table and a lit candle.
+
+**Variation 4: WIDER ENVIRONMENTAL SHOT**
+Majestic tree in a serene outdoor setting.
+"""
+    styles = parse_style_prompts(markdown)
+    assert len(styles) == 3
+    assert styles[0]["style_key"] == "variation_1"
+    assert styles[1]["style_key"] == "variation_2"
+    assert styles[2]["style_key"] == "variation_4"
+    assert "hands gently clasped" in styles[0]["prompt"]
+
+
+def test_parse_preset_sections_skips_removed_styles():
+    markdown = """\
+## Photorealistic scene
+Scene one prompt.
+
+## Close-up detail
+Scene two prompt.
+
+## Environmental wide
+Scene three prompt.
+"""
+    styles = parse_style_prompts(markdown)
+    assert len(styles) == 3
+    assert {s["style_key"] for s in styles} == {
+        "photorealistic",
+        "close_up_detail",
+        "environmental_wide",
+    }
+
+
 def test_parse_multiple_client_variations():
     markdown = """\
 ## Caption angle

@@ -154,6 +154,26 @@ export default function ArtifactView({
   }, [client, runId, stepName]);
 
   useEffect(() => {
+    async function onFlushSave(event) {
+      const detail = event.detail || {};
+      if (detail.clientId !== client || detail.runId !== runId || detail.stepName !== stepName) {
+        return;
+      }
+      if (readOnly || draft === content) return;
+      clearAutosaveTimer();
+      try {
+        await api.saveArtifact(client, runId, stepName, draft);
+        setContent(draft);
+        setSavedAt(Date.now());
+      } catch {
+        /* generation will use last saved version */
+      }
+    }
+    window.addEventListener("cf:flush-artifact-save", onFlushSave);
+    return () => window.removeEventListener("cf:flush-artifact-save", onFlushSave);
+  }, [client, runId, stepName, draft, content, readOnly]);
+
+  useEffect(() => {
     if (!editing || readOnly || loading) return;
     if (!content) return;
     if (draft === content) return;

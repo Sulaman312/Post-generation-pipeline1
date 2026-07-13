@@ -214,12 +214,60 @@ def _extract_all_client_prompt_sections(markdown: str) -> list[dict[str, str]]:
     return results
 
 
-def parse_style_prompts(markdown: str) -> list[dict[str, str]]:
-    """Return one prompt dict per preset, in stable order."""
+def _extract_numbered_variations(markdown: str) -> list[dict[str, str]]:
+    """Parse explicit `Variation N:` blocks (common after user edits in Step 3)."""
     md = (markdown or "").strip()
+    if not md:
+        return []
+    pattern = re.compile(
+        r"^(?:#{1,3}\s+)?(?:\*\*)?Variation\s+(\d+)\s*[:\-–—]\s*(.*?)(?:\*\*)?\s*$",
+        re.IGNORECASE | re.MULTILINE,
+    )
+    matches = list(pattern.finditer(md))
+    if not matches:
+        return []
+    results: list[dict[str, str]] = []
+    for index, match in enumerate(matches):
+        var_num = match.group(1)
+        title = (match.group(2) or "").strip().strip("*").strip()
+        start = match.end()
+        end = matches[index + 1].start() if index + 1 < len(matches) else len(md)
+        body = md[start:end].strip()
+        body = re.sub(r"^#+\s.*$", "", body, flags=re.MULTILINE).strip()
+        if not body:
+            continue
+        label = f"Variation {var_num}"
+        if title:
+            label = f"Variation {var_num}: {title}"
+        results.append(
+            {
+                "style_key": f"variation_{var_num}",
+                "style_label": label,
+                "prompt": body,
+            }
+        )
+    return results
+
+
+def _non_empty_styles(styles: list[dict[str, str]]) -> list[dict[str, str]]:
+    return [
+        {**style, "prompt": style["prompt"].strip()}
+        for style in styles
+        if (style.get("prompt") or "").strip()
+    ]
+
+
+def parse_style_prompts(markdown: str) -> list[dict[str, str]]:
+    """Return one prompt dict per style/variation present in the markdown."""
+    md = (markdown or "").strip()
+
+    numbered_variations = _non_empty_styles(_extract_numbered_variations(md))
+    if numbered_variations:
+        return numbered_variations
+
     all_client_sections = _extract_all_client_prompt_sections(md)
-    if len(all_client_sections) >= 2:
-        return all_client_sections
+    if all_client_sections:
+        return _non_empty_styles(all_client_sections)
 
     client_style_results: list[dict[str, str]] = []
     primary_aliases = (
@@ -254,8 +302,8 @@ def parse_style_prompts(markdown: str) -> list[dict[str, str]]:
     # Require both image prompts; caption-only output is not enough for Step 4.
     has_primary = any(r["style_key"] == "primary" for r in client_style_results)
     has_alternate = any(r["style_key"] == "alternate" for r in client_style_results)
-    if has_primary and has_alternate:
-        return client_style_results
+    if client_style_results and (has_primary or has_alternate):
+        return _non_empty_styles(client_style_results)
     if client_style_results:
         client_style_results.clear()
 
@@ -277,11 +325,10 @@ def parse_style_prompts(markdown: str) -> list[dict[str, str]]:
             }
         )
 
-    if found_named >= 2:
-        for i, preset in enumerate(STYLE_PRESETS):
-            if not results[i]["prompt"]:
-                results[i]["prompt"] = _fallback_style_prompt(md, preset)
-        return [{**r, "prompt": r["prompt"].strip()} for r in results]
+    if found_named >= 1:
+        filled = _non_empty_styles(results)
+        if filled:
+            return filled
 
     # Legacy format: # MASTER / # INSTAGRAM / # LINKEDIN — build 4 styles from master only.
     master = _extract_h1_section(md, "MASTER PROMPT") or _extract_h1_section(md, "Master Prompt")

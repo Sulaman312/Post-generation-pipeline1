@@ -73,6 +73,7 @@ def generate_all_styles(
         raise RuntimeError("No image prompt found. Run Step 3 first.")
 
     styles = social_image_styles.parse_style_prompts(prompt_md)
+    styles = [s for s in styles if (s.get("prompt") or "").strip()]
     if not styles:
         raise RuntimeError("No image style prompts found in image_prompt.md")
 
