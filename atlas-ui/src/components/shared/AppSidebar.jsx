@@ -36,6 +36,8 @@ export default function AppSidebar({
   logoVersion = 0,
   onPatchStepStatus,
   stepStatusOverrides = {},
+  run = null,
+  onRefreshRun,
 }) {
   const handleWidthChange = useCallback(
     (w) => onSidebarWidthChange?.(w),
@@ -120,6 +122,8 @@ export default function AppSidebar({
             onGoToSocialMatrix={onGoToSocialMatrix}
             onPatchStepStatus={onPatchStepStatus}
             statusOverrides={stepStatusOverrides}
+            run={run}
+            onRefreshRun={onRefreshRun}
           />
         )}
       </div>

@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useToast } from "../../context/ToastContext";
 import { stepsForPipeline } from "../../constants/pipelines";
 import { isSocialPipeline, socialRunChromeLabel, socialRunFullText } from "../../utils/socialRunTopic";
-import { useRunPolling } from "../../hooks/useRunPolling";
 import { statusClass, statusLabel } from "../../utils/runViewStatus";
 import RunInputPanel from "./RunInputPanel";
 import RunOutputPanel from "./RunOutputPanel";
@@ -11,13 +10,17 @@ import "./ImageGenerationStep.css";
 export default function RunView({
   client,
   runId,
+  run,
+  runError,
+  onRefreshRun,
   activeStepKey,
   statusOverrides = {},
   onSelectStep,
   onBack,
 }) {
   const { toast } = useToast();
-  const { run, error, refreshRun } = useRunPolling(client, runId, activeStepKey);
+  const refreshRun = onRefreshRun;
+  const error = runError;
   const [tab, setTab] = useState("output");
   const [outputEditKey, setOutputEditKey] = useState(0);
 

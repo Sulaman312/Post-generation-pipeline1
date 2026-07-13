@@ -42,9 +42,10 @@ export function RunNavSection({
   onGoToSocialMatrix,
   onPatchStepStatus,
   statusOverrides = {},
+  run = null,
+  onRefreshRun,
 }) {
   const { toast } = useToast();
-  const [run, setRun] = useState(null);
   const [runningStepKey, setRunningStepKey] = useState(null);
   const [hoveredStepKey, setHoveredStepKey] = useState(null);
   const [clockTick, setClockTick] = useState(0);
@@ -69,48 +70,26 @@ export function RunNavSection({
     }
   }
 
-  async function loadRun() {
+  async function refreshRunData() {
     try {
-      const r = await api.getRun(client, runId);
-      setRun(r);
-      reconcileStatusOverrides(r.statuses || {});
+      await onRefreshRun?.();
     } catch {
       /* ignore */
     }
   }
+
+  useEffect(() => {
+    if (!run?.statuses) return;
+    reconcileStatusOverrides(run.statuses);
+    // Reconcile when shared run data updates.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [run]);
 
   function markStepPending(stepKey) {
     onPatchStepStatus?.(stepKey, "pending");
     setRunningStepKey(null);
     runAbortRef.current = null;
   }
-
-  useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      if (cancelled) return;
-      await loadRun();
-    }
-    load();
-    return () => {
-      cancelled = true;
-    };
-    // Initial load only; subsequent updates come from the shared run poller.
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional client/runId load
-  }, [client, runId]);
-
-  useEffect(() => {
-    function onRunUpdated(event) {
-      const detail = event.detail || {};
-      if (detail.clientId !== client || detail.runId !== runId || !detail.run) return;
-      setRun(detail.run);
-      reconcileStatusOverrides(detail.run.statuses || {});
-    }
-    window.addEventListener("cf:run-updated", onRunUpdated);
-    return () => window.removeEventListener("cf:run-updated", onRunUpdated);
-    // Reconcile against the latest overrides without recreating the listener.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [client, runId]);
 
   const serverStatuses = run?.statuses || {};
   const statuses = { ...serverStatuses, ...statusOverrides };
@@ -194,7 +173,7 @@ export function RunNavSection({
         ...prev,
         [stepKey]: elapsedMs,
       }));
-      await loadRun();
+      await refreshRunData();
       onSelectStep(stepKey);
       window.dispatchEvent(
         new CustomEvent("cf:run-step-complete", {
@@ -210,7 +189,7 @@ export function RunNavSection({
       if (msg === "Stopped by user.") {
         markStepPending(stepKey);
         const cancelled = await tryCancelOnServer(stepKey);
-        await loadRun();
+        await refreshRunData();
         toast(
           cancelled
             ? "Step paused."
@@ -242,7 +221,7 @@ export function RunNavSection({
       ac.abort();
       markStepPending(stepKey);
       const cancelled = await tryCancelOnServer(stepKey);
-      await loadRun();
+      await refreshRunData();
       toast(
         cancelled
           ? "Step paused."
@@ -254,7 +233,7 @@ export function RunNavSection({
     if ((serverStatuses[stepKey] || "pending") !== "running") return;
     markStepPending(stepKey);
     const cancelled = await tryCancelOnServer(stepKey);
-    await loadRun();
+    await refreshRunData();
     toast(
       cancelled
         ? "Step reset to pending."

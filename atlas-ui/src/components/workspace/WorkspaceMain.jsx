@@ -7,6 +7,9 @@ import SocialPipelineBoard from "./SocialPipelineBoard";
 export default function WorkspaceMain({
   client,
   runId,
+  run,
+  runError,
+  onRefreshRun,
   workspaceView,
   artifactFilename,
   onArtifactFilenameChange,
@@ -79,6 +82,9 @@ export default function WorkspaceMain({
     <RunView
       client={client}
       runId={runId}
+      run={run}
+      runError={runError}
+      onRefreshRun={onRefreshRun}
       activeStepKey={activeStepKey}
       statusOverrides={stepStatusOverrides}
       onSelectStep={onSelectStep}

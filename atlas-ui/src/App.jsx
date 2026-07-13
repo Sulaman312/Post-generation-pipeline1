@@ -9,6 +9,7 @@ import { ToastProvider } from "./context/ToastContext";
 import { APP_BRAND_NAME, APP_LOGO } from "./constants/brand";
 import { appProductMeta } from "./constants/appProject";
 import { readStoredSidebarWidth } from "./hooks/useSidebarResize";
+import { useRunPolling } from "./hooks/useRunPolling";
 import { useWorkspaceNavigation } from "./hooks/useWorkspaceNavigation";
 import * as api from "./services/api";
 import { getAuthToken } from "./services/api/http";
@@ -26,6 +27,7 @@ function App() {
   const [artifactFilename, setArtifactFilename] = useState(null);
   const [logoVersions, setLogoVersions] = useState({});
   const [stepStatusOverrides, setStepStatusOverrides] = useState({});
+  const { run, error: runError, refreshRun } = useRunPolling(client, runId);
 
   const {
     goHome,
@@ -198,11 +200,16 @@ function App() {
         logoVersion={logoVersions[client] || 0}
         onPatchStepStatus={patchStepStatus}
         stepStatusOverrides={stepStatusOverrides}
+        run={run}
+        onRefreshRun={refreshRun}
       />
       <main className="layout-main">
         <WorkspaceMain
           client={client}
           runId={runId}
+          run={run}
+          runError={runError}
+          onRefreshRun={refreshRun}
           workspaceView={workspaceView}
           artifactFilename={artifactFilename}
           onArtifactFilenameChange={setArtifactFilename}
