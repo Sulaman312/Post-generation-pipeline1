@@ -18,6 +18,8 @@ function apiIsCrossOrigin() {
 /**
  * Authenticated image with Facebook-style skeleton → fade-in loading.
  * placeholder: "media" (4:5 feed), "thumb" (square), "none"
+ * keepPrevious: when src changes, keep showing the last good image until the
+ * next one is ready (avoids grey flash when switching brand template views).
  */
 export default function AuthImage({
   src,
@@ -26,6 +28,7 @@ export default function AuthImage({
   imgClassName = "",
   loading = "lazy",
   placeholder = "media",
+  keepPrevious = false,
   onFailed,
   onLoad,
   ...props
@@ -38,46 +41,73 @@ export default function AuthImage({
   const shouldLoad = !lazy || inView;
 
   const [blobSrc, setBlobSrc] = useState(null);
+  // Prefer authenticated blob fetch whenever we have a session token so image
+  // GETs send Authorization (native <img> only sends cookies). On same-origin
+  // Koyeb deploys this avoids permanent grey skeletons when cookies are missing
+  // or stripped by the proxy.
   const [useBlob, setUseBlob] = useState(
-    () => apiIsCrossOrigin() && Boolean(getAuthToken())
+    () => Boolean(getAuthToken()) || apiIsCrossOrigin()
   );
   const [failed, setFailed] = useState(false);
   const [decoded, setDecoded] = useState(false);
+  const heldRequestUrlRef = useRef(null);
   const onFailedRef = useRef(onFailed);
   onFailedRef.current = onFailed;
 
   useEffect(() => {
-    setDecoded(false);
     setFailed(false);
-  }, [src]);
+    if (!keepPrevious) {
+      setDecoded(false);
+    }
+  }, [src, keepPrevious]);
 
   useEffect(() => {
     if (!shouldLoad || !useBlob || !src) {
-      setBlobSrc(null);
+      if (!keepPrevious) setBlobSrc(null);
       return undefined;
     }
 
     let cancelled = false;
 
     (async () => {
-      setBlobSrc(null);
+      if (!keepPrevious) setBlobSrc(null);
       try {
         const url = await fetchAuthenticatedBlobUrl(src);
-        if (!cancelled) setBlobSrc(url);
+        if (cancelled) {
+          releaseAuthenticatedBlobUrl(src);
+          return;
+        }
+        const previousRequest = heldRequestUrlRef.current;
+        heldRequestUrlRef.current = src;
+        setBlobSrc(url);
+        if (previousRequest && previousRequest !== src) {
+          releaseAuthenticatedBlobUrl(previousRequest);
+        }
       } catch {
         if (!cancelled) {
-          setBlobSrc(null);
-          setFailed(true);
-          onFailedRef.current?.();
+          if (!keepPrevious || !heldRequestUrlRef.current) {
+            setBlobSrc(null);
+            setFailed(true);
+            onFailedRef.current?.();
+          }
         }
       }
     })();
 
     return () => {
       cancelled = true;
-      if (src) releaseAuthenticatedBlobUrl(src);
+      if (!keepPrevious && src) releaseAuthenticatedBlobUrl(src);
     };
-  }, [src, useBlob, shouldLoad]);
+  }, [src, useBlob, shouldLoad, keepPrevious]);
+
+  useEffect(() => {
+    return () => {
+      if (heldRequestUrlRef.current) {
+        releaseAuthenticatedBlobUrl(heldRequestUrlRef.current);
+        heldRequestUrlRef.current = null;
+      }
+    };
+  }, []);
 
   const handleDecode = () => {
     setDecoded(true);
@@ -85,13 +115,23 @@ export default function AuthImage({
   };
 
   const handleNativeError = () => {
-    setDecoded(false);
+    if (!keepPrevious) setDecoded(false);
     setUseBlob(true);
   };
 
   if (!src) return null;
 
-  if (failed) {
+  const showPlaceholder = placeholder !== "none";
+  const incomingSrc = useBlob ? blobSrc : src;
+  const resolvedSrc = incomingSrc;
+  const holdingPrevious = Boolean(keepPrevious && resolvedSrc && !decoded);
+  const waitingForSrc = shouldLoad && !resolvedSrc;
+  const showSkeleton =
+    showPlaceholder &&
+    !holdingPrevious &&
+    (!decoded || waitingForSrc || !shouldLoad);
+
+  if (failed && !resolvedSrc) {
     return (
       <span ref={visibilityRef} className={`auth-image auth-image--failed ${className}`.trim()}>
         <ImageSkeleton variant={placeholder === "thumb" ? "thumb" : "media"} />
@@ -99,14 +139,10 @@ export default function AuthImage({
     );
   }
 
-  const showPlaceholder = placeholder !== "none";
-  const resolvedSrc = useBlob ? blobSrc : src;
-  const waitingForSrc = shouldLoad && (!resolvedSrc || (useBlob && !blobSrc));
-  const showSkeleton = showPlaceholder && (!decoded || waitingForSrc || !shouldLoad);
   const shellClass = [
     "auth-image",
     placeholder === "media" ? "auth-image--media" : "",
-    decoded ? "auth-image--loaded" : "",
+    decoded || holdingPrevious ? "auth-image--loaded" : "",
     className,
   ]
     .filter(Boolean)
@@ -114,7 +150,7 @@ export default function AuthImage({
 
   const imgClass = [
     "auth-image__img",
-    decoded ? "auth-image__img--loaded" : "",
+    decoded || holdingPrevious ? "auth-image__img--loaded" : "",
     imgClassName,
   ]
     .filter(Boolean)
@@ -131,8 +167,10 @@ export default function AuthImage({
           loading={loading}
           onLoad={handleDecode}
           onError={useBlob ? () => {
-            setFailed(true);
-            onFailedRef.current?.();
+            if (!keepPrevious || !resolvedSrc) {
+              setFailed(true);
+              onFailedRef.current?.();
+            }
           } : handleNativeError}
           {...props}
         />

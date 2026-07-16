@@ -380,6 +380,7 @@ function TemplatePreviewCard({
             alt={filename}
             loading="eager"
             placeholder="thumb"
+            keepPrevious
             onLoad={onMediaLoad}
             onMouseDown={() => {
               if (showEditorChrome && !editMode) {
@@ -428,6 +429,7 @@ function TemplatePreviewCard({
                       type="button"
                       className="template-canvas-chip"
                       disabled={saving}
+                      title="Edit headline and subline on the design"
                       onClick={() => onEnterEditMode?.()}
                     >
                       Edit text

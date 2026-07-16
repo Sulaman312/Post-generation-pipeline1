@@ -216,6 +216,62 @@ def _sync_deletions_allowed(files, rows: dict[str, Path], deleted: list[str]) ->
     return True
 
 
+def ensure_cached_file(path: Path) -> bool:
+    """Ensure ``path`` exists under CLIENTS_DIR, materializing it from GridFS if needed.
+
+    Returns True when the file is present on disk after the call. Used by image
+    routes so a cold/partial runtime cache (common after Koyeb restarts) does not
+    404 PNGs that still exist in MongoDB.
+    """
+    path = Path(path)
+    if path.is_file():
+        return True
+    if not enabled():
+        return False
+
+    try:
+        rel = path.resolve().relative_to(Path(config.CLIENTS_DIR).resolve()).as_posix()
+    except ValueError:
+        return False
+    if not rel or rel.startswith("/") or ".." in Path(rel).parts:
+        return False
+
+    with _LOCK:
+        if path.is_file():
+            return True
+        files, bucket = _connect()
+        doc = files.find_one({"path": rel})
+        if not doc or not doc.get("gridfs_id"):
+            return False
+
+        path.parent.mkdir(parents=True, exist_ok=True)
+        temp = path.with_name(f".{path.name}.mongo-tmp")
+        try:
+            stream = bucket.open_download_stream(doc["gridfs_id"])
+            try:
+                with temp.open("wb") as handle:
+                    while chunk := stream.read(1024 * 1024):
+                        handle.write(chunk)
+                os.replace(temp, path)
+            finally:
+                stream.close()
+        except Exception:
+            temp.unlink(missing_ok=True)
+            logger.exception("Failed to materialize %s from GridFS", rel)
+            return False
+
+        if not path.is_file():
+            return False
+        _known_paths.add(rel)
+        try:
+            stat = path.stat()
+            _snapshot[rel] = (stat.st_size, stat.st_mtime_ns)
+        except OSError:
+            pass
+        logger.info("Materialized missing cache file from GridFS: %s", rel)
+        return True
+
+
 def hydrate_cache(*, clear: bool = True) -> int:
     """Replace the runtime cache with the complete file tree stored in MongoDB."""
     global _snapshot, _known_paths, _hydration_complete

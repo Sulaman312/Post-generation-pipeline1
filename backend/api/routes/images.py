@@ -4,7 +4,7 @@ from pathlib import Path
 
 from flask import jsonify, request, send_file, send_from_directory
 
-from backend import config, image_artifacts, image_overlay, image_templates
+from backend import config, image_artifacts, image_overlay, image_templates, mongo_storage
 from backend.api.blueprint import api_bp
 from backend.api.helpers import reject_client, reject_run_id, safe_run_id
 from backend.integrations import openai_chat
@@ -27,8 +27,9 @@ def _png_response(path, *, filename: str, attachment: bool = False):
     if attachment:
         resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
     elif request.args.get("v"):
-        # Versioned URLs (formats index cache key) — safe to cache in browser/CDN.
-        resp.headers["Cache-Control"] = "public, max-age=86400, immutable"
+        # Versioned URLs — private because image routes require auth (avoid CDN
+        # caching 401/empty responses as anonymous "public" assets).
+        resp.headers["Cache-Control"] = "private, max-age=86400, immutable"
     else:
         resp.headers["Cache-Control"] = "private, max-age=300"
     return resp
@@ -190,7 +191,7 @@ def get_generated_image(client_id: str, run_id: str, filename: str):
         path = image_artifacts.generated_image_path(client_id, run_id, filename)
     except ValueError as e:
         return jsonify(detail=str(e)), 400
-    if not path.is_file():
+    if not path.is_file() and not mongo_storage.ensure_cached_file(path):
         return jsonify(detail="image not found"), 404
     return _png_response(path, filename=filename)
 
@@ -285,7 +286,7 @@ def get_formatted_image(client_id: str, run_id: str, filename: str):
         path = image_artifacts.format_image_path(client_id, run_id, filename)
     except ValueError as e:
         return jsonify(detail=str(e)), 400
-    if not path.is_file():
+    if not path.is_file() and not mongo_storage.ensure_cached_file(path):
         return jsonify(detail="image not found"), 404
     attachment = request.args.get("download") in ("1", "true", "yes")
     return _png_response(path, filename=filename, attachment=attachment)
@@ -474,7 +475,7 @@ def get_social_template_asset_for_template(client_id: str, template_id: str, fil
         return jsonify(detail="invalid filename"), 400
     root = Path(config.CLIENTS_DIR) / client_id / "templates" / tpl / "assets"
     path = root / fn
-    if not path.is_file():
+    if not path.is_file() and not mongo_storage.ensure_cached_file(path):
         return jsonify(detail="asset not found"), 404
     return send_from_directory(root, fn)
 

@@ -25,6 +25,13 @@ class FakeFilesCollection:
     def find(self, query=None, projection=None):
         return [dict(doc) for doc in self.docs.values()]
 
+    def find_one(self, query=None, projection=None):
+        path = (query or {}).get("path")
+        if path is None:
+            return None
+        doc = self.docs.get(path)
+        return dict(doc) if doc else None
+
     def find_one_and_update(self, query, update, *, upsert=False):
         path = query["path"]
         previous = dict(self.docs[path]) if path in self.docs else None
@@ -139,6 +146,25 @@ class MongoStorageTests(unittest.TestCase):
         self.assertEqual(result["deleted"], 1)
         self.assertFalse(self.files.docs)
         self.assertFalse(self.bucket.blobs)
+
+    def test_ensure_cached_file_materializes_missing_png(self):
+        rel = "client-a/runs/run-a/images/generated/image.png"
+        blob_id = "blob-missing-1"
+        self.files.docs[rel] = {"path": rel, "gridfs_id": blob_id}
+        self.bucket.blobs[blob_id] = b"png-from-mongo"
+        target = config.CLIENTS_DIR / rel
+        self.assertFalse(target.exists())
+
+        ok = mongo_storage.ensure_cached_file(target)
+
+        self.assertTrue(ok)
+        self.assertEqual(target.read_bytes(), b"png-from-mongo")
+        self.assertIn(rel, mongo_storage._known_paths)
+
+    def test_ensure_cached_file_returns_false_when_absent_in_mongo(self):
+        target = config.CLIENTS_DIR / "client-a/runs/run-a/images/generated/missing.png"
+        self.assertFalse(mongo_storage.ensure_cached_file(target))
+        self.assertFalse(target.exists())
 
     def test_seed_and_hydrate_complete_tree(self):
         source = Path(self.temp.name) / "source"
