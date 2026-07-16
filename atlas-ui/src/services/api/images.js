@@ -217,6 +217,17 @@ export async function applyImageTemplate(clientId, runId) {
   );
 }
 
+/** Textless branded layout for Figma-like on-canvas text editing. */
+export function templateCanvasPreviewUrl(clientId, runId, { platform = "instagram", cacheKey } = {}) {
+  const base = `${BASE}/clients/${encodeURIComponent(clientId)}/runs/${encodeURIComponent(
+    runId
+  )}/images/template/canvas-preview?platform=${encodeURIComponent(platform)}&omit_text=1`;
+  if (cacheKey) {
+    return `${base}&v=${encodeURIComponent(String(cacheKey))}`;
+  }
+  return base;
+}
+
 export async function saveImageOverlay(clientId, runId, overlay) {
   const data = await request(
     `/clients/${encodeURIComponent(clientId)}/runs/${encodeURIComponent(

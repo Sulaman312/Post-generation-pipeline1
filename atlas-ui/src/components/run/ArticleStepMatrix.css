@@ -133,6 +133,39 @@
   cursor: pointer;
 }
 
+@media (max-width: 800px) {
+  .matrix-th--input,
+  .matrix-td--input {
+    min-width: 220px;
+    width: 220px;
+    max-width: 220px;
+  }
+
+  .matrix-th--step {
+    min-width: 112px;
+    padding-inline: 8px;
+  }
+
+  .matrix-scroll {
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+@media (max-width: 520px) {
+  .matrix-th--input,
+  .matrix-td--input {
+    min-width: 180px;
+    width: 180px;
+    max-width: 180px;
+  }
+
+  .matrix-th {
+    padding-block: 10px;
+    font-size: 12px;
+  }
+}
+
 .matrix-input-card:not(.matrix-input-card--edit-mode) .matrix-input-card-main {
   padding-left: 16px;
   padding-right: 40px;

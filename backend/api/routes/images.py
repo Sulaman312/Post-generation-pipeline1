@@ -431,6 +431,38 @@ def apply_image_template(client_id: str, run_id: str):
     return jsonify(formats=formats)
 
 
+@api_bp.get("/clients/<client_id>/runs/<run_id>/images/template/canvas-preview")
+def get_template_canvas_preview(client_id: str, run_id: str):
+    """Live editor base: branded layout without baked text (Figma-like overlays)."""
+    import io
+
+    bad = reject_client(client_id)
+    if bad:
+        return bad
+    bad_run = reject_run_id(run_id)
+    if bad_run:
+        return bad_run
+    platform = str(request.args.get("platform") or "instagram").strip().lower()
+    omit_text = str(request.args.get("omit_text") or "1").lower() not in ("0", "false", "no")
+    try:
+        png = image_templates.render_canvas_preview_png(
+            client_id,
+            run_id,
+            platform_key=platform,
+            omit_text=omit_text,
+        )
+    except RuntimeError as e:
+        return jsonify(detail=str(e)), 400
+    resp = send_file(
+        io.BytesIO(png),
+        mimetype="image/png",
+        as_attachment=False,
+        download_name="canvas-preview.png",
+    )
+    resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
+    return resp
+
+
 @api_bp.get("/clients/<client_id>/templates/<template_id>/assets/<filename>")
 def get_social_template_asset_for_template(client_id: str, template_id: str, filename: str):
     bad = reject_client(client_id)

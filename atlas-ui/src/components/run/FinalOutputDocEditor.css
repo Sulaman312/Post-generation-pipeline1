@@ -366,3 +366,58 @@
   font-size: 11px;
   margin-right: 2px;
 }
+
+@media (max-width: 900px) {
+  .fod-panes--split {
+    flex-direction: column;
+    overflow-y: auto;
+  }
+
+  .fod-panes--split .fod-pane--edit {
+    flex: 0 0 min(48dvh, 520px);
+    width: 100%;
+    max-width: none;
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .fod-panes--split .fod-pane--preview {
+    flex: 0 0 auto;
+    min-height: 360px;
+  }
+
+  .fod-toolbar-primary-end {
+    margin-left: 0;
+  }
+
+  .fod-toolbar-primary,
+  .fod-toolbar-format {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    scrollbar-width: thin;
+  }
+
+  .fod-toolbar-group,
+  .fod-content-tabs,
+  .fod-view-tabs,
+  .fod-stats-inline {
+    flex: 0 0 auto;
+  }
+}
+
+@media (max-width: 520px) {
+  .fod-toolbar-primary,
+  .fod-toolbar-format {
+    padding-inline: 8px;
+  }
+
+  .fod-preview-article,
+  .fod-panes--aux .meta-panel,
+  .fod-panes--aux .jsonld-panel {
+    padding-inline: 10px;
+  }
+
+  .final-output-doc-editor {
+    padding-inline: 10px;
+  }
+}

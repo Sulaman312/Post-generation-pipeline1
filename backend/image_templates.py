@@ -290,6 +290,7 @@ def _draw_imported_layers(
     layers: list[Any],
     template_dir: Path,
     spec: dict[str, Any],
+    omit_text: bool = False,
 ) -> Image.Image:
     draw = ImageDraw.Draw(out, "RGBA")
     for layer in layers:
@@ -325,6 +326,8 @@ def _draw_imported_layers(
             continue
 
         if kind == "text":
+            if omit_text:
+                continue
             text = str(layer.get("text") or "").strip()
             if not text:
                 continue
@@ -361,6 +364,32 @@ def _layer_bounds(layer: dict[str, Any]) -> tuple[int, int, int, int]:
     return x, y, w, h
 
 
+def _format_needs_full_bleed_photo(
+    fmt: dict[str, Any] | None,
+    frame_h: int,
+) -> bool:
+    """True for slanted footer shapes that must sit on a full-bleed photo.
+
+    Rectangular footer bars (e.g. Schneiter green-footer-bg) keep the clipped
+    photo zone so the image fits the content band between header and footer.
+    """
+    if not isinstance(fmt, dict) or frame_h < 1:
+        return False
+    layers = fmt.get("layers")
+    if not isinstance(layers, list):
+        return False
+    for layer in layers:
+        if not isinstance(layer, dict) or layer.get("visible") is False:
+            continue
+        if str(layer.get("kind") or "") != "asset":
+            continue
+        asset = str(layer.get("asset") or "").lower()
+        name = str(layer.get("name") or "").lower()
+        if "bottom-shape" in asset or "bottom-shape" in name:
+            return True
+    return False
+
+
 def footer_top_from_format(
     fmt: dict[str, Any] | None,
     frame_h: int,
@@ -395,6 +424,10 @@ def photo_zone_from_format(
 ) -> tuple[int, int] | None:
     """Photo area from frame top to the footer overlay (logo/footer drawn on top)."""
     if not isinstance(fmt, dict) or frame_h < 1:
+        return None
+
+    # Slanted Figma footer shapes (bottom-shape) need a full-bleed photo underneath.
+    if _format_needs_full_bleed_photo(fmt, frame_h):
         return None
 
     footer_y = footer_top_from_format(fmt, frame_h)
@@ -533,6 +566,7 @@ def apply_template(
     client_id: str,
     run_template: dict[str, Any] | None,
     platform_key: str,
+    omit_text: bool = False,
 ) -> Image.Image:
     if not run_template:
         return image.convert("RGB")
@@ -561,6 +595,7 @@ def apply_template(
             layers=imported_layers,
             template_dir=template_dir,
             spec=spec,
+            omit_text=omit_text,
         ).convert("RGB")
 
     logo_cfg = fmt.get("logo") if isinstance(fmt.get("logo"), dict) else {}
@@ -591,6 +626,9 @@ def apply_template(
         fill = _hex_to_rgb(str(card.get("fill") or "#111827"))
         alpha = int(max(0.0, min(1.0, float(card.get("opacity", 1.0)))) * 255)
         draw.rounded_rectangle((x, y, x + w, y + h), radius=radius, fill=fill + (alpha,))
+
+    if omit_text:
+        return out.convert("RGB")
 
     headline = run_template.get("headline") if isinstance(run_template.get("headline"), dict) else {}
     lines = headline.get("lines") if isinstance(headline.get("lines"), list) else []
@@ -705,3 +743,65 @@ def apply_run_template_to_formats(client_id: str, run_id: str) -> dict[str, Any]
     }
     image_artifacts.save_formats_index(client_id, run_id, payload)
     return payload
+
+
+def render_canvas_preview_png(
+    client_id: str,
+    run_id: str,
+    *,
+    platform_key: str = "instagram",
+    omit_text: bool = True,
+) -> bytes:
+    """Render one branded format in-memory for the live canvas editor (no disk write)."""
+    import io
+
+    from . import image_artifacts, image_overlay, social_channels
+
+    idx = image_artifacts.load_image_index(client_id, run_id)
+    if not idx or not idx.selected_primary:
+        raise RuntimeError("No primary image selected.")
+
+    src_path = image_artifacts.generated_image_path(client_id, run_id, idx.selected_primary)
+    if not src_path.is_file():
+        raise RuntimeError("Selected primary image file is missing on disk.")
+
+    run_template = load_run_template(client_id, run_id)
+    if not run_template:
+        templates = list_client_templates(client_id)
+        template_id = templates[0]["id"] if templates else DEFAULT_TEMPLATE_ID
+        run_template = ensure_run_template(client_id, run_id, template_id=template_id)
+
+    channel = next(
+        (ch for ch in social_channels.SOCIAL_CHANNELS if str(ch["key"]) == platform_key),
+        social_channels.SOCIAL_CHANNELS[0],
+    )
+    key = str(channel["key"])
+
+    with Image.open(src_path) as im0:
+        base = im0.convert("RGB")
+
+        def _band_for_channel(ch: dict) -> tuple[int, int] | None:
+            fmt = format_spec_for_platform(client_id, run_template, str(ch["key"]))
+            return photo_zone_from_format(fmt, int(ch["height"]))
+
+        def _apply_template_overlay(rendered: Image.Image, ch: dict) -> Image.Image:
+            return apply_template(
+                rendered,
+                client_id=client_id,
+                run_template=run_template,
+                platform_key=str(ch["key"]),
+                omit_text=omit_text,
+            )
+
+        # Only render the requested channel for speed.
+        single = [channel]
+        rendered_by_key = image_overlay.render_branded_channel_exports(
+            base,
+            content_band_for=_band_for_channel,
+            post_render=_apply_template_overlay,
+            channels=single,
+        )
+        rendered = rendered_by_key[key]
+        buf = io.BytesIO()
+        rendered.save(buf, format="PNG", optimize=True)
+        return buf.getvalue()

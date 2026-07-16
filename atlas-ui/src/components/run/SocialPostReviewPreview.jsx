@@ -87,8 +87,6 @@ export default function SocialPostReviewPreview({ client, runId, toast, skeleton
         if (cancelled) return;
         const outputs = idx?.outputs || {};
         const generatedAt = idx?.generated_at || "";
-        // Show captions immediately; warm all platform images + logo in parallel
-        // so AuthImage mounts hit cache / share the same in-flight fetches.
         void warmAuthenticatedBlobCacheMany(
           previewImageUrls(client, runId, outputs, generatedAt)
         );

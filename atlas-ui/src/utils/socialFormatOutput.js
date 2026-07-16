@@ -13,7 +13,7 @@ export function formatDimensionsLabel(width, height) {
 export const PLATFORM_ORDER = ["facebook", "instagram", "linkedin"];
 export const FORMAT_EXPORT_POLICY = "contain_blur_v4";
 export const CROP_EXPORT_POLICY = "center_crop_v1";
-export const TEMPLATE_EXPORT_POLICY = "template_stack_cover_v13";
+export const TEMPLATE_EXPORT_POLICY = "template_stack_cover_v15";
 
 export function pickCanonicalFormatOutput(outputs) {
   if (!Array.isArray(outputs) || outputs.length === 0) return null;

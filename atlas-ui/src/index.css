@@ -139,6 +139,13 @@ select:focus {
   outline: none;
 }
 
+img,
+svg,
+video,
+canvas {
+  max-width: 100%;
+}
+
 a {
   color: inherit;
   text-decoration: none;
@@ -161,6 +168,29 @@ pre,
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border: 0;
+}
+
+@media (max-width: 800px) {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    overflow-x: hidden;
+  }
+
+  input,
+  textarea,
+  select {
+    /* Prevent iOS from zooming the viewport when a field receives focus. */
+    font-size: max(16px, 1em);
+  }
+
+  button,
+  [role="button"],
+  a {
+    touch-action: manipulation;
+  }
 }
 
 ::-webkit-scrollbar {

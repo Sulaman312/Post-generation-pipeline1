@@ -6,7 +6,7 @@ from backend.image_overlay import (
     export_for_brand_template,
     export_formatted_image,
 )
-from backend.image_templates import content_band_from_format
+from backend.image_templates import content_band_from_format, photo_zone_from_format
 from PIL import Image
 
 
@@ -55,7 +55,7 @@ class ImageExportFitTests(unittest.TestCase):
         self.assertNotEqual(crop.getpixel((0, mid_y)), (0, 0, 255))
 
     def test_facebook_uses_instagram_layout_when_same_size(self):
-        from backend.image_templates import content_band_from_format, layout_format_key
+        from backend.image_templates import content_band_from_format, photo_zone_from_format, layout_format_key
 
         self.assertEqual(layout_format_key("facebook"), "instagram")
         self.assertEqual(layout_format_key("instagram"), "instagram")
@@ -125,6 +125,33 @@ class ImageExportFitTests(unittest.TestCase):
         footer_pixel = out.getpixel((600, photo_h + 5))
         self.assertNotEqual(footer_pixel, (255, 0, 0))
         self.assertNotEqual(footer_pixel, (0, 0, 255))
+
+    def test_descloux_photo_zone_is_full_bleed_with_footer_shape(self):
+        repo = Path(__file__).resolve().parents[1]
+        tpl = repo / "clients/desclouxsa/templates/desclouxsa_template/template.json"
+        if not tpl.is_file():
+            self.skipTest("Descloux template fixture missing")
+        fmt = json.loads(tpl.read_text(encoding="utf-8"))["formats"]["instagram"]
+        self.assertIsNone(photo_zone_from_format(fmt, 1350))
+
+    def test_schneiter_photo_zone_clips_above_footer(self):
+        repo = Path(__file__).resolve().parents[1]
+        tpl = repo / "clients/Schneiteretfils/templates/Schneiteretfils_template/template.json"
+        if not tpl.is_file():
+            self.skipTest("Schneiter template fixture missing")
+        fmt = json.loads(tpl.read_text(encoding="utf-8"))["formats"]["instagram"]
+        band = photo_zone_from_format(fmt, 1350)
+        self.assertIsNotNone(band)
+        top, bottom = band
+        self.assertEqual(top, 0)
+        self.assertGreaterEqual(bottom, 850)
+        self.assertLessEqual(bottom, 880)
+
+    def test_footer_shape_templates_avoid_edge_color_gap(self):
+        base = Image.new("RGB", (1080, 1080), (120, 80, 40))
+        out = export_for_brand_template(base, 1080, 1350, None)
+        # Full-bleed cover: photo extends into the footer band before overlay.
+        self.assertEqual(out.getpixel((540, 1200)), (120, 80, 40))
 
 
 if __name__ == "__main__":

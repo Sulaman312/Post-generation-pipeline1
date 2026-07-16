@@ -522,7 +522,7 @@ def export_for_brand_template(
     return canvas
 
 
-TEMPLATE_EXPORT_POLICY = "template_stack_cover_v13"
+TEMPLATE_EXPORT_POLICY = "template_stack_cover_v15"
 TEMPLATE_FIGMA_POLICY = "template_figma_overlay_v1"
 
 
@@ -531,13 +531,14 @@ def render_branded_channel_exports(
     *,
     content_band_for: Callable[[dict[str, str | int]], tuple[int, int] | None],
     post_render: Callable[[Image.Image, dict[str, str | int]], Image.Image] | None = None,
+    channels: list[dict[str, str | int]] | None = None,
 ) -> dict[str, Image.Image]:
     """Export platform images: photo underlay + brand template on top."""
     from concurrent.futures import ThreadPoolExecutor
 
     from . import social_channels
 
-    channels = list(social_channels.SOCIAL_CHANNELS)
+    channel_list = list(channels) if channels else list(social_channels.SOCIAL_CHANNELS)
 
     def _render_one(ch: dict[str, str | int]) -> tuple[str, Image.Image]:
         # Copy so workers never share a mutable PIL image.
@@ -553,9 +554,9 @@ def render_branded_channel_exports(
         return str(ch["key"]), rendered
 
     out: dict[str, Image.Image] = {}
-    workers = min(len(channels), 3) or 1
+    workers = min(len(channel_list), 3) or 1
     with ThreadPoolExecutor(max_workers=workers) as pool:
-        for key, rendered in pool.map(_render_one, channels):
+        for key, rendered in pool.map(_render_one, channel_list):
             out[key] = rendered
     return out
 
