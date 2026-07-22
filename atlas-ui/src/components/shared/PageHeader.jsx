@@ -1,6 +1,8 @@
 /**
  * Compact page title row — navigation lives in the sidebar / back button.
  */
+import LanguageToggle from "./LanguageToggle";
+
 export default function PageHeader({
   title,
   subtitle,
@@ -8,7 +10,10 @@ export default function PageHeader({
   back,
   onBack,
   backLabel,
+  showLanguage = true,
 }) {
+  const hasActions = Boolean(actions) || showLanguage;
+
   return (
     <header className="page-head">
       <div className="page-head-main">
@@ -29,7 +34,14 @@ export default function PageHeader({
           ) : null}
         </div>
       </div>
-      {actions ? <div className="page-head-actions">{actions}</div> : null}
+      {hasActions ? (
+        <div className="page-head-actions">
+          {actions}
+          {showLanguage ? (
+            <LanguageToggle compact className="page-head-lang" />
+          ) : null}
+        </div>
+      ) : null}
     </header>
   );
 }

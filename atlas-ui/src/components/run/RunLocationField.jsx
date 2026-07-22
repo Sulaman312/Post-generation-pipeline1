@@ -1,5 +1,6 @@
 import ToggleSwitch from "../shared/ToggleSwitch";
 import LocationValueInput from "./LocationValueInput";
+import { useLocale } from "../../context/LocaleContext";
 import { looksLikeStreetAddress } from "../../utils/clientLocation";
 import "./RunLocationField.css";
 
@@ -15,6 +16,7 @@ export default function RunLocationField({
   compact = false,
   locationRequired = false,
 }) {
+  const { t } = useLocale();
   const switchId = `${idPrefix}-use-location`;
   const inputId = `${idPrefix}-value`;
   const clientDefault = (defaultLocation || "").trim();
@@ -37,26 +39,24 @@ export default function RunLocationField({
     >
       <div className="run-location-field-top">
         <span className="run-location-title" id={`${idPrefix}-location-label`}>
-          Location in captions
+          {t("form.locationInCaptions")}
         </span>
         <ToggleSwitch
           id={switchId}
           checked={enabled}
           disabled={disabled}
-          ariaLabel="Include location in captions"
+          ariaLabel={t("form.locationToggleAria")}
           onChange={handleSwitchChange}
         />
       </div>
 
       {!compact && !enabled ? (
-        <p className="run-location-hint muted">
-          Location is off for this post.
-        </p>
+        <p className="run-location-hint muted">{t("form.locationOff")}</p>
       ) : null}
 
       {compact && !enabled ? (
         <p className="run-location-hint muted run-location-hint--compact">
-          Off — captions will not mention geography.
+          {t("form.locationOffHint")}
         </p>
       ) : null}
 

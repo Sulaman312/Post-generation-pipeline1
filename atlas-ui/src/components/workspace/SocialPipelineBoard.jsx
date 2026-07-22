@@ -1,14 +1,16 @@
 import DeleteWorkspaceButton from "../shared/DeleteWorkspaceButton";
 import ManualSocialForm from "./ManualSocialForm";
 import PageHeader from "../shared/PageHeader";
+import { useLocale } from "../../context/LocaleContext";
 import "./ContentPipelineBoard.css";
 
 export default function SocialPipelineBoard({ client, onOpenRun, onClientDeleted }) {
+  const { t } = useLocale();
   return (
     <div className="page cpb-page">
       <PageHeader
-        title="New social post"
-        subtitle="Fill in the details below to start a social media pipeline run."
+        title={t("socialBoard.title")}
+        subtitle={t("socialBoard.subtitle")}
         actions={
           onClientDeleted ? (
             <DeleteWorkspaceButton client={client} onDeleted={onClientDeleted} />
@@ -16,10 +18,9 @@ export default function SocialPipelineBoard({ client, onOpenRun, onClientDeleted
         }
       />
 
-      <section className="cpb-section" aria-label="New social post">
+      <section className="cpb-section" aria-label={t("socialBoard.title")}>
         <ManualSocialForm client={client} onOpenRun={onOpenRun} />
       </section>
     </div>
   );
 }
-

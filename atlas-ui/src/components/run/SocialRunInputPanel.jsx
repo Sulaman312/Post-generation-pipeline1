@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import * as api from "../../services/api";
+import { useLocale } from "../../context/LocaleContext";
 import {
   SOCIAL_ADDITIONAL_DETAILS_MAX,
   SOCIAL_POST_IDEA_MAX,
@@ -69,6 +70,7 @@ export default function SocialRunInputPanel({
   onSaved,
   toast,
 }) {
+  const { t } = useLocale();
   const paragraph = socialPostParagraph(manualInputs);
   const details = socialAdditionalDetails(manualInputs);
   const captionLanguage = captionLanguageFromManual(manualInputs);
@@ -118,7 +120,7 @@ export default function SocialRunInputPanel({
     if (!nextParagraph || saving) return;
 
     if (fields.use_location && !(fields.location_value || "").trim()) {
-      setLocationError("Enter a city or region when location is on.");
+      setLocationError(t("form.locationRequired"));
       return;
     }
 
@@ -139,7 +141,7 @@ export default function SocialRunInputPanel({
       });
       setEditing(false);
       onSaved?.();
-      toast?.("Post settings saved.", { variant: "success", duration: 3000 });
+      toast?.(t("form.postSettingsSaved"), { variant: "success", duration: 3000 });
     } catch (err) {
       const msg = err?.message || String(err);
       setError(msg);
@@ -172,7 +174,7 @@ export default function SocialRunInputPanel({
       <div className="run-artifact-card social-run-input-card">
         <div className="social-run-input-head">
           <div>
-            <div className="run-input-topic-eyebrow">Post idea · this run</div>
+            <div className="run-input-topic-eyebrow">{t("form.postIdeaEyebrow")}</div>
           </div>
           {!editing ? (
             <button
@@ -180,7 +182,7 @@ export default function SocialRunInputPanel({
               className="btn btn-ghost btn-sm social-run-input-edit-btn"
               onClick={() => setEditing(true)}
             >
-              Edit
+              {t("common.edit")}
             </button>
           ) : null}
         </div>
@@ -189,12 +191,12 @@ export default function SocialRunInputPanel({
           <form className="social-run-input-form" onSubmit={handleSave}>
             <div className="workspace-form-field workspace-form-field--wide workspace-form-field--idea">
               <label className="label" htmlFor="sri-paragraph">
-                Post idea
+                {t("form.postIdea")}
                 <span className="workspace-form-req" aria-hidden>
                   {" "}
                   *
                 </span>
-                <span className="visually-hidden"> (required)</span>
+                <span className="visually-hidden"> {t("common.required")}</span>
               </label>
               <textarea
                 id="sri-paragraph"
@@ -217,8 +219,8 @@ export default function SocialRunInputPanel({
             </div>
             <div className="workspace-form-field workspace-form-field--wide workspace-form-field--details">
               <label className="label" htmlFor="sri-details">
-                Additional details{" "}
-                <span className="workspace-form-optional">(optional)</span>
+                {t("form.additionalDetails")}{" "}
+                <span className="workspace-form-optional">{t("common.optional")}</span>
               </label>
               <textarea
                 id="sri-details"
@@ -232,7 +234,7 @@ export default function SocialRunInputPanel({
                   }))
                 }
                 disabled={saving}
-                placeholder="Hashtags, links, offers, brand notes…"
+                placeholder={t("form.detailsPlaceholder")}
                 maxLength={SOCIAL_ADDITIONAL_DETAILS_MAX}
                 aria-describedby="sri-details-counter"
               />
@@ -297,7 +299,7 @@ export default function SocialRunInputPanel({
                 className="btn btn-primary btn-sm"
                 disabled={saving || !canSave}
               >
-                {saving ? "Saving…" : "Save"}
+                {saving ? t("common.saving") : t("common.save")}
               </button>
               <button
                 type="button"
@@ -305,7 +307,7 @@ export default function SocialRunInputPanel({
                 onClick={handleCancel}
                 disabled={saving}
               >
-                Cancel
+                {t("common.cancel")}
               </button>
             </div>
           </form>
@@ -314,46 +316,46 @@ export default function SocialRunInputPanel({
             {paragraph ? (
               <FormattedPostIdea text={paragraph} />
             ) : (
-              <p className="muted">(no post idea)</p>
+              <p className="muted">{t("form.noPostIdea")}</p>
             )}
 
             <section
               className="social-run-details-section"
-              aria-label="Additional details"
+              aria-label={t("form.additionalDetails")}
             >
               <div className="run-input-topic-eyebrow social-run-details-eyebrow">
-                Additional details
+                {t("form.additionalDetails")}
                 {!details ? (
-                  <span className="workspace-form-optional"> · none</span>
+                  <span className="workspace-form-optional"> · {t("form.none")}</span>
                 ) : null}
               </div>
               {details ? (
                 <FormattedPostIdea text={details} />
               ) : (
                 <p className="social-run-details-empty muted">
-                  No extra details were added when this run was created.
+                  {t("form.noDetails")}
                 </p>
               )}
             </section>
 
-            <section className="social-run-details-section" aria-label="Caption language">
+            <section className="social-run-details-section" aria-label={t("form.captionLanguage")}>
               <div className="run-input-topic-eyebrow social-run-details-eyebrow">
-                Caption language
+                {t("form.captionLanguage")}
               </div>
               <p className="social-run-idea-line">
                 {captionLanguageLabel(captionLanguage)}
               </p>
             </section>
 
-            <section className="social-run-details-section" aria-label="Location">
+            <section className="social-run-details-section" aria-label={t("form.locationInCaptions")}>
               <div className="run-input-topic-eyebrow social-run-details-eyebrow">
-                City or region
+                {t("form.cityOrRegion")}
               </div>
               {useLocation && (locationValue || "").trim() ? (
                 <p className="social-run-idea-line">{locationValue}</p>
               ) : (
                 <p className="social-run-details-empty muted">
-                  Location off for this run.
+                  {t("form.locationOff")}
                 </p>
               )}
             </section>

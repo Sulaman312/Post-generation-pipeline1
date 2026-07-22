@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import * as api from "../../services/api";
+import { useLocale } from "../../context/LocaleContext";
+import { localizeArtifactSpec } from "../../utils/localizeArtifactSpec";
 import MarkdownArtifactPanel from "../shared/MarkdownArtifactPanel";
 
 /** Fallback when API is unavailable (dev offline). */
@@ -55,6 +57,7 @@ function filterSocialWorkspaceArtifacts(rows) {
 }
 
 function ContextArtifactEditor({ client, spec, toast, variant = "card" }) {
+  const { t } = useLocale();
   const [draft, setDraft] = useState("");
   const [baseline, setBaseline] = useState("");
   const [loading, setLoading] = useState(true);
@@ -64,7 +67,8 @@ function ContextArtifactEditor({ client, spec, toast, variant = "card" }) {
   const [editing, setEditing] = useState(false);
 
   const dirty = draft !== baseline;
-  const { filename, title, description, placeholder } = spec;
+  const localized = localizeArtifactSpec(spec, t);
+  const { filename, title, description, placeholder } = localized;
   const isPage = variant === "page";
   const isCustom = Boolean(spec.custom);
 
@@ -104,7 +108,7 @@ function ContextArtifactEditor({ client, spec, toast, variant = "card" }) {
       setEditing(false);
       setSavedFlash(true);
       window.setTimeout(() => setSavedFlash(false), 2200);
-      toast?.("Saved", { variant: "success", duration: 2500 });
+      toast?.(t("common.saved"), { variant: "success", duration: 2500 });
     } catch (e) {
       const msg = e?.message || String(e);
       setError(msg);
@@ -129,7 +133,7 @@ function ContextArtifactEditor({ client, spec, toast, variant = "card" }) {
         </div>
         <div className="client-context-card-actions">
           {savedFlash ? (
-            <span className="client-context-saved">Saved</span>
+            <span className="client-context-saved">{t("common.saved")}</span>
           ) : null}
           {editing ? (
             <button
@@ -138,7 +142,7 @@ function ContextArtifactEditor({ client, spec, toast, variant = "card" }) {
               disabled={saving || loading}
               onClick={handleCancelEdit}
             >
-              Cancel
+              {t("common.cancel")}
             </button>
           ) : (
             <button
@@ -147,7 +151,7 @@ function ContextArtifactEditor({ client, spec, toast, variant = "card" }) {
               disabled={loading}
               onClick={() => setEditing(true)}
             >
-              Edit
+              {t("common.edit")}
             </button>
           )}
           <button
@@ -158,10 +162,10 @@ function ContextArtifactEditor({ client, spec, toast, variant = "card" }) {
           >
             {saving ? (
               <>
-                <span className="spinner spinner-light" /> Saving…
+                <span className="spinner spinner-light" /> {t("common.saving")}
               </>
             ) : (
-              "Save"
+              t("common.save")
             )}
           </button>
         </div>
@@ -173,12 +177,12 @@ function ContextArtifactEditor({ client, spec, toast, variant = "card" }) {
       ) : null}
       {loading ? (
         <div className="client-context-loading">
-          <span className="spinner" /> Loading…
+          <span className="spinner" /> {t("artifacts.loading")}
         </div>
       ) : (
         <>
           <label className="label visually-hidden" htmlFor={taId}>
-            {title} (Markdown)
+            {title} ({t("artifacts.markdown")})
           </label>
           <div className="client-context-artifact-panel">
             <MarkdownArtifactPanel
@@ -190,14 +194,11 @@ function ContextArtifactEditor({ client, spec, toast, variant = "card" }) {
               onEditingChange={setEditing}
               showEditInToolbar={false}
               textareaRows={isPage ? 22 : 14}
-              textareaPlaceholder={
-                placeholder ||
-                "Write Markdown here — headings, lists, and links are supported."
-              }
+              textareaPlaceholder={placeholder || ""}
               previewNode={
                 !editing && !draft.trim() ? (
                   <p className="client-context-empty-preview">
-                    No content yet. Click <strong>Edit</strong> to add Markdown.
+                    {t("artifacts.noContent")}
                   </p>
                 ) : null
               }
@@ -207,8 +208,10 @@ function ContextArtifactEditor({ client, spec, toast, variant = "card" }) {
             <code className="client-context-filename">{filename}</code>
             <span>
               {" "}
-              · Markdown
-              {isCustom ? " · custom artifact" : " · used by the social pipeline"}
+              · {t("artifacts.markdown")}
+              {isCustom
+                ? ` · ${t("artifacts.customMeta")}`
+                : ` · ${t("artifacts.pipelineMeta")}`}
             </span>
           </div>
         </>
@@ -218,6 +221,7 @@ function ContextArtifactEditor({ client, spec, toast, variant = "card" }) {
 }
 
 function AddArtifactForm({ client, onCreated, onCancel, toast }) {
+  const { t } = useLocale();
   const [slug, setSlug] = useState("");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -237,7 +241,7 @@ function AddArtifactForm({ client, onCreated, onCancel, toast }) {
         title: titleVal,
         description: description.trim(),
       });
-      toast?.("Artifact created", { variant: "success", duration: 2500 });
+      toast?.(t("artifacts.created"), { variant: "success", duration: 2500 });
       onCreated?.(artifact);
     } catch (err) {
       const msg = err?.message || String(err);
@@ -250,48 +254,46 @@ function AddArtifactForm({ client, onCreated, onCancel, toast }) {
 
   return (
     <form className="artifact-add-form" onSubmit={handleSubmit}>
-      <h3 className="artifact-add-form-title">New artifact</h3>
-      <p className="artifact-add-form-lede">
-        Creates a Markdown file in this workspace. Use lowercase letters,
-        numbers, and hyphens for the file id.
-      </p>
+      <h3 className="artifact-add-form-title">{t("artifacts.newTitle")}</h3>
+      <p className="artifact-add-form-lede">{t("artifacts.newLede")}</p>
       {error ? (
         <div className="client-context-error" role="alert">
           {error}
         </div>
       ) : null}
       <label className="label" htmlFor="artifact-slug">
-        File id
+        {t("artifacts.fileId")}
       </label>
       <input
         id="artifact-slug"
         className="input"
         value={slug}
         onChange={(e) => setSlug(e.target.value)}
-        placeholder="e.g. competitor-notes"
+        placeholder={t("artifacts.fileIdPlaceholder")}
         autoComplete="off"
         disabled={saving}
       />
       <label className="label" htmlFor="artifact-title">
-        Display title
+        {t("artifacts.displayTitle")}
       </label>
       <input
         id="artifact-title"
         className="input"
         value={title}
         onChange={(e) => setTitle(e.target.value)}
-        placeholder="e.g. Competitor notes"
+        placeholder={t("artifacts.displayTitlePlaceholder")}
         disabled={saving}
       />
       <label className="label" htmlFor="artifact-desc">
-        Description <span className="label-optional">(optional)</span>
+        {t("artifacts.description")}{" "}
+        <span className="label-optional">{t("common.optional")}</span>
       </label>
       <input
         id="artifact-desc"
         className="input"
         value={description}
         onChange={(e) => setDescription(e.target.value)}
-        placeholder="Short note for your team"
+        placeholder={t("artifacts.descriptionPlaceholder")}
         disabled={saving}
       />
       <div className="artifact-add-form-actions">
@@ -301,7 +303,7 @@ function AddArtifactForm({ client, onCreated, onCancel, toast }) {
           onClick={onCancel}
           disabled={saving}
         >
-          Cancel
+          {t("common.cancel")}
         </button>
         <button
           type="submit"
@@ -310,10 +312,10 @@ function AddArtifactForm({ client, onCreated, onCancel, toast }) {
         >
           {saving ? (
             <>
-              <span className="spinner spinner-light" /> Creating…
+              <span className="spinner spinner-light" /> {t("artifacts.creating")}
             </>
           ) : (
-            "Create artifact"
+            t("artifacts.create")
           )}
         </button>
       </div>
@@ -327,6 +329,7 @@ export function WorkspaceArtifactPicker({
   onSelect,
   onSpecsChange,
 }) {
+  const { t } = useLocale();
   const [specs, setSpecs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -361,7 +364,10 @@ export function WorkspaceArtifactPicker({
     e.preventDefault();
     if (!spec.removable || !spec.custom) return;
     const ok = window.confirm(
-      `Delete "${spec.title}" (${spec.filename})?\n\nThis removes the file permanently.`
+      t("artifacts.deleteConfirm", {
+        title: localizeArtifactSpec(spec, t).title,
+        filename: spec.filename,
+      })
     );
     if (!ok) return;
     setDeletingFn(spec.filename);
@@ -385,17 +391,14 @@ export function WorkspaceArtifactPicker({
   return (
     <div className="artifact-picker-wrap">
       <div className="artifact-picker-toolbar">
-        <p className="artifacts-page-lede">
-          Markdown reference files for this workspace. Built-in files feed the
-          social post pipeline; custom artifacts are for your team’s notes.
-        </p>
+        <p className="artifacts-page-lede">{t("artifacts.lede")}</p>
         {!adding ? (
           <button
             type="button"
             className="btn btn-primary btn-sm"
             onClick={() => setAdding(true)}
           >
-            + Add artifact
+            {t("artifacts.add")}
           </button>
         ) : null}
       </div>
@@ -416,42 +419,47 @@ export function WorkspaceArtifactPicker({
 
       {loading ? (
         <div className="client-context-loading" style={{ marginTop: 24 }}>
-          <span className="spinner" /> Loading artifacts…
+          <span className="spinner" /> {t("artifacts.loading")}
         </div>
       ) : (
         <div className="artifact-picker-grid" role="list">
-          {specs.map((spec) => (
+          {specs.map((spec) => {
+            const localized = localizeArtifactSpec(spec, t);
+            return (
             <div key={spec.filename} className="artifact-picker-card-wrap">
               <button
                 type="button"
                 className="artifact-picker-card"
                 onClick={() => onSelect(spec.filename)}
-                aria-label={`Open ${spec.title} editor`}
+                aria-label={t("artifacts.openEditor", { title: localized.title })}
               >
                 <span className="artifact-picker-card-kicker">
-                  {spec.custom ? "Custom file" : "Workspace file"}
+                  {spec.custom
+                    ? t("artifacts.customFile")
+                    : t("artifacts.workspaceFile")}
                 </span>
-                <span className="artifact-picker-card-title">{spec.title}</span>
-                <span className="artifact-picker-card-desc" title={spec.description}>
-                  {spec.description}
+                <span className="artifact-picker-card-title">{localized.title}</span>
+                <span className="artifact-picker-card-desc" title={localized.description}>
+                  {localized.description}
                 </span>
                 {spec.exists === false ? (
-                  <span className="artifact-picker-card-empty">Empty</span>
+                  <span className="artifact-picker-card-empty">{t("artifacts.empty")}</span>
                 ) : null}
               </button>
               {spec.removable ? (
                 <button
                   type="button"
                   className="artifact-picker-delete"
-                  title={`Delete ${spec.title}`}
+                  title={t("artifacts.delete")}
                   disabled={deletingFn === spec.filename}
                   onClick={(e) => handleDelete(e, spec)}
                 >
-                  {deletingFn === spec.filename ? "…" : "Delete"}
+                  {deletingFn === spec.filename ? "…" : t("artifacts.delete")}
                 </button>
               ) : null}
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
@@ -466,6 +474,7 @@ export function WorkspaceArtifactEditorPage({
   toast,
   onBack,
 }) {
+  const { t } = useLocale();
   const [spec, setSpec] = useState(specProp ?? null);
   const [loading, setLoading] = useState(!specProp);
 
@@ -505,7 +514,7 @@ export function WorkspaceArtifactEditorPage({
   if (loading) {
     return (
       <div className="client-context-loading" style={{ marginTop: 32 }}>
-        <span className="spinner" /> Loading…
+        <span className="spinner" /> {t("artifacts.loading")}
       </div>
     );
   }
@@ -522,7 +531,7 @@ export function WorkspaceArtifactEditorPage({
         <span className="artifact-back-chev" aria-hidden>
           ‹
         </span>
-        All artifacts
+        {t("artifacts.all")}
       </button>
       <ContextArtifactEditor
         client={client}

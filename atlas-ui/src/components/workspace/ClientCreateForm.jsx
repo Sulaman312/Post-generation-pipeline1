@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as api from "../../services/api";
+import { useLocale } from "../../context/LocaleContext";
 import LogoFitImage from "./LogoFitImage";
 import { isImageFile, readImageFileAsBase64 } from "../../utils/readImageFile";
 import {
@@ -23,6 +24,7 @@ export default function ClientCreateForm({
   onCreated,
   onClientLogoSaved,
 }) {
+  const { t } = useLocale();
   const [catalogEntries, setCatalogEntries] = useState(null);
   const [newName, setNewName] = useState("");
   const [seedContext, setSeedContext] = useState(() =>
@@ -76,12 +78,12 @@ export default function ClientCreateForm({
       return;
     }
     if (!isImageFile(file)) {
-      onError("Logo must be an image (PNG, JPG, WebP, GIF, or SVG).");
+      onError(t("workspace.logoErrType"));
       clearLogo();
       return;
     }
     if (file.size > MAX_LOGO_BYTES) {
-      onError("Logo must be 2 MB or smaller.");
+      onError(t("workspace.logoErrSize"));
       clearLogo();
       return;
     }
@@ -170,12 +172,12 @@ export default function ClientCreateForm({
       >
         <div style={{ flex: "1 1 200px", minWidth: 0 }}>
           <label className="label" htmlFor="new-client">
-            Workspace name
+            {t("workspace.name")}
           </label>
           <input
             id="new-client"
             className="input"
-            placeholder="e.g. Gauchat or acme_co"
+            placeholder={t("workspace.namePlaceholder")}
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             autoFocus
@@ -186,7 +188,7 @@ export default function ClientCreateForm({
           className="btn btn-primary"
           disabled={!newName.trim() || creating}
         >
-          {creating ? "Creating…" : "Create"}
+          {creating ? t("workspace.creating") : t("workspace.create")}
         </button>
         <button
           type="button"
@@ -194,7 +196,7 @@ export default function ClientCreateForm({
           disabled={creating}
           onClick={() => resetForm()}
         >
-          Cancel
+          {t("common.cancel")}
         </button>
       </div>
 
@@ -203,13 +205,15 @@ export default function ClientCreateForm({
           {logoPreview ? (
             <LogoFitImage src={logoPreview} size={48} />
           ) : (
-            <span className="workspace-form-logo-placeholder">Logo</span>
+            <span className="workspace-form-logo-placeholder">
+              {t("workspace.logoPlaceholder")}
+            </span>
           )}
         </div>
         <div className="workspace-form-logo-fields">
-          <span className="label">Workspace logo</span>
+          <span className="label">{t("workspace.logo")}</span>
           <span className="workspace-form-logo-hint">
-            Optional — square favicon or logo (PNG/SVG, max 2 MB).
+            {t("workspace.logoOptionalHint")}
           </span>
           <div className="workspace-form-logo-actions">
             <input
@@ -222,7 +226,7 @@ export default function ClientCreateForm({
               disabled={creating}
             />
             <label htmlFor="new-client-logo" className="btn btn-secondary btn-sm">
-              {logoFile ? "Change logo" : "Upload logo"}
+              {logoFile ? t("workspace.changeLogo") : t("workspace.uploadLogo")}
             </label>
             {logoFile ? (
               <button
@@ -231,7 +235,7 @@ export default function ClientCreateForm({
                 onClick={clearLogo}
                 disabled={creating}
               >
-                Remove
+                {t("workspace.remove")}
               </button>
             ) : null}
           </div>
@@ -244,8 +248,8 @@ export default function ClientCreateForm({
         style={{ alignSelf: "flex-start", fontSize: 13 }}
         onClick={() => setShowSeedContext((v) => !v)}
       >
-        {showSeedContext ? "▼" : "►"} Optional: seed context files (Markdown)
-        {hasAnySeedContent ? " · has drafts" : ""}
+        {showSeedContext ? "▼" : "►"} {t("workspace.seedContext")}
+        {hasAnySeedContent ? ` ${t("workspace.seedHasDrafts")}` : ""}
       </button>
 
       {showSeedContext ? (
@@ -267,10 +271,7 @@ export default function ClientCreateForm({
               lineHeight: 1.5,
             }}
           >
-            Only non-empty fields are saved to{" "}
-            <code>clients/&lt;id&gt;/context/</code> after the workspace is
-            created. You can always edit files later from the client
-            workspace.
+            {t("workspace.seedHelp")}
           </p>
           {pipelineEntries.map((entry) => (
             <div key={entry.filename}>
@@ -284,7 +285,9 @@ export default function ClientCreateForm({
                 id={`seed-${entry.filename}`}
                 className="input"
                 rows={5}
-                placeholder={`Paste Markdown for ${entry.filename}…`}
+                placeholder={t("workspace.seedPlaceholder", {
+                  filename: entry.filename,
+                })}
                 value={seedContext[entry.filename] ?? ""}
                 onChange={(e) => updateSeed(entry.filename, e.target.value)}
                 style={{

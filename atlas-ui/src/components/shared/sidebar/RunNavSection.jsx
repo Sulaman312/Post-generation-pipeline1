@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as api from "../../../services/api";
 import { useToast } from "../../../context/ToastContext";
+import { useLocale, useStepLabel } from "../../../context/LocaleContext";
 import { stepsForPipeline } from "../../../constants/pipelines";
 import {
   isSocialPipeline,
@@ -46,6 +47,8 @@ export function RunNavSection({
   onRefreshRun,
 }) {
   const { toast } = useToast();
+  const { t } = useLocale();
+  const stepLabelOf = useStepLabel();
   const [runningStepKey, setRunningStepKey] = useState(null);
   const [hoveredStepKey, setHoveredStepKey] = useState(null);
   const [clockTick, setClockTick] = useState(0);
@@ -277,10 +280,10 @@ export function RunNavSection({
             type="button"
             className="sb-item active sb-run-back"
             onClick={handleBack}
-            aria-label="Back to step matrix"
+            aria-label={t("run.backToMatrix")}
           >
             <IconMatrix />
-            <span className="sb-item-label">Step matrix</span>
+            <span className="sb-item-label">{t("nav.stepMatrix")}</span>
           </button>
           {topic ? (
             topicNeedsExpand ? (
@@ -291,7 +294,7 @@ export function RunNavSection({
                 }`}
                 onClick={() => setShowFullTopic((v) => !v)}
                 aria-expanded={showFullTopic}
-                aria-label={showFullTopic ? "Hide full title" : "Show full title"}
+                aria-label={showFullTopic ? t("run.hideFullTitle") : t("run.showFullTitle")}
               >
                 <span className="sb-run-topic">
                   {showFullTopic ? topicFullText : topic}
@@ -309,8 +312,8 @@ export function RunNavSection({
           type="button"
           className="sb-collapsed-back sb-collapsed-back--matrix"
           onClick={handleBack}
-          title="Back to step matrix"
-          aria-label="Back to step matrix"
+          title={t("run.backToMatrix")}
+          aria-label={t("run.backToMatrix")}
         >
           <IconMatrix />
         </button>
@@ -318,7 +321,7 @@ export function RunNavSection({
 
       <SidebarSection
         collapsed={collapsed}
-        title="Pipeline steps"
+        title={t("run.pipelineSteps")}
         className={[
           "sb-section--pipeline",
           collapsed ? "sb-section--collapsed-rail" : "",
@@ -338,6 +341,7 @@ export function RunNavSection({
             const s = statuses[step.key] || "pending";
             const active = step.key === activeStepKey;
             const isLast = stepIdx === STEPS.length - 1;
+            const stepLabel = stepLabelOf(step);
             const runnable =
               s !== "running" &&
               (s === "done" ||
@@ -372,18 +376,20 @@ export function RunNavSection({
               displayStatus,
               resolvedTiming,
               Date.now(),
-              isRunningThis ? step.index : null
+              isRunningThis ? step.index : null,
+              t
             );
             const metaSubtitle = (() => {
               if (step.key === "publish" && run) {
-                const publishMeta = publishStepSidebarMeta(run);
+                const publishMeta = publishStepSidebarMeta(run, t);
                 if (publishMeta) return publishMeta;
               }
               return formatStepMetaSubtitle(
                 displayStatus,
                 resolvedTiming,
                 Date.now(),
-                isRunningThis ? step.index : null
+                isRunningThis ? step.index : null,
+                t
               );
             })();
             const timingTitle = resolvedTiming?.client
@@ -434,8 +440,8 @@ export function RunNavSection({
                         <button
                           type="button"
                           className="sb-step-rail-btn sb-step-rail-btn--pause"
-                          aria-label={`Pause ${step.label}`}
-                          title={`Pause ${step.label}`}
+                          aria-label={t("run.pauseStep", { label: stepLabel })}
+                          title={t("run.pauseStep", { label: stepLabel })}
                           onClick={(e) => handlePauseStep(step.key, e)}
                         >
                           <IconPauseStep />
@@ -451,18 +457,18 @@ export function RunNavSection({
                           disabled={Boolean(runningStepKey) || publishStepLocked}
                           aria-label={
                             s === "done"
-                              ? `Re-run ${step.label}`
-                              : `Run ${step.label}`
+                              ? t("run.rerunStep", { label: stepLabel })
+                              : t("run.runStep", { label: stepLabel })
                           }
                           title={
                             publishStepLocked
                               ? "Change the schedule to publish immediately"
                               : s === "done"
-                                ? "Re-run this step"
-                                : `Run ${step.label}`
+                                ? t("run.rerunThisStep")
+                                : t("run.runStep", { label: stepLabel })
                           }
                           data-tip={
-                            s === "done" ? "Re-run this step" : undefined
+                            s === "done" ? t("run.rerunThisStep") : undefined
                           }
                           onClick={(e) => handleRunStep(step.key, e)}
                         >
@@ -493,17 +499,17 @@ export function RunNavSection({
                   className={cls}
                   aria-label={
                     collapsed
-                      ? `${step.index}. ${step.label} — ${statusText}`
-                      : `${step.label} — ${statusText}`
+                      ? `${step.index}. ${stepLabel} — ${statusText}`
+                      : `${stepLabel} — ${statusText}`
                   }
                   title={
                     collapsed
-                      ? `${step.index}. ${step.label} — ${statusText}`
+                      ? `${step.index}. ${stepLabel} — ${statusText}`
                       : timingTitle
                   }
                   data-tip={
                     collapsed
-                      ? `${step.label} · ${statusLabel(s)}`
+                      ? `${stepLabel} · ${statusLabel(s, t)}`
                       : undefined
                   }
                 >
@@ -518,7 +524,7 @@ export function RunNavSection({
                   {!collapsed ? (
                     <span className="sb-step-text">
                       <div className="sb-step-label">
-                        <span className="sb-step-name">{step.label}</span>
+                        <span className="sb-step-name">{stepLabel}</span>
                       </div>
                       {metaSubtitle || statusDetail ? (
                         <div className="sb-step-meta" title={timingTitle}>

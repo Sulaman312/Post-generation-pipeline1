@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as api from "../../services/api";
 import { warmAuthenticatedBlobCacheMany } from "../../services/api/http";
+import { useLocale } from "../../context/LocaleContext";
 import { isImageFile, readImageFileAsBase64 } from "../../utils/readImageFile";
 import { useMediaReady } from "../../hooks/useMediaReady";
 import AuthImage from "../shared/AuthImage";
@@ -14,6 +15,7 @@ const LOADING_PLACEHOLDER_COUNT = 4;
 const GENERATION_POLL_MS = 1500;
 
 function Step4PendingCard({ generating }) {
+  const { t } = useLocale();
   return (
     <div
       className="step4-image-card step4-image-card--skeleton step4-image-card--pending"
@@ -25,7 +27,7 @@ function Step4PendingCard({ generating }) {
         {generating ? (
           <span className="step4-pending-badge">
             <span className="spinner spinner--sm" aria-hidden />
-            Generating…
+            {t("common.generating")}
           </span>
         ) : null}
       </div>
@@ -45,6 +47,7 @@ function Step4ImageCard({
   onDelete,
   onChoose,
 }) {
+  const { t } = useLocale();
   const { mediaReady, onMediaLoad } = useMediaReady(src);
 
   return (
@@ -58,8 +61,8 @@ function Step4ImageCard({
         type="button"
         className="step4-image-delete"
         disabled={panelBusy || !mediaReady}
-        aria-label={`Delete ${styleLabel}`}
-        title="Delete image"
+        aria-label={`${t("images.delete")}: ${styleLabel}`}
+        title={t("images.delete")}
         onClick={(e) => {
           e.stopPropagation();
           onDelete(fn, styleLabel);
@@ -72,8 +75,8 @@ function Step4ImageCard({
         className="step4-image-preview"
         onClick={() => onPreview(fn, styleLabel)}
         disabled={panelBusy || !mediaReady}
-        aria-label={`Preview ${styleLabel}`}
-        title="View larger preview"
+        aria-label={`${t("images.preview")}: ${styleLabel}`}
+        title={t("images.preview")}
       >
         <div className="step4-image-frame">
           <AuthImage
@@ -94,12 +97,12 @@ function Step4ImageCard({
         onClick={() => onChoose(fn)}
         disabled={panelBusy || !mediaReady}
         aria-pressed={isSel}
-        title={isSel ? "Primary image" : "Select as primary"}
+        title={isSel ? t("images.primaryImage") : t("images.selectAsPrimary")}
       >
         <div className="step4-image-footer">
           {mediaReady ? (
             <span className="step4-image-select-hint">
-              {busy ? "Saving…" : isSel ? "Primary" : "Select"}
+              {busy ? t("common.saving") : isSel ? t("images.primary") : t("images.select")}
             </span>
           ) : (
             <TextSkeleton lines={1} variant="meta" />
@@ -117,6 +120,7 @@ export default function GeneratedImagesPanel({
   skeletonOnly = false,
   generating = false,
 }) {
+  const { t } = useLocale();
   const [loading, setLoading] = useState(!skeletonOnly || generating);
   const [images, setImages] = useState([]);
   const [imageMeta, setImageMeta] = useState({});
@@ -237,7 +241,7 @@ export default function GeneratedImagesPanel({
         .filter((fn) => !usedFilenames.has(fn))
         .map((fn) => ({
           styleKey: imageMeta[fn]?.style_key || fn,
-          styleLabel: imageMeta[fn]?.style_label || "Your upload",
+          styleLabel: imageMeta[fn]?.style_label || t("images.yourUpload"),
           filename: fn,
         }));
       return [...planned, ...uploads];
@@ -280,6 +284,7 @@ export default function GeneratedImagesPanel({
     imageMeta,
     expectedSlotCount,
     loading,
+    t,
   ]);
 
   const showSkeleton = skeletonOnly && !generating;
@@ -291,7 +296,7 @@ export default function GeneratedImagesPanel({
       const res = await api.selectRunImage(client, runId, fn);
       setSelected(res.selected_primary || fn);
       setImageMeta(res.image_meta || imageMeta);
-      toast?.("Selected primary image.", { variant: "success", duration: 2500 });
+      toast?.(t("images.toastSelected"), { variant: "success", duration: 2500 });
     } catch (e) {
       toast?.(e?.message || String(e), { variant: "error", duration: 9000 });
     } finally {
@@ -308,11 +313,11 @@ export default function GeneratedImagesPanel({
   async function handleUploadFile(file) {
     if (!file || uploading || busy) return;
     if (!isImageFile(file) || /\.svg$/i.test(file.name || "")) {
-      toast?.("Image must be PNG, JPG, WebP, or GIF.", { variant: "error", duration: 6000 });
+      toast?.(t("images.errType"), { variant: "error", duration: 6000 });
       return;
     }
     if (file.size > MAX_PRIMARY_UPLOAD_BYTES) {
-      toast?.("Image must be 8 MB or smaller.", { variant: "error", duration: 6000 });
+      toast?.(t("images.errSize"), { variant: "error", duration: 6000 });
       return;
     }
     setUploading(true);
@@ -324,7 +329,7 @@ export default function GeneratedImagesPanel({
       if (uploadedFn) {
         setImageVersions((prev) => ({ ...prev, [uploadedFn]: Date.now() }));
       }
-      toast?.("Uploaded image set as primary.", { variant: "success", duration: 2500 });
+      toast?.(t("images.toastUploaded"), { variant: "success", duration: 2500 });
     } catch (e) {
       const msg = e?.message || String(e);
       const hint = msg.includes("Could not reach API")
@@ -346,7 +351,7 @@ export default function GeneratedImagesPanel({
   async function removeImage(fn, styleLabel) {
     if (!fn || deleting) return;
     const label = styleLabel || fn;
-    const ok = window.confirm(`Delete “${label}”?\n\nThis removes the image from this run.`);
+    const ok = window.confirm(t("images.confirmDelete", { label }));
     if (!ok) return;
     setDeleting(fn);
     try {
@@ -357,7 +362,7 @@ export default function GeneratedImagesPanel({
         delete next[fn];
         return next;
       });
-      toast?.("Image deleted.", { variant: "success", duration: 2500 });
+      toast?.(t("images.toastDeleted"), { variant: "success", duration: 2500 });
     } catch (e) {
       toast?.(e?.message || String(e), { variant: "error", duration: 9000 });
     } finally {
@@ -379,11 +384,11 @@ export default function GeneratedImagesPanel({
     <div className={`step4-shell${generating ? " step4-shell--generating" : " step4-shell--compact"}`}>
       <section
         className="step4-section step4-section--generating"
-        aria-label="Generated images"
+        aria-label={t("images.aria")}
       >
         <div className="step4-section-body">
           {!showSkeleton && !generating && !loading && !images.length ? (
-            <p className="step4-empty-inline">No generated images yet. Upload your own below.</p>
+            <p className="step4-empty-inline">{t("images.empty")}</p>
           ) : null}
           <div className="step4-image-grid" role="list">
             {showSkeleton
@@ -451,9 +456,9 @@ export default function GeneratedImagesPanel({
                     {uploading ? <span className="spinner" /> : <IconUpload />}
                   </span>
                   <span className="step4-upload-title">
-                    {uploading ? "Uploading…" : "Upload your image"}
+                    {uploading ? t("images.uploading") : t("images.upload")}
                   </span>
-                  <span className="step4-upload-hint">PNG, JPG, WebP — max 8 MB. Sets as primary.</span>
+                  <span className="step4-upload-hint">{t("images.uploadHint")}</span>
                 </label>
               </div>
             ) : null}
@@ -479,7 +484,7 @@ export default function GeneratedImagesPanel({
                 type="button"
                 className="step4-preview-close"
                 onClick={() => setPreview(null)}
-                aria-label="Close preview"
+                aria-label={t("common.closePreview")}
               >
                 ×
               </button>

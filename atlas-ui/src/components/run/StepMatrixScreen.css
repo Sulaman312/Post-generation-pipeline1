@@ -17,8 +17,26 @@
   margin-bottom: 8px;
 }
 
+.step-matrix-header .page-head {
+  margin-bottom: 10px;
+  gap: 12px 20px;
+}
+
 .step-matrix-tabs {
   margin: 0;
+  height: 36px;
+  padding: 3px;
+  border-radius: 10px;
+}
+
+.step-matrix-tabs .tab {
+  height: 100%;
+  padding: 0 14px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .step-matrix-edit-wrap {
@@ -27,11 +45,22 @@
 
 .step-matrix-edit-btn {
   font-size: 13px;
-  padding: 8px 14px;
+  font-weight: 600;
+  padding: 0 14px;
+  min-height: 36px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: #fff;
+  color: var(--text);
+}
+
+.step-matrix-edit-btn:hover:not(:disabled) {
+  background: var(--hover);
 }
 
 .step-matrix-edit-btn--open {
   background: var(--hover);
+  border-color: #cbd5e1;
 }
 
 .step-matrix-edit-menu {

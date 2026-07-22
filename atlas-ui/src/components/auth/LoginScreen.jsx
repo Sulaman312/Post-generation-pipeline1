@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { APP_BRAND_NAME, APP_LOGO } from "../../constants/brand";
-import { appProductMeta } from "../../constants/appProject";
+import { APP_PROJECT_MODE } from "../../constants/appProject";
+import { useLocale } from "../../context/LocaleContext";
+import LanguageToggle from "../shared/LanguageToggle";
 import * as api from "../../services/api";
 import "./LoginScreen.css";
-
-const PRODUCT = appProductMeta();
 
 function IconEye(props) {
   return (
@@ -47,11 +47,25 @@ function IconEyeOff(props) {
 }
 
 export default function LoginScreen({ onLoggedIn }) {
+  const { t } = useLocale();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+
+  const productName =
+    APP_PROJECT_MODE === "article"
+      ? t("product.name.article")
+      : APP_PROJECT_MODE === "social"
+        ? t("product.name.social")
+        : t("product.name.default");
+  const productTagline =
+    APP_PROJECT_MODE === "article"
+      ? t("product.tagline.article")
+      : APP_PROJECT_MODE === "social"
+        ? t("product.tagline.social")
+        : t("product.tagline.default");
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -62,7 +76,7 @@ export default function LoginScreen({ onLoggedIn }) {
       const data = await api.login(username.trim(), password);
       onLoggedIn?.(data?.user || { username: username.trim().toLowerCase() });
     } catch (e) {
-      setError(e?.message || "Login failed");
+      setError(e?.message || t("login.failed"));
     } finally {
       setBusy(false);
     }
@@ -70,18 +84,21 @@ export default function LoginScreen({ onLoggedIn }) {
 
   return (
     <div className="login-screen">
+      <div className="login-language-bar">
+        <LanguageToggle className="login-language" />
+      </div>
       <div className="login-card">
         <div className="login-brand">
           <img className="login-brand-logo" src={APP_LOGO} alt={APP_BRAND_NAME} />
           <div>
-            <h1 className="login-title">{PRODUCT.name}</h1>
-            <p className="login-subtitle">{PRODUCT.workspaceTagline}</p>
+            <h1 className="login-title">{productName}</h1>
+            <p className="login-subtitle">{productTagline}</p>
           </div>
         </div>
 
         <form className="login-form" onSubmit={handleSubmit}>
           <label className="login-field">
-            <span className="login-label">Username</span>
+            <span className="login-label">{t("login.username")}</span>
             <input
               type="text"
               className="input"
@@ -94,7 +111,7 @@ export default function LoginScreen({ onLoggedIn }) {
           </label>
 
           <label className="login-field">
-            <span className="login-label">Password</span>
+            <span className="login-label">{t("login.password")}</span>
             <div className="login-password-wrap">
               <input
                 type={showPassword ? "text" : "password"}
@@ -110,7 +127,7 @@ export default function LoginScreen({ onLoggedIn }) {
                 className="login-password-toggle"
                 onClick={() => setShowPassword((v) => !v)}
                 disabled={busy}
-                aria-label={showPassword ? "Hide password" : "Show password"}
+                aria-label={showPassword ? t("login.hidePassword") : t("login.showPassword")}
                 aria-pressed={showPassword}
               >
                 {showPassword ? <IconEye /> : <IconEyeOff />}
@@ -125,7 +142,7 @@ export default function LoginScreen({ onLoggedIn }) {
           ) : null}
 
           <button type="submit" className="btn btn-primary login-submit" disabled={busy}>
-            {busy ? "Signing in…" : "Sign in"}
+            {busy ? t("login.signingIn") : t("login.signIn")}
           </button>
         </form>
       </div>

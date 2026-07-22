@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { copyFormattedMarkdown } from "../../utils/markdownExport";
+import { useLocale } from "../../context/LocaleContext";
 import Markdown from "./Markdown";
 import { PIPELINE_MARKDOWN_CLASS } from "../../constants/markdownPreview";
 
@@ -15,6 +16,8 @@ export default function MarkdownArtifactPanel({
   canEdit = true,
   /** Custom preview (e.g. topic card fields). Falls back to rendered Markdown. */
   previewNode = null,
+  /** Optional display markdown (e.g. localized labels) when previewNode is null. */
+  previewContent = null,
   savedHint = null,
   footer = null,
   bodyClassName = "",
@@ -28,6 +31,7 @@ export default function MarkdownArtifactPanel({
   onCopySuccess,
   onCopyError,
 }) {
+  const { t } = useLocale();
   const text = draft ?? content;
   const [copying, setCopying] = useState(false);
 
@@ -72,9 +76,9 @@ export default function MarkdownArtifactPanel({
                 className="btn btn-sm btn-edit-artifact"
                 onClick={handleCopy}
                 disabled={copying}
-                title="Copy formatted text (ready to paste in Word or CMS)"
+                title={t("common.copyFormattedTitle")}
               >
-                {copying ? "Copying…" : "Copy"}
+                {copying ? t("common.copying") : t("common.copy")}
               </button>
             ) : null}
             {showEditInToolbar && canEdit && !readOnly ? (
@@ -84,7 +88,7 @@ export default function MarkdownArtifactPanel({
                   className="btn btn-sm btn-edit-artifact"
                   onClick={cancelEdit}
                 >
-                  Cancel
+                  {t("common.cancel")}
                 </button>
               ) : (
                 <button
@@ -92,7 +96,7 @@ export default function MarkdownArtifactPanel({
                   className="btn btn-sm btn-edit-artifact"
                   onClick={startEdit}
                 >
-                  Edit
+                  {t("common.edit")}
                 </button>
               )
             ) : null}
@@ -112,7 +116,10 @@ export default function MarkdownArtifactPanel({
           />
         ) : (
           previewNode ?? (
-            <Markdown text={content} className={PIPELINE_MARKDOWN_CLASS} />
+            <Markdown
+              text={previewContent ?? content}
+              className={PIPELINE_MARKDOWN_CLASS}
+            />
           )
         )}
       </div>

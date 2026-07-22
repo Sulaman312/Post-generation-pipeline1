@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { pipelineStepLabel } from "../../constants/pipelineContract";
+import { useLocale, useStepLabel } from "../../context/LocaleContext";
 import * as api from "../../services/api";
 import ComposerCanvas from "./imageComposer/ComposerCanvas";
 import ComposerControls from "./imageComposer/ComposerControls";
@@ -13,6 +14,8 @@ import {
 import "./ImageComposer.css";
 
 export default function ImageComposer({ client, runId, primaryImage, toast }) {
+  const { t } = useLocale();
+  const stepLabel = useStepLabel();
   const fabricRef = useRef(null);
   const dimsRef = useRef({ w: 1024, h: 1024 });
   const logoRef = useRef(null);
@@ -164,10 +167,14 @@ export default function ImageComposer({ client, runId, primaryImage, toast }) {
             <IconLayers />
           </div>
           <div>
-            <h3 className="image-composer-title">Compose image</h3>
+            <h3 className="image-composer-title">{t("composer.title")}</h3>
             <p className="image-composer-desc">
-              Place logo and headline on the image, then save before running{" "}
-              <strong>{pipelineStepLabel("image_template")}</strong>.
+              {t("composer.desc", {
+                step: stepLabel({
+                  key: "image_template",
+                  label: pipelineStepLabel("image_template"),
+                }),
+              })}
             </p>
           </div>
         </div>
@@ -179,7 +186,7 @@ export default function ImageComposer({ client, runId, primaryImage, toast }) {
             disabled={!ready || suggesting}
           >
             <IconSparkle />
-            {suggesting ? "Suggesting…" : "AI suggest text"}
+            {suggesting ? t("composer.suggesting") : t("composer.aiSuggest")}
           </button>
           <button
             type="button"
@@ -188,7 +195,7 @@ export default function ImageComposer({ client, runId, primaryImage, toast }) {
             disabled={!ready || saving}
           >
             <IconSave />
-            {saving ? "Saving…" : "Save overlay"}
+            {saving ? t("common.saving") : t("composer.saveOverlay")}
           </button>
         </div>
       </div>
@@ -200,7 +207,7 @@ export default function ImageComposer({ client, runId, primaryImage, toast }) {
               className={`image-composer-loading${ready ? " image-composer-loading--hidden" : ""}`}
               aria-hidden={ready}
             >
-              <span className="spinner" /> Loading composer…
+              <span className="spinner" /> {t("composer.loading")}
             </div>
             <ComposerCanvas
               key={primaryImage}

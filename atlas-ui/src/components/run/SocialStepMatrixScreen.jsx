@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as api from "../../services/api";
 import { useToast } from "../../context/ToastContext";
+import { useLocale } from "../../context/LocaleContext";
 import { parseRunDate } from "../../utils/formatRelativeAge";
 import {
   socialAdditionalDetails,
@@ -45,6 +46,7 @@ export default function SocialStepMatrixScreen({
   onClientDeleted,
 }) {
   const { toast } = useToast();
+  const { t } = useLocale();
   const [runs, setRuns] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -184,7 +186,7 @@ export default function SocialStepMatrixScreen({
           aria-selected={view === "active"}
           onClick={() => setView("active")}
         >
-          Active
+          {t("common.active")}
         </button>
         <button
           type="button"
@@ -193,7 +195,7 @@ export default function SocialStepMatrixScreen({
           aria-selected={view === "archived"}
           onClick={() => setView("archived")}
         >
-          Archived
+          {t("common.archived")}
         </button>
       </div>
       <div className="step-matrix-edit-wrap" ref={editMenuRef}>
@@ -206,17 +208,17 @@ export default function SocialStepMatrixScreen({
           aria-haspopup="menu"
           onClick={() => setEditMenuOpen((v) => !v)}
         >
-          Edit
+          {t("common.edit")}
         </button>
         {editMenuOpen ? (
           <div className="step-matrix-edit-menu">
             {filteredRuns.length === 0 ? (
               <p className="step-matrix-edit-hint step-matrix-edit-hint--muted">
-                No social runs in this view
+                {t("matrix.noRunsInView")}
               </p>
             ) : !selectedRunId ? (
               <p className="step-matrix-edit-hint step-matrix-edit-hint--muted">
-                Select a run with the radio beside its title
+                {t("matrix.selectRunHint")}
               </p>
             ) : (
               <MatrixRunActions
@@ -240,7 +242,7 @@ export default function SocialStepMatrixScreen({
   return (
     <div className="page step-matrix-page">
       <div className="step-matrix-header">
-        <PageHeader title="Social step matrix" actions={headerActions} />
+        <PageHeader title={t("matrix.title")} actions={headerActions} />
 
         <div className="step-matrix-toolbar">
           <div className="step-matrix-toolbar-left">
@@ -248,10 +250,10 @@ export default function SocialStepMatrixScreen({
               type="button"
               className="smx-tool"
               onClick={() => setSortAsc((v) => !v)}
-              title="Toggle sort direction"
+              title={t("matrix.toggleSort")}
             >
               <IconSort />
-              <span>Sort: Date</span>
+              <span>{t("matrix.sortDate")}</span>
             </button>
             <button
               type="button"
@@ -259,13 +261,13 @@ export default function SocialStepMatrixScreen({
               onClick={() => setSearchOpen((v) => !v)}
             >
               <IconSearch />
-              <span>Search</span>
+              <span>{t("common.search")}</span>
             </button>
             {searchOpen ? (
               <input
                 type="search"
                 className="step-matrix-search"
-                placeholder="Filter topics…"
+                placeholder={t("matrix.filterTopics")}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 autoFocus
@@ -277,16 +279,16 @@ export default function SocialStepMatrixScreen({
               onClick={onBackToBoard}
             >
               <IconPlus />
-              <span>Add</span>
+              <span>{t("common.add")}</span>
             </button>
           </div>
         </div>
       </div>
 
-      <section className="step-matrix-panel" aria-label="Social step matrix">
+      <section className="step-matrix-panel" aria-label={t("matrix.title")}>
         {loading && runs.length === 0 ? (
           <div className="step-matrix-loading">
-            <span className="spinner" /> Loading runs…
+            <span className="spinner" /> {t("matrix.loading")}
           </div>
         ) : (
           <SocialStepMatrix
@@ -301,10 +303,10 @@ export default function SocialStepMatrixScreen({
             showRestore={view === "archived"}
             emptyMessage={
               search.trim()
-                ? "No social runs match your search."
+                ? t("matrix.emptySearch")
                 : view === "archived"
-                  ? "No archived social runs."
-                  : "No social runs yet. Click Add to create a run from the Social board."
+                  ? t("matrix.emptyArchived")
+                  : t("matrix.empty")
             }
           />
         )}

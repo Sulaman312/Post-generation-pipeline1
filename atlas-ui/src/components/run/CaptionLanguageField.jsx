@@ -1,4 +1,5 @@
 import SegmentedPillToggle from "../shared/SegmentedPillToggle";
+import { useLocale } from "../../context/LocaleContext";
 import "./CaptionLanguageField.css";
 
 export default function CaptionLanguageField({
@@ -9,7 +10,9 @@ export default function CaptionLanguageField({
   embedded = false,
   compact = false,
 }) {
+  const { t } = useLocale();
   const selected = value === "fr" ? "fr" : "en";
+  const langLabel = selected === "fr" ? t("lang.french") : t("lang.english");
 
   return (
     <div
@@ -19,24 +22,23 @@ export default function CaptionLanguageField({
     >
       <div className="caption-language-field-top">
         <span className="caption-language-title" id={`${idPrefix}-label`}>
-          Caption language
+          {t("form.captionLanguage")}
         </span>
         <SegmentedPillToggle
           className="caption-language-pill"
-          ariaLabel="Caption language"
+          ariaLabel={t("form.captionLanguage")}
           value={selected}
           disabled={disabled}
           options={[
-            { value: "en", label: "English" },
-            { value: "fr", label: "French" },
+            { value: "en", label: t("lang.english") },
+            { value: "fr", label: t("lang.french") },
           ]}
           onChange={onChange}
         />
       </div>
       {!compact ? (
         <p className="caption-language-hint muted">
-          Captions will be written in{" "}
-          <strong>{selected === "fr" ? "French" : "English"}</strong>.
+          {t("form.captionLanguageHint", { lang: langLabel })}
         </p>
       ) : null}
     </div>

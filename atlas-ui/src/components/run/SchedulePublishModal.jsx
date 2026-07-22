@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useLocale } from "../../context/LocaleContext";
 import "./SchedulePublishModal.css";
 
 function clampHour(value) {
@@ -111,6 +112,7 @@ function formatMonthLabel(year, monthIndex) {
 }
 
 function ScheduleDatePicker({ value, minDate, disabled, onChange }) {
+  const { t } = useLocale();
   const selected = parseYmd(value);
   const min = parseYmd(minDate);
   const today = parseYmd(localDateInputValue());
@@ -184,7 +186,7 @@ function ScheduleDatePicker({ value, minDate, disabled, onChange }) {
           type="button"
           className="schedule-date-nav"
           disabled={disabled}
-          aria-label="Previous month"
+          aria-label={t("schedule.prevMonth")}
           onClick={() => shiftMonth(-1)}
         >
           <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
@@ -203,7 +205,7 @@ function ScheduleDatePicker({ value, minDate, disabled, onChange }) {
           type="button"
           className="schedule-date-nav"
           disabled={disabled}
-          aria-label="Next month"
+          aria-label={t("schedule.nextMonth")}
           onClick={() => shiftMonth(1)}
         >
           <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
@@ -220,7 +222,7 @@ function ScheduleDatePicker({ value, minDate, disabled, onChange }) {
         ))}
       </div>
 
-      <div className="schedule-date-grid" role="grid" aria-label="Choose day">
+      <div className="schedule-date-grid" role="grid" aria-label={t("schedule.chooseDay")}>
         {cells.map((day, idx) => {
           if (day == null) {
             return <span key={`empty-${idx}`} className="schedule-date-cell schedule-date-cell--empty" />;
@@ -273,6 +275,8 @@ function ScheduleDatePicker({ value, minDate, disabled, onChange }) {
 }
 
 function ScheduleTimePicker({ value, onChange, disabled = false }) {
+  const { t } = useLocale();
+
   function update(patch) {
     onChange?.({ ...value, ...patch });
   }
@@ -281,7 +285,7 @@ function ScheduleTimePicker({ value, onChange, disabled = false }) {
     <div className="schedule-time-picker">
       <div className="schedule-time-row">
         <label className="schedule-time-control">
-          <span className="schedule-time-control-label">Hour</span>
+          <span className="schedule-time-control-label">{t("schedule.hour")}</span>
           <input
             type="number"
             className="schedule-time-input"
@@ -289,7 +293,7 @@ function ScheduleTimePicker({ value, onChange, disabled = false }) {
             max={12}
             step={1}
             inputMode="numeric"
-            aria-label="Hour"
+            aria-label={t("schedule.hour")}
             value={value.hour12}
             disabled={disabled}
             onChange={(e) => {
@@ -311,7 +315,7 @@ function ScheduleTimePicker({ value, onChange, disabled = false }) {
         </span>
 
         <label className="schedule-time-control">
-          <span className="schedule-time-control-label">Minute</span>
+          <span className="schedule-time-control-label">{t("schedule.minute")}</span>
           <input
             type="number"
             className="schedule-time-input"
@@ -319,7 +323,7 @@ function ScheduleTimePicker({ value, onChange, disabled = false }) {
             max={59}
             step={1}
             inputMode="numeric"
-            aria-label="Minute"
+            aria-label={t("schedule.minute")}
             value={value.minute}
             disabled={disabled}
             onChange={(e) => {
@@ -337,19 +341,22 @@ function ScheduleTimePicker({ value, onChange, disabled = false }) {
         </label>
       </div>
 
-      <div className="schedule-period-toggle" role="group" aria-label="AM or PM">
-        {["AM", "PM"].map((period) => {
-          const active = value.period === period;
+      <div className="schedule-period-toggle" role="group" aria-label={`${t("schedule.am")} / ${t("schedule.pm")}`}>
+        {[
+          { value: "AM", label: t("schedule.am") },
+          { value: "PM", label: t("schedule.pm") },
+        ].map((period) => {
+          const active = value.period === period.value;
           return (
             <button
-              key={period}
+              key={period.value}
               type="button"
               className={`schedule-period-btn${active ? " schedule-period-btn--active" : ""}`}
               aria-pressed={active}
               disabled={disabled}
-              onClick={() => update({ period })}
+              onClick={() => update({ period: period.value })}
             >
-              {period}
+              {period.label}
             </button>
           );
         })}
@@ -367,6 +374,7 @@ export default function SchedulePublishModal({
   platformCount = 0,
   platformLabel = null,
 }) {
+  const { t } = useLocale();
   const minDate = useMemo(() => localDateInputValue(), []);
   const [date, setDate] = useState(minDate);
   const [timeParts, setTimeParts] = useState({ hour12: 9, minute: 0, period: "AM" });
@@ -398,12 +406,12 @@ export default function SchedulePublishModal({
 
   function validateSelection() {
     if (!date || !time) {
-      setError("Choose a date and time.");
+      setError(t("schedule.errChoose"));
       return null;
     }
     const iso = buildScheduledISO(date, time);
     if (new Date(iso) <= new Date()) {
-      setError("Pick a date and time in the future.");
+      setError(t("schedule.errFuture"));
       return null;
     }
     setError(null);
@@ -418,6 +426,12 @@ export default function SchedulePublishModal({
 
   const previewLabel = date && time ? formatScheduleLabel(buildScheduledISO(date, time)) : "";
 
+  const subtitle = platformLabel
+    ? t("schedule.forPlatform", { platform: platformLabel })
+    : platformCount > 0
+      ? t("schedule.sameTime", { count: platformCount })
+      : t("schedule.needPlatforms");
+
   return (
     <div className="schedule-modal-overlay" onClick={saving ? undefined : onClose} role="presentation">
       <div
@@ -430,20 +444,14 @@ export default function SchedulePublishModal({
         <header className="schedule-modal-header">
           <div>
             <h3 id="schedule-modal-title" className="schedule-modal-title">
-              Schedule publish
+              {t("schedule.title")}
             </h3>
-            <p className="schedule-modal-subtitle">
-              {platformLabel
-                ? `Set publish time for ${platformLabel}`
-                : platformCount > 0
-                  ? `Same time for ${platformCount} selected platform${platformCount === 1 ? "" : "s"}`
-                  : "Select platforms before scheduling"}
-            </p>
+            <p className="schedule-modal-subtitle">{subtitle}</p>
           </div>
           <button
             type="button"
             className="btn btn-ghost btn-sm schedule-modal-close"
-            aria-label="Close"
+            aria-label={t("common.close")}
             disabled={saving}
             onClick={onClose}
           >
@@ -453,7 +461,7 @@ export default function SchedulePublishModal({
 
         <div className="schedule-modal-body">
           <div className="schedule-modal-field">
-            <span className="schedule-modal-label">Day</span>
+            <span className="schedule-modal-label">{t("schedule.day")}</span>
             <ScheduleDatePicker
               value={date}
               minDate={minDate}
@@ -466,7 +474,7 @@ export default function SchedulePublishModal({
           </div>
 
           <div className="schedule-modal-field">
-            <span className="schedule-modal-label">Time</span>
+            <span className="schedule-modal-label">{t("schedule.time")}</span>
             <ScheduleTimePicker
               value={timeParts}
               disabled={saving}
@@ -487,14 +495,14 @@ export default function SchedulePublishModal({
         <footer className="schedule-modal-footer">
           {previewLabel ? (
             <p className="schedule-modal-preview">
-              Scheduled for <strong>{previewLabel}</strong>
+              {t("schedule.preview")} <strong>{previewLabel}</strong>
             </p>
           ) : (
             <span className="schedule-modal-preview schedule-modal-preview--empty" aria-hidden />
           )}
           <div className="schedule-modal-footer-actions">
             <button type="button" className="btn btn-secondary btn-sm" disabled={saving} onClick={onClose}>
-              Cancel
+              {t("common.cancel")}
             </button>
             <button
               type="button"
@@ -504,10 +512,10 @@ export default function SchedulePublishModal({
             >
               {saving ? (
                 <>
-                  <span className="spinner spinner-light" /> Saving…
+                  <span className="spinner spinner-light" /> {t("common.saving")}
                 </>
               ) : (
-                "Confirm schedule"
+                t("schedule.confirm")
               )}
             </button>
           </div>

@@ -4,6 +4,7 @@ import {
   IconMatrix,
   IconPostStatus,
 } from "./sidebarIcons";
+import { useLocale } from "../../../context/LocaleContext";
 
 export function NavItem({
   collapsed,
@@ -47,12 +48,13 @@ export function SidebarSection({ collapsed, title, children, className = "" }) {
 }
 
 export function WorkspaceHomeNav({ collapsed, workspaceView, onGoToArtifacts }) {
+  const { t } = useLocale();
   return (
-    <SidebarSection collapsed={collapsed} title="Workspace">
+    <SidebarSection collapsed={collapsed} title={t("nav.workspace")}>
       <NavItem
         collapsed={collapsed}
         icon={<IconArtifacts />}
-        label="Artifacts"
+        label={t("nav.artifacts")}
         active={workspaceView === "artifacts"}
         onClick={onGoToArtifacts}
       />
@@ -68,28 +70,29 @@ export function ContentPipelineNav({
   onGoToMatrix,
   onGoToArtifacts,
 }) {
+  const { t } = useLocale();
   const inContent = activePipeline === "content";
 
   return (
-    <SidebarSection collapsed={collapsed} title="Content pipeline">
+    <SidebarSection collapsed={collapsed} title={t("nav.contentPipeline")}>
       <NavItem
         collapsed={collapsed}
         icon={<IconEditorial />}
-        label="New article"
+        label={t("nav.newArticle")}
         active={inContent && workspaceView === "overview"}
         onClick={onGoToEditorial}
       />
       <NavItem
         collapsed={collapsed}
         icon={<IconMatrix />}
-        label="Step matrix"
+        label={t("nav.stepMatrix")}
         active={inContent && workspaceView === "matrix"}
         onClick={onGoToMatrix}
       />
       <NavItem
         collapsed={collapsed}
         icon={<IconArtifacts />}
-        label="Artifacts"
+        label={t("nav.artifacts")}
         active={inContent && workspaceView === "artifacts"}
         onClick={onGoToArtifacts}
       />
@@ -106,34 +109,35 @@ export function SocialPipelineNav({
   onGoToPostStatus,
   onGoToArtifacts,
 }) {
+  const { t } = useLocale();
   const inSocial = activePipeline === "social";
   return (
-    <SidebarSection collapsed={collapsed} title="Social pipeline">
+    <SidebarSection collapsed={collapsed} title={t("nav.socialPipeline")}>
       <NavItem
         collapsed={collapsed}
         icon={<IconEditorial />}
-        label="New post"
+        label={t("nav.newPost")}
         active={inSocial && workspaceView === "overview"}
         onClick={onGoToSocialBoard}
       />
       <NavItem
         collapsed={collapsed}
         icon={<IconMatrix />}
-        label="Step matrix"
+        label={t("nav.stepMatrix")}
         active={inSocial && workspaceView === "matrix"}
         onClick={onGoToSocialMatrix}
       />
       <NavItem
         collapsed={collapsed}
         icon={<IconPostStatus />}
-        label="Post status"
+        label={t("nav.postStatus")}
         active={inSocial && workspaceView === "post_status"}
         onClick={onGoToPostStatus}
       />
       <NavItem
         collapsed={collapsed}
         icon={<IconArtifacts />}
-        label="Artifacts"
+        label={t("nav.artifacts")}
         active={inSocial && workspaceView === "artifacts"}
         onClick={onGoToArtifacts}
       />

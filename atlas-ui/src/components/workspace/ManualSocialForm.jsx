@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import * as api from "../../services/api";
+import { useLocale } from "../../context/LocaleContext";
 import { PIPELINE_IDS } from "../../constants/pipelines";
 import {
   SOCIAL_ADDITIONAL_DETAILS_MAX,
@@ -18,6 +19,7 @@ const EMPTY = () => ({
 });
 
 export default function ManualSocialForm({ client, onOpenRun, onCreated }) {
+  const { t } = useLocale();
   const [fields, setFields] = useState(EMPTY);
   const [useLocation, setUseLocation] = useState(false);
   const [locationValue, setLocationValue] = useState("");
@@ -59,7 +61,7 @@ export default function ManualSocialForm({ client, onOpenRun, onCreated }) {
     if (creating || !paragraph) return;
 
     if (useLocation && !(locationValue || "").trim()) {
-      setLocationError("Enter a city or region when location is on.");
+      setLocationError(t("form.locationRequired"));
       return;
     }
 
@@ -104,12 +106,12 @@ export default function ManualSocialForm({ client, onOpenRun, onCreated }) {
     <form className="workspace-form-form" onSubmit={handleSubmit}>
       <div className="workspace-form-field workspace-form-field--wide workspace-form-field--idea">
         <label className="label" htmlFor="msf-paragraph">
-          Post idea
+          {t("form.postIdea")}
           <span className="workspace-form-req" aria-hidden>
             {" "}
             *
           </span>
-          <span className="visually-hidden"> (required)</span>
+          <span className="visually-hidden"> {t("common.required")}</span>
         </label>
         <textarea
           id="msf-paragraph"
@@ -118,7 +120,7 @@ export default function ManualSocialForm({ client, onOpenRun, onCreated }) {
           value={fields.paragraph}
           onChange={(ev) => setField("paragraph", ev.target.value)}
           disabled={creating}
-          placeholder="Describe your post in a short paragraph — message, audience, tone, season, call to action, etc."
+          placeholder={t("form.ideaPlaceholder")}
           maxLength={SOCIAL_POST_IDEA_MAX}
           required
           aria-describedby="msf-paragraph-counter"
@@ -132,8 +134,8 @@ export default function ManualSocialForm({ client, onOpenRun, onCreated }) {
 
       <div className="workspace-form-field workspace-form-field--wide workspace-form-field--details">
         <label className="label" htmlFor="msf-details">
-          Additional details{" "}
-          <span className="workspace-form-optional">(optional)</span>
+          {t("form.additionalDetails")}{" "}
+          <span className="workspace-form-optional">{t("common.optional")}</span>
         </label>
         <textarea
           id="msf-details"
@@ -142,7 +144,7 @@ export default function ManualSocialForm({ client, onOpenRun, onCreated }) {
           value={fields.additional_details}
           onChange={(ev) => setField("additional_details", ev.target.value)}
           disabled={creating}
-          placeholder="Anything extra — links, hashtags, offers, brand notes…"
+          placeholder={t("form.detailsPlaceholderLong")}
           maxLength={SOCIAL_ADDITIONAL_DETAILS_MAX}
           aria-describedby="msf-details-counter"
         />
@@ -201,10 +203,10 @@ export default function ManualSocialForm({ client, onOpenRun, onCreated }) {
         >
           {creating ? (
             <>
-              <span className="spinner spinner-light" /> Creating run…
+              <span className="spinner spinner-light" /> {t("form.creatingRun")}
             </>
           ) : (
-            <>+ Create social run</>
+            t("form.createSocialRun")
           )}
         </button>
         {error ? (

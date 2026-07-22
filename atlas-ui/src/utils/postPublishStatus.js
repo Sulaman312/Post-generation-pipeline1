@@ -19,6 +19,22 @@ const STATUS_LABELS = {
   pending: "Pending",
 };
 
+const STATUS_I18N = {
+  draft: "postStatus.draft",
+  ready: "postStatus.ready",
+  scheduled: "postStatus.scheduled",
+  published: "postStatus.published",
+  failed: "postStatus.failed",
+  skipped: "postStatus.skipped",
+  pending: "postStatus.pending",
+};
+
+function translateStatus(status, t, fallback) {
+  const key = STATUS_I18N[status];
+  if (typeof t === "function" && key) return t(key);
+  return fallback ?? STATUS_LABELS[status] ?? status;
+}
+
 export function formatPostDateTime(iso) {
   if (!iso) return null;
   const dt = new Date(iso);
@@ -32,52 +48,84 @@ export function formatPostDateTime(iso) {
   });
 }
 
-export function formatPlatformTime(status, time) {
+export function formatPlatformTime(status, time, t) {
   const formatted = formatPostDateTime(time);
   if (formatted) return formatted;
-  if (status === "draft") return "Not scheduled";
-  if (status === "skipped") return "Not selected";
-  return "Pending";
+  if (status === "draft") {
+    return typeof t === "function" ? t("postStatus.notScheduled") : "Not scheduled";
+  }
+  if (status === "skipped") {
+    return typeof t === "function" ? t("postStatus.notSelected") : "Not selected";
+  }
+  return typeof t === "function" ? t("postStatus.pending") : "Pending";
 }
 
-export function overallStatusLabel(status) {
-  return STATUS_LABELS[status] || STATUS_LABELS.draft;
+export function overallStatusLabel(status, t) {
+  return translateStatus(status, t, STATUS_LABELS[status] || STATUS_LABELS.draft);
 }
 
-export function platformStatusLabel(status) {
-  return STATUS_LABELS[status] || status;
+export function platformStatusLabel(status, t) {
+  return translateStatus(status, t, STATUS_LABELS[status] || status);
 }
 
-export function platformCellDisplay(platform) {
+export function platformCellDisplay(platform, t) {
   if (!platform) {
-    return { status: "skipped", label: "Not selected", detail: null };
+    return {
+      status: "skipped",
+      label: typeof t === "function" ? t("postStatus.notSelected") : "Not selected",
+      detail: null,
+    };
   }
 
   const { status, time } = platform;
   const detail = formatPostDateTime(time);
 
   if (status === "published") {
-    return { status, label: "Published", detail };
+    return {
+      status,
+      label: typeof t === "function" ? t("postStatus.published") : "Published",
+      detail,
+    };
   }
   if (status === "scheduled") {
-    return { status, label: "Scheduled", detail };
+    return {
+      status,
+      label: typeof t === "function" ? t("postStatus.scheduled") : "Scheduled",
+      detail,
+    };
   }
   if (status === "skipped") {
-    return { status, label: "Not selected", detail: null };
+    return {
+      status,
+      label: typeof t === "function" ? t("postStatus.notSelected") : "Not selected",
+      detail: null,
+    };
   }
   if (status === "draft") {
-    return { status, label: "Not scheduled", detail: null };
+    return {
+      status,
+      label: typeof t === "function" ? t("postStatus.notScheduled") : "Not scheduled",
+      detail: null,
+    };
   }
   if (status === "ready") {
-    return { status, label: "Awaiting publish", detail: null };
+    return {
+      status,
+      label: typeof t === "function" ? t("postStatus.awaiting") : "Awaiting publish",
+      detail: null,
+    };
   }
   if (status === "failed") {
-    return { status, label: "Failed", detail: null };
+    return {
+      status,
+      label: typeof t === "function" ? t("postStatus.failed") : "Failed",
+      detail: null,
+    };
   }
 
   return {
     status,
-    label: platformStatusLabel(status),
+    label: platformStatusLabel(status, t),
     detail: detail || null,
   };
 }
@@ -210,7 +258,7 @@ export function formatTimeUntil(iso, nowMs = Date.now()) {
 }
 
 /** Sidebar subtitle for the publish step when schedules or retries are pending. */
-export function publishStepSidebarMeta(run) {
+export function publishStepSidebarMeta(run, t) {
   if (!run) return null;
   const record = runRecordFromRun(run);
   const selected = record.platforms || [];
@@ -221,6 +269,9 @@ export function publishStepSidebarMeta(run) {
   });
   if (retryable.length) {
     const names = retryable.map((p) => PLATFORM_LABELS[p] || p).join(", ");
+    if (typeof t === "function") {
+      return t("publish.needsPublish", { names });
+    }
     return `${names} needs publish`;
   }
 

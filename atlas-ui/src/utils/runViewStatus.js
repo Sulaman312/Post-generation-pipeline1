@@ -4,10 +4,12 @@ export function statusClass(s) {
   return "";
 }
 
-export function statusLabel(s) {
-  if (s === "done") return "Done";
-  if (s === "running") return "Running";
-  if (s === "error") return "Error";
-  if (s === "skipped") return "Skipped";
-  return "Pending";
+export function statusLabel(s, t) {
+  const translate = typeof t === "function" ? t : null;
+  if (s === "done") return translate ? translate("status.done") : "Done";
+  if (s === "running") return translate ? translate("status.running") : "Running";
+  if (s === "error") return translate ? translate("status.error") : "Error";
+  if (s === "skipped") return translate ? translate("status.skipped") : "Skipped";
+  return translate ? translate("status.pending") : "Pending";
 }
+

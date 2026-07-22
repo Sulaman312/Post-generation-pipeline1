@@ -4,6 +4,7 @@ import {
   SIDEBAR_WIDTH_MIN,
   useSidebarResize,
 } from "../../hooks/useSidebarResize";
+import { useLocale } from "../../context/LocaleContext";
 import { formatWorkspaceLabel } from "../../utils/formatWorkspaceLabel";
 import WorkspaceLogo from "../workspace/WorkspaceLogo";
 import { IconChevronLeft, IconChevronRight, IconLogout } from "./sidebar/sidebarIcons";
@@ -39,6 +40,7 @@ export default function AppSidebar({
   run = null,
   onRefreshRun,
 }) {
+  const { t } = useLocale();
   const handleWidthChange = useCallback(
     (w) => onSidebarWidthChange?.(w),
     [onSidebarWidthChange]
@@ -62,8 +64,8 @@ export default function AppSidebar({
           type="button"
           className="sb-brand-main sb-brand-home-btn"
           onClick={onGoHome}
-          title="All workspaces"
-          aria-label={`All workspaces — ${workspaceTitle}`}
+          title={t("nav.allWorkspaces")}
+          aria-label={`${t("nav.allWorkspaces")} — ${workspaceTitle}`}
         >
           <div className="sb-brand-logo-wrap">
             <WorkspaceLogo
@@ -76,7 +78,7 @@ export default function AppSidebar({
           </div>
           {!collapsed ? (
             <div className="sb-brand-text">
-              <span className="sb-brand-kicker">Workspace</span>
+              <span className="sb-brand-kicker">{t("nav.workspace")}</span>
               <span className="sb-brand-name sb-brand-name--workspace">
                 {workspaceTitle}
               </span>
@@ -87,8 +89,8 @@ export default function AppSidebar({
           type="button"
           className="sb-collapse-btn"
           onClick={onToggleCollapse}
-          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          title={collapsed ? t("sidebar.expand") : t("sidebar.collapse")}
+          aria-label={collapsed ? t("sidebar.expand") : t("sidebar.collapse")}
           aria-expanded={!collapsed}
         >
           {collapsed ? <IconChevronRight /> : <IconChevronLeft />}
@@ -143,15 +145,15 @@ export default function AppSidebar({
               type="button"
               className="sb-foot-logout-btn"
               onClick={onLogout}
-              title={`Log out ${authUsername}`}
-              aria-label={`Log out ${authUsername}`}
+              title={t("nav.logoutUser", { name: authUsername })}
+              aria-label={t("nav.logoutUser", { name: authUsername })}
             >
               <IconLogout />
-              <span className="sb-foot-logout-label">Logout</span>
+              <span className="sb-foot-logout-label">{t("nav.logout")}</span>
             </button>
           </div>
         ) : collapsed && !runId ? (
-          <span className="sb-foot-expand-hint" title="Expand sidebar" aria-hidden>
+          <span className="sb-foot-expand-hint" title={t("sidebar.expand")} aria-hidden>
             ···
           </span>
         ) : null}
@@ -162,8 +164,8 @@ export default function AppSidebar({
           className="sb-resize-handle"
           role="separator"
           aria-orientation="vertical"
-          aria-label="Resize sidebar"
-          title="Drag to resize sidebar"
+          aria-label={t("sidebar.resize")}
+          title={t("sidebar.resizeHint")}
           onPointerDown={onResizePointerDown}
         />
       ) : null}

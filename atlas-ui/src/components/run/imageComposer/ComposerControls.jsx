@@ -1,4 +1,5 @@
 import { FONT_GROUPS } from "../../../constants/overlayFonts";
+import { useLocale } from "../../../context/LocaleContext";
 import { ALIGN_ICONS } from "./composerIcons";
 
 export default function ComposerControls({
@@ -30,12 +31,19 @@ export default function ComposerControls({
   textBgOpacity,
   setTextBgOpacity,
 }) {
+  const { t } = useLocale();
+  const alignLabels = {
+    left: t("composer.alignLeft"),
+    center: t("composer.alignCenter"),
+    right: t("composer.alignRight"),
+  };
+
   return (
     <div className="image-composer-controls">
-      <div className="image-composer-tabs" role="tablist" aria-label="Overlay controls">
+      <div className="image-composer-tabs" role="tablist" aria-label={t("composer.overlayControls")}>
         {[
-          { id: "logo", label: "Logo" },
-          { id: "text", label: "Text" },
+          { id: "logo", label: t("composer.tabLogo") },
+          { id: "text", label: t("composer.tabText") },
         ].map((tab) => (
           <button
             key={tab.id}
@@ -60,9 +68,7 @@ export default function ComposerControls({
         className="image-composer-tab-panel"
       >
         {!logoAvailable ? (
-          <p className="image-composer-note">
-            No workspace logo yet. Upload one from the workspace dashboard.
-          </p>
+          <p className="image-composer-note">{t("composer.noLogo")}</p>
         ) : (
           <>
             <label className="image-composer-check">
@@ -71,10 +77,10 @@ export default function ComposerControls({
                 checked={showLogo}
                 onChange={(e) => setShowLogo(e.target.checked)}
               />
-              Show logo on image
+              {t("composer.showLogo")}
             </label>
             <label className="image-composer-field">
-              <span>Opacity</span>
+              <span>{t("composer.opacity")}</span>
               <input
                 type="range"
                 min="0.2"
@@ -87,7 +93,7 @@ export default function ComposerControls({
                 {Math.round(logoOpacity * 100)}%
               </span>
             </label>
-            <p className="image-composer-hint">Click and drag the logo on the canvas.</p>
+            <p className="image-composer-hint">{t("composer.hintLogo")}</p>
           </>
         )}
       </div>
@@ -105,10 +111,10 @@ export default function ComposerControls({
             checked={showText}
             onChange={(e) => setShowText(e.target.checked)}
           />
-          Show text on image
+          {t("composer.showText")}
         </label>
         <label className="image-composer-field">
-          <span>Headline</span>
+          <span>{t("composer.headline")}</span>
           <textarea
             className="textarea"
             rows={2}
@@ -117,7 +123,7 @@ export default function ComposerControls({
           />
         </label>
         <label className="image-composer-field">
-          <span>Font</span>
+          <span>{t("composer.font")}</span>
           <select
             className="input"
             value={fontFamily}
@@ -135,7 +141,7 @@ export default function ComposerControls({
           </select>
         </label>
         <label className="image-composer-field">
-          <span>Size</span>
+          <span>{t("composer.size")}</span>
           <input
             type="range"
             min="18"
@@ -146,7 +152,7 @@ export default function ComposerControls({
           <span className="image-composer-field-value">{fontSize}px</span>
         </label>
         <label className="image-composer-field">
-          <span>Color</span>
+          <span>{t("composer.color")}</span>
           <input
             type="color"
             value={fontColor}
@@ -159,7 +165,7 @@ export default function ComposerControls({
             checked={fontBold}
             onChange={(e) => setFontBold(e.target.checked)}
           />
-          Bold
+          {t("composer.bold")}
         </label>
         <div className="image-composer-subsection">
           <label className="image-composer-check">
@@ -168,12 +174,12 @@ export default function ComposerControls({
               checked={textBgEnabled}
               onChange={(e) => setTextBgEnabled(e.target.checked)}
             />
-            Text background
+            {t("composer.textBg")}
           </label>
           {textBgEnabled ? (
             <>
               <label className="image-composer-field">
-                <span>Background color</span>
+                <span>{t("composer.textBgColor")}</span>
                 <input
                   type="color"
                   value={textBgColor}
@@ -181,7 +187,7 @@ export default function ComposerControls({
                 />
               </label>
               <label className="image-composer-field">
-                <span>Background opacity</span>
+                <span>{t("composer.textBgOpacity")}</span>
                 <input
                   type="range"
                   min="0.1"
@@ -195,7 +201,7 @@ export default function ComposerControls({
           ) : null}
         </div>
         <div className="image-composer-align">
-          <span>Align</span>
+          <span>{t("composer.align")}</span>
           {["left", "center", "right"].map((a) => {
             const AlignIcon = ALIGN_ICONS[a];
             return (
@@ -204,15 +210,15 @@ export default function ComposerControls({
                 type="button"
                 className={`btn btn-sm image-composer-align-btn ${textAlign === a ? "btn-primary" : "btn-secondary"}`}
                 onClick={() => setTextAlign(a)}
-                aria-label={`Align ${a}`}
-                title={`Align ${a}`}
+                aria-label={alignLabels[a]}
+                title={alignLabels[a]}
               >
                 <AlignIcon />
               </button>
             );
           })}
         </div>
-        <p className="image-composer-hint">Click the text on the canvas to drag or resize.</p>
+        <p className="image-composer-hint">{t("composer.hintText")}</p>
       </div>
     </div>
   );

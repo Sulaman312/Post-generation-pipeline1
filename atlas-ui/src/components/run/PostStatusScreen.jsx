@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as api from "../../services/api";
 import { warmAuthenticatedBlobCacheMany } from "../../services/api/http";
+import { useLocale } from "../../context/LocaleContext";
 import AuthImage from "../shared/AuthImage";
 import ImageSkeleton from "../shared/ImageSkeleton";
 import TextSkeleton from "../shared/TextSkeleton";
@@ -20,11 +21,11 @@ import {
 } from "../../utils/postPublishStatus";
 import "./PostStatusScreen.css";
 
-const FILTERS = [
-  { key: "all", label: "All" },
-  { key: "scheduled", label: "Scheduled" },
-  { key: "published", label: "Published" },
-  { key: "draft", label: "Drafts" },
+const FILTER_KEYS = [
+  { key: "all", labelKey: "postStatus.filterAll" },
+  { key: "scheduled", labelKey: "postStatus.filterScheduled" },
+  { key: "published", labelKey: "postStatus.filterPublished" },
+  { key: "draft", labelKey: "postStatus.filterDrafts" },
 ];
 
 function IconSearch() {
@@ -202,6 +203,7 @@ function PostQueueRow({
   previewPending,
   onLoadPreview,
   onOpenRun,
+  t,
 }) {
   const shouldWatch = previewPending && preview == null;
   const { ref: rowSentinelRef, inView } = useInView({
@@ -234,7 +236,7 @@ function PostQueueRow({
         <div className="ps-post-title">{summary.title}</div>
         <div className="ps-post-meta">
           <span className={`ps-status ps-status--${summary.overallStatus}`}>
-            {overallStatusLabel(summary.overallStatus)}
+            {overallStatusLabel(summary.overallStatus, t)}
           </span>
           {scheduleLabel && summary.overallStatus === "scheduled" ? (
             <span className="ps-post-schedule">Goes live {scheduleLabel}</span>
@@ -254,6 +256,7 @@ function PostQueueRow({
             key
           )}
           thumbLoading={previewPending && preview === undefined}
+          t={t}
         />
       ))}
       <td className="ps-cell ps-cell--action">
@@ -265,7 +268,7 @@ function PostQueueRow({
             onOpenRun?.(summary.runId);
           }}
         >
-          Open
+          {t("common.open")}
           <IconChevron />
         </button>
       </td>
@@ -273,9 +276,9 @@ function PostQueueRow({
   );
 }
 
-function PlatformCell({ platformKey, platform, imageUrl, thumbLoading = false }) {
+function PlatformCell({ platformKey, platform, imageUrl, thumbLoading = false, t }) {
   const label = PLATFORM_LABELS[platformKey] || platformKey;
-  const { status, label: statusLabel, detail } = platformCellDisplay(platform);
+  const { status, label: statusLabel, detail } = platformCellDisplay(platform, t);
   const { mediaReady, onMediaLoad } = useMediaReady(imageUrl || "");
   const textPending = Boolean(imageUrl) && !mediaReady;
 
@@ -313,6 +316,7 @@ function PlatformCell({ platformKey, platform, imageUrl, thumbLoading = false })
 }
 
 export default function PostStatusScreen({ client, onOpenRun, onClientDeleted }) {
+  const { t } = useLocale();
   const [runs, setRuns] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
@@ -375,17 +379,18 @@ export default function PostStatusScreen({ client, onOpenRun, onClientDeleted })
     <DeleteWorkspaceButton client={client} onDeleted={onClientDeleted} />
   ) : null;
 
+  const sortNewest = dateSort === "desc";
+  const sortTitle = sortNewest ? t("postStatus.sortNewest") : t("postStatus.sortOldest");
+
   return (
     <div className="page post-status-page">
       <header className="ps-hero">
-        <PageHeader title="Publishing queue" actions={headerActions} />
-        <p className="ps-hero-lede">
-          Post names and publish times across Instagram, LinkedIn, and Facebook.
-        </p>
+        <PageHeader title={t("postStatus.title")} actions={headerActions} />
+        <p className="ps-hero-lede">{t("postStatus.lede")}</p>
 
         <div className="ps-controls">
-          <div className="ps-filters" role="tablist" aria-label="Filter posts">
-            {FILTERS.map((item) => (
+          <div className="ps-filters" role="tablist" aria-label={t("postStatus.title")}>
+            {FILTER_KEYS.map((item) => (
               <button
                 key={item.key}
                 type="button"
@@ -394,7 +399,7 @@ export default function PostStatusScreen({ client, onOpenRun, onClientDeleted })
                 aria-selected={filter === item.key}
                 onClick={() => setFilter(item.key)}
               >
-                {item.label}
+                {t(item.labelKey)}
               </button>
             ))}
           </div>
@@ -402,18 +407,18 @@ export default function PostStatusScreen({ client, onOpenRun, onClientDeleted })
             <button
               type="button"
               className="ps-sort-toggle"
-              aria-label={`Sort by date: ${dateSort === "desc" ? "Newest" : "Oldest"}`}
-              title={dateSort === "desc" ? "Newest first" : "Oldest first"}
+              aria-label={`${t("matrix.sortDate")}: ${sortNewest ? t("postStatus.sortNewest") : t("postStatus.sortOldest")}`}
+              title={sortTitle}
               onClick={() => setDateSort((current) => (current === "desc" ? "asc" : "desc"))}
             >
               <IconSort />
-              <span>Sort: Date</span>
+              <span>{t("matrix.sortDate")}</span>
             </button>
             <label className="ps-search">
               <IconSearch />
               <input
                 type="search"
-                placeholder="Search posts…"
+                placeholder={t("postStatus.search")}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
@@ -422,20 +427,20 @@ export default function PostStatusScreen({ client, onOpenRun, onClientDeleted })
         </div>
       </header>
 
-      <section className="ps-panel" aria-label="Publishing queue">
+      <section className="ps-panel" aria-label={t("postStatus.title")}>
         {loading && summaries.length === 0 ? (
           <div className="ps-table-wrap">
             <table className="ps-table">
               <thead>
                 <tr>
-                  <th scope="col">Post</th>
+                  <th scope="col">{t("postStatus.colPost")}</th>
                   {PLATFORM_ORDER.map((key) => (
                     <th key={key} scope="col">
                       {PLATFORM_LABELS[key]}
                     </th>
                   ))}
                   <th scope="col" className="ps-th-action">
-                    <span className="visually-hidden">Open</span>
+                    <span className="visually-hidden">{t("common.open")}</span>
                   </th>
                 </tr>
               </thead>
@@ -449,22 +454,22 @@ export default function PostStatusScreen({ client, onOpenRun, onClientDeleted })
         ) : summaries.length === 0 ? (
           <div className="ps-empty">
             {search.trim() || filter !== "all"
-              ? "No posts match this filter."
-              : "No posts in the queue yet. Create one from the Social board."}
+              ? t("postStatus.emptyFilter")
+              : t("postStatus.empty")}
           </div>
         ) : (
           <div className="ps-table-wrap">
             <table className="ps-table">
               <thead>
                 <tr>
-                  <th scope="col">Post</th>
+                  <th scope="col">{t("postStatus.colPost")}</th>
                   {PLATFORM_ORDER.map((key) => (
                     <th key={key} scope="col">
                       {PLATFORM_LABELS[key]}
                     </th>
                   ))}
                   <th scope="col" className="ps-th-action">
-                    <span className="visually-hidden">Open</span>
+                    <span className="visually-hidden">{t("common.open")}</span>
                   </th>
                 </tr>
               </thead>
@@ -478,6 +483,7 @@ export default function PostStatusScreen({ client, onOpenRun, onClientDeleted })
                     previewPending={runNeedsPreview(runsById[summary.runId])}
                     onLoadPreview={loadPreview}
                     onOpenRun={onOpenRun}
+                    t={t}
                   />
                 ))}
               </tbody>

@@ -42,9 +42,12 @@ def _schedule_mongo_sync() -> None:
 
 
 def _request_can_change_workspace() -> bool:
+    path = request.path or ""
+    # Auth and health never mutate the clients workspace cache.
+    if path.startswith("/auth/") or path in ("/health", "/api", "/"):
+        return False
     if request.method not in {"GET", "HEAD", "OPTIONS"}:
         return True
-    path = request.path or ""
     # Artifact GET is a plain file read — never block on Mongo sync.
     if "/artifacts/" in path:
         return False
@@ -159,12 +162,14 @@ def create_app() -> Flask:
                 request.path,
             )
             if response.status_code < 400 and request.method not in {"GET", "HEAD"}:
-                return jsonify(
+                blocked = jsonify(
                     detail=(
                         "Workspace data is not available because MongoDB hydration "
                         "did not complete. Restart the backend after MongoDB is reachable."
                     )
-                ), 503
+                )
+                blocked.status_code = 503
+                return blocked
             return response
         if response.status_code < 400:
             _schedule_mongo_sync()

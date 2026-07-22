@@ -2,8 +2,10 @@ import { useEffect, useRef, useState } from "react";
 import * as api from "../../services/api";
 import MarkdownArtifactPanel from "../shared/MarkdownArtifactPanel";
 import TextSkeleton from "../shared/TextSkeleton";
+import { useLocale } from "../../context/LocaleContext";
 import { isInteractiveOutputStep } from "../../utils/stepOutputKind";
 import { copyFormattedMarkdown } from "../../utils/markdownExport";
+import { localizePublishResultsMarkdown } from "../../utils/localizePublishResults";
 import { splitFinalOutput } from "../../utils/parseFinalOutput";
 import { parseTopicCard } from "../../utils/parseTopicCard";
 import { isContentAngleFormat, extractAngleSectionFromBrief } from "../../utils/parseContentAngleIntent";
@@ -33,12 +35,8 @@ function formattedCopyKind(pipelineId, stepName) {
   return "article";
 }
 
-function formattedCopyToast(pipelineId, stepName) {
-  const kind = formattedCopyKind(pipelineId, stepName);
-  return `Copied formatted ${kind} — paste into Word or your CMS`;
-}
-
 export function CopyOutputButton({ text, stepName, toast, pipelineId = null }) {
+  const { t } = useLocale();
   const [copying, setCopying] = useState(false);
   const copyKind = formattedCopyKind(pipelineId, stepName);
   async function handleCopy() {
@@ -48,12 +46,12 @@ export function CopyOutputButton({ text, stepName, toast, pipelineId = null }) {
     try {
       const ok = await copyFormattedMarkdown(source);
       if (ok) {
-        toast?.(formattedCopyToast(pipelineId, stepName), {
+        toast?.(t("common.copiedFormatted", { kind: copyKind }), {
           variant: "success",
           duration: 3500,
         });
       } else {
-        toast?.("Could not copy", { variant: "error", duration: 4000 });
+        toast?.(t("common.couldNotCopy"), { variant: "error", duration: 4000 });
       }
     } finally {
       setCopying(false);
@@ -65,9 +63,9 @@ export function CopyOutputButton({ text, stepName, toast, pipelineId = null }) {
       className="btn btn-sm btn-edit-artifact"
       onClick={handleCopy}
       disabled={copying}
-      title={`Copy formatted ${copyKind} (not markdown source)`}
+      title={t("common.copyFormattedKindTitle", { kind: copyKind })}
     >
-      {copying ? "Copying…" : "Copy"}
+      {copying ? t("common.copying") : t("common.copy")}
     </button>
   );
 }
@@ -86,6 +84,7 @@ export default function ArtifactView({
   onSaveAndContinue,
   pipelineId = null,
 }) {
+  const { t } = useLocale();
   const [content, setContent] = useState("");
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
@@ -324,7 +323,7 @@ export default function ArtifactView({
       <div className="run-artifact-shell">
         <div className="run-artifact-card">
           <div className="run-artifact-body">
-            <div className="empty-state">empty artifact</div>
+            <div className="empty-state">{t("common.emptyArtifact")}</div>
           </div>
         </div>
       </div>
@@ -333,7 +332,7 @@ export default function ArtifactView({
 
   const savedHint =
     !readOnly && savedAt && Date.now() - savedAt < 2500 ? (
-      <span className="run-save-hint">Saved</span>
+      <span className="run-save-hint">{t("common.saved")}</span>
     ) : null;
 
   const editorDock = showEditorDock ? (
@@ -343,20 +342,25 @@ export default function ArtifactView({
         className="btn btn-dock-secondary"
         onClick={handleSave}
       >
-        Save
+        {t("common.save")}
       </button>
       <button
         type="button"
         className="btn btn-primary btn-dock-primary"
         onClick={handleSaveAndContinue}
       >
-        Save &amp; continue
+        {t("common.saveAndContinue")}
         <span className="btn-play-ico" aria-hidden>
           ▶
         </span>
       </button>
     </div>
   ) : null;
+
+  const publishPreviewContent =
+    stepName === "publish"
+      ? localizePublishResultsMarkdown(content, t)
+      : null;
 
   return (
     <div className={artifactShellClass}>
@@ -405,23 +409,34 @@ export default function ArtifactView({
             canEdit={!readOnly && !interactivePreview}
             bodyClassName={interactivePreview ? "run-artifact-body--flush" : ""}
             previewNode={formattedPreview}
+            previewContent={publishPreviewContent}
             savedHint={interactivePreview ? null : savedHint}
             footer={editorDock}
             textareaRows={22}
             showCopy={Boolean(content) && !interactivePreview}
             copySource={
-              stepName === "final_output"
-                ? copyMarkdownForStep(content, stepName)
-                : content
+              stepName === "publish"
+                ? publishPreviewContent
+                : stepName === "final_output"
+                  ? copyMarkdownForStep(content, stepName)
+                  : content
             }
             onCopySuccess={() =>
-              toast?.(formattedCopyToast(pipelineId, stepName), {
-                variant: "success",
-                duration: 3500,
-              })
+              toast?.(
+                t("common.copiedFormatted", {
+                  kind: formattedCopyKind(pipelineId, stepName),
+                }),
+                {
+                  variant: "success",
+                  duration: 3500,
+                }
+              )
             }
             onCopyError={() =>
-              toast?.("Could not copy", { variant: "error", duration: 4000 })
+              toast?.(t("common.couldNotCopy"), {
+                variant: "error",
+                duration: 4000,
+              })
             }
           />
         )}

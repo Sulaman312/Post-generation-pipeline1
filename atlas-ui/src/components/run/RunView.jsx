@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useToast } from "../../context/ToastContext";
+import { useLocale, useStepLabel } from "../../context/LocaleContext";
 import { stepsForPipeline } from "../../constants/pipelines";
 import { isSocialPipeline, socialRunChromeLabel, socialRunFullText } from "../../utils/socialRunTopic";
 import { statusClass, statusLabel } from "../../utils/runViewStatus";
+import LanguageToggle from "../shared/LanguageToggle";
 import RunInputPanel from "./RunInputPanel";
 import RunOutputPanel from "./RunOutputPanel";
 import "./ImageGenerationStep.css";
@@ -20,6 +22,8 @@ export default function RunView({
   onBack,
 }) {
   const { toast } = useToast();
+  const { t } = useLocale();
+  const stepLabel = useStepLabel();
   const refreshRun = onRefreshRun;
   const error = runError;
   const [tab, setTab] = useState("output");
@@ -91,10 +95,12 @@ export default function RunView({
     setOutputEditKey(0);
   }, [activeStepKey]);
 
+  const activeStepLabel = stepLabel(activeStep);
+  const previousStepLabel = previousStep ? stepLabel(previousStep) : "";
   const inputTabTitle = previousStep
-    ? `Input: ${previousStep.label}`
-    : "Input: topic";
-  const outputTabTitle = `Output: ${activeStep.label}`;
+    ? t("run.inputOf", { label: previousStepLabel })
+    : t("run.inputTopic");
+  const outputTabTitle = t("run.outputOf", { label: activeStepLabel });
 
   const runningStep = useMemo(
     () => STEPS.find((s) => statuses[s.key] === "running") || null,
@@ -102,6 +108,7 @@ export default function RunView({
   );
   const chromeStep = runningStep || activeStep;
   const chromeStatus = statuses[chromeStep.key] ?? "pending";
+  const chromeStepLabel = stepLabel(chromeStep);
 
   return (
     <div className="run-shell">
@@ -109,40 +116,43 @@ export default function RunView({
         <div className="run-chrome-minimal-row">
           <div className="run-chrome-step-meta">
             <h1 className="run-page-title run-page-title--inline">
-              {chromeStep.label}
+              {chromeStepLabel}
             </h1>
             <span className={`status-pill status-pill--sm ${statusClass(chromeStatus)}`}>
               <span className={`status-pip ${statusClass(chromeStatus)}`} />
-              {statusLabel(chromeStatus)}
+              {statusLabel(chromeStatus, t)}
             </span>
             <span className="run-chrome-step-tag">
               {chromeStep.index}/{STEPS.length}
             </span>
           </div>
-          <div
-            className="tab-bar tab-bar--compact run-chrome-tabs"
-            role="tablist"
-          >
-            <button
-              type="button"
-              role="tab"
-              aria-selected={tab === "input"}
-              className={`tab tab--compact ${tab === "input" ? "active" : ""}`}
-              onClick={() => setTab("input")}
-              title={inputTabTitle}
+          <div className="run-chrome-right">
+            <div
+              className="tab-bar tab-bar--compact run-chrome-tabs"
+              role="tablist"
             >
-              Input
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={tab === "output"}
-              className={`tab tab--compact ${tab === "output" ? "active" : ""}`}
-              onClick={() => setTab("output")}
-              title={outputTabTitle}
-            >
-              Output
-            </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={tab === "input"}
+                className={`tab tab--compact ${tab === "input" ? "active" : ""}`}
+                onClick={() => setTab("input")}
+                title={inputTabTitle}
+              >
+                {t("run.tabInput")}
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={tab === "output"}
+                className={`tab tab--compact ${tab === "output" ? "active" : ""}`}
+                onClick={() => setTab("output")}
+                title={outputTabTitle}
+              >
+                {t("run.tabOutput")}
+              </button>
+            </div>
+            <LanguageToggle compact className="run-chrome-lang" />
           </div>
         </div>
         {displayChromeLabel ? (
@@ -154,7 +164,7 @@ export default function RunView({
               }`}
               onClick={() => setShowFullTopic((v) => !v)}
               aria-expanded={showFullTopic}
-              aria-label={showFullTopic ? "Hide full title" : "Show full title"}
+              aria-label={showFullTopic ? t("run.hideFullTitle") : t("run.showFullTitle")}
             >
               <span className="run-chrome-topic run-chrome-topic--minimal">
                 {showFullTopic ? displayChromeFullText : displayChromeLabel}

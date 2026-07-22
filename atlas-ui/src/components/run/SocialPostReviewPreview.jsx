@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import * as api from "../../services/api";
 import { warmAuthenticatedBlobCacheMany } from "../../services/api/http";
+import { useLocale } from "../../context/LocaleContext";
 import { useMediaReady } from "../../hooks/useMediaReady";
 import AuthImage from "../shared/AuthImage";
 import ImageSkeleton from "../shared/ImageSkeleton";
@@ -259,11 +260,12 @@ function PlatformPostCard({
 }
 
 function CaptionText({ text, pending = false }) {
+  const { t } = useLocale();
   if (pending) {
     return <TextSkeleton lines={4} variant="caption" className="social-preview-caption-skeleton" />;
   }
   if (!String(text || "").trim()) {
-    return <span className="social-preview-empty">No caption generated yet.</span>;
+    return <span className="social-preview-empty">{t("review.noCaption")}</span>;
   }
   return String(text)
     .split(/\n{2,}/)
@@ -280,8 +282,13 @@ function CaptionText({ text, pending = false }) {
 }
 
 function PreviewImage({ imageUrl, alt, pending = false, onMediaLoad }) {
+  const { t } = useLocale();
   if (!imageUrl && !pending) {
-    return <div className="social-preview-image social-preview-image--empty">Run template export first</div>;
+    return (
+      <div className="social-preview-image social-preview-image--empty">
+        {t("review.needTemplate")}
+      </div>
+    );
   }
   return (
     <div className="social-preview-image">

@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import * as api from "../../services/api";
+import { useLocale } from "../../context/LocaleContext";
+import { localizeArtifactSpec } from "../../utils/localizeArtifactSpec";
 import { useToast } from "../../context/ToastContext";
 import ContextDrawer from "./ContextDrawer";
 import ContextEditorDrawer from "./ContextEditorDrawer";
@@ -19,6 +21,7 @@ export default function ClientHome({
   artifactFilename = null,
   onArtifactFilenameChange,
 }) {
+  const { t } = useLocale();
   const { toast } = useToast();
   const [runs, setRuns] = useState([]);
   const [loadingRuns, setLoadingRuns] = useState(true);
@@ -52,7 +55,11 @@ export default function ClientHome({
     <div className="page">
       <PageHeader
         title={
-          isOverview ? client : artifactSpec ? artifactSpec.title : "Artifacts"
+          isOverview
+            ? client
+            : artifactSpec
+              ? localizeArtifactSpec(artifactSpec, t).title
+              : t("workspace.artifacts")
         }
         actions={
           <>
@@ -69,14 +76,14 @@ export default function ClientHome({
                 className="btn btn-ghost btn-sm"
                 onClick={() => setContextOpen(true)}
               >
-                Context
+                {t("workspace.context")}
               </button>
               <button
                 type="button"
                 className="btn btn-ghost btn-sm"
                 onClick={() => setEditorOpen(true)}
               >
-                Edit files
+                {t("workspace.editFiles")}
               </button>
             </>
             ) : null}
@@ -127,15 +134,15 @@ export default function ClientHome({
               marginBottom: 14,
             }}
           >
-            <h2 className="h2">Recent runs</h2>
+            <h2 className="h2">{t("workspace.recentRuns")}</h2>
             <span style={{ fontSize: 13, color: "var(--text-muted)" }}>
-              {runs.length} total
+              {t("workspace.totalRuns", { n: runs.length })}
             </span>
           </div>
 
           {loadingRuns ? (
             <div className="empty-state">
-              <span className="spinner" /> &nbsp; loading runs…
+              <span className="spinner" /> &nbsp; {t("workspaces.loading")}
             </div>
           ) : runs.length === 0 ? (
             <div
@@ -146,7 +153,7 @@ export default function ClientHome({
                 border: "1px dashed var(--border-strong)",
               }}
             >
-              No runs yet. Create one above to get started.
+              {t("workspace.noRuns")}
             </div>
           ) : (
             <div

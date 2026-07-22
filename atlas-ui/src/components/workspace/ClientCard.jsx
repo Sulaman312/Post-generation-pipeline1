@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import * as api from "../../services/api";
+import { useLocale } from "../../context/LocaleContext";
 import WorkspaceLogo from "./WorkspaceLogo";
 import LogoFitImage from "./LogoFitImage";
 import { isImageFile, readImageFileAsBase64 } from "../../utils/readImageFile";
@@ -15,6 +16,7 @@ export default function ClientCard({
   logoVersion = 0,
   onUpdated,
 }) {
+  const { t } = useLocale();
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
   const [editing, setEditing] = useState(false);
@@ -105,12 +107,12 @@ export default function ClientCard({
       return;
     }
     if (!isImageFile(file)) {
-      setEditError("Logo must be an image (PNG, JPG, WebP, GIF, or SVG).");
+      setEditError(t("workspace.logoErrType"));
       clearEditLogo();
       return;
     }
     if (file.size > MAX_LOGO_BYTES) {
-      setEditError("Logo must be 2 MB or smaller.");
+      setEditError(t("workspace.logoErrSize"));
       clearEditLogo();
       return;
     }
@@ -153,7 +155,7 @@ export default function ClientCard({
           <WorkspaceLogo clientId={clientId} size={44} cacheKey={logoVersion} />
           <div className="client-card-text">
             <div className="card-title client-card-name">{displayName}</div>
-            <div className="client-card-action">Open workspace →</div>
+            <div className="client-card-action">{t("workspace.open")}</div>
           </div>
         </div>
         <div
@@ -169,7 +171,7 @@ export default function ClientCard({
             className={`client-card-menu-btn${
               menuOpen ? " client-card-menu-btn--open" : ""
             }`}
-            aria-label="Workspace actions"
+            aria-label={t("workspace.actions")}
             aria-expanded={menuOpen}
             aria-haspopup="menu"
             onClick={() => setMenuOpen((v) => !v)}
@@ -192,7 +194,7 @@ export default function ClientCard({
                 className="client-card-menu-item"
                 onClick={openEditDialog}
               >
-                Edit workspace
+                {t("workspace.edit")}
               </button>
             </div>,
             document.body
@@ -213,10 +215,10 @@ export default function ClientCard({
                 aria-labelledby={`edit-workspace-${clientId}`}
               >
                 <h2 id={`edit-workspace-${clientId}`} className="client-edit-title">
-                  Edit workspace
+                  {t("workspace.edit")}
                 </h2>
                 <label className="label" htmlFor={`edit-name-${clientId}`}>
-                  Workspace name
+                  {t("workspace.name")}
                 </label>
                 <input
                   id={`edit-name-${clientId}`}
@@ -239,9 +241,9 @@ export default function ClientCard({
                     )}
                   </div>
                   <div className="workspace-form-logo-fields">
-                    <span className="label">Workspace logo</span>
+                    <span className="label">{t("workspace.logo")}</span>
                     <span className="workspace-form-logo-hint">
-                      PNG, JPG, WebP, GIF, or SVG — max 2 MB.
+                      {t("workspace.logoHint")}
                     </span>
                     <div className="workspace-form-logo-actions">
                       <input
@@ -257,7 +259,7 @@ export default function ClientCard({
                         htmlFor={`edit-logo-${clientId}`}
                         className="btn btn-secondary btn-sm"
                       >
-                        {logoFile ? "Change logo" : "Upload logo"}
+                        {logoFile ? t("workspace.changeLogo") : t("workspace.uploadLogo")}
                       </label>
                       {logoFile ? (
                         <button
@@ -266,7 +268,7 @@ export default function ClientCard({
                           onClick={clearEditLogo}
                           disabled={saving}
                         >
-                          Remove
+                          {t("workspace.remove")}
                         </button>
                       ) : null}
                     </div>
@@ -282,14 +284,14 @@ export default function ClientCard({
                     onClick={closeEditDialog}
                     disabled={saving}
                   >
-                    Cancel
+                    {t("common.cancel")}
                   </button>
                   <button
                     type="submit"
                     className="btn btn-primary"
                     disabled={!editName.trim() || saving}
                   >
-                    {saving ? "Saving…" : "Save"}
+                    {saving ? t("common.saving") : t("common.save")}
                   </button>
                 </div>
               </form>

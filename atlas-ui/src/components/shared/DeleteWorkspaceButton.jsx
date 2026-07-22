@@ -1,6 +1,7 @@
 import { useState } from "react";
 import * as api from "../../services/api";
 import { useToast } from "../../context/ToastContext";
+import { useLocale } from "../../context/LocaleContext";
 import "./DeleteWorkspaceButton.css";
 
 function IconTrash(props) {
@@ -30,6 +31,7 @@ export default function DeleteWorkspaceButton({
   className = "delete-workspace-btn",
 }) {
   const { toast } = useToast();
+  const { t } = useLocale();
   const [deleting, setDeleting] = useState(false);
 
   async function handleClick() {
@@ -65,10 +67,10 @@ export default function DeleteWorkspaceButton({
       className={className}
       disabled={deleting}
       onClick={handleClick}
-      title="Delete this workspace permanently"
+      title={t("matrix.deleteWorkspace")}
     >
       <IconTrash />
-      {deleting ? "Deleting…" : "Delete workspace"}
+      {deleting ? t("common.deleting") : t("matrix.deleteWorkspace")}
     </button>
   );
 }

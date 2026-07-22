@@ -51,17 +51,28 @@ function elapsedMsFromStartedAt(startedAt, nowMs = Date.now()) {
 }
 
 /** Status label plus duration for pipeline sidebar (e.g. `Done · 2m 15s`). */
-export function formatStepStatusWithDuration(status, timing, nowMs = Date.now(), stepIndex = null) {
+export function formatStepStatusWithDuration(
+  status,
+  timing,
+  nowMs = Date.now(),
+  stepIndex = null,
+  t = null
+) {
+  const tr = (key, fallback) => {
+    if (typeof t !== "function") return fallback;
+    const value = t(key);
+    return value && value !== key ? value : fallback;
+  };
   const base =
     status === "done"
-      ? "Done"
+      ? tr("status.done", "Done")
       : status === "running"
-        ? "Running"
+        ? tr("status.running", "Running")
         : status === "error"
-          ? "Error"
+          ? tr("status.error", "Error")
           : status === "skipped"
-            ? "Skipped"
-            : "Pending";
+            ? tr("status.skipped", "Skipped")
+            : tr("status.pending", "Pending");
 
   if (!timing) {
     if (status === "running" && stepIndex != null) {
@@ -86,12 +97,25 @@ export function formatStepStatusWithDuration(status, timing, nowMs = Date.now(),
 }
 
 /** Subtitle under step name in sidebar (duration only, reference-style). */
-export function formatStepMetaSubtitle(status, timing, nowMs = Date.now(), stepIndex = null) {
+export function formatStepMetaSubtitle(
+  status,
+  timing,
+  nowMs = Date.now(),
+  stepIndex = null,
+  t = null
+) {
+  const tr = (key, fallback) => {
+    if (typeof t !== "function") return fallback;
+    const value = t(key);
+    return value && value !== key ? value : fallback;
+  };
   if (status === "running") {
     const elapsed = formatStepDurationLong(
       elapsedMsFromStartedAt(timing?.started_at, nowMs)
     );
-    const detail = elapsed ? `${elapsed}…` : "Running…";
+    const detail = elapsed
+      ? `${elapsed}…`
+      : tr("status.runningEllipsis", "Running…");
     return stepIndex != null ? `Step ${stepIndex} · ${detail}` : detail;
   }
   if (status === "done") {
@@ -99,8 +123,8 @@ export function formatStepMetaSubtitle(status, timing, nowMs = Date.now(), stepI
     if (!duration) return null;
     return timing?.inferred && !timing?.client ? `~${duration}` : duration;
   }
-  if (status === "error") return "Failed";
-  if (status === "skipped") return "Skipped";
+  if (status === "error") return tr("status.failed", "Failed");
+  if (status === "skipped") return tr("status.skipped", "Skipped");
   return null;
 }
 

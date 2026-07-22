@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as api from "../../services/api";
 import { warmAuthenticatedBlobCache } from "../../services/api/http";
+import { useLocale, useStepLabel } from "../../context/LocaleContext";
 import { useMediaReady } from "../../hooks/useMediaReady";
 import AuthImage from "../shared/AuthImage";
 import ImageSkeleton from "../shared/ImageSkeleton";
@@ -19,6 +20,8 @@ import {
 import "./ImageGenerationStep.css";
 
 export default function TemplatePlacementPanel({ client, runId, toast, skeletonOnly = false }) {
+  const { t } = useLocale();
+  const stepLabel = useStepLabel();
   const [cacheKey, setCacheKey] = useState("");
   const [canvasKey, setCanvasKey] = useState("");
   const [displayOutput, setDisplayOutput] = useState(null);
@@ -289,7 +292,9 @@ export default function TemplatePlacementPanel({ client, runId, toast, skeletonO
     return (
       <div className="step4-shell">
         <div className="step4-empty-hint">
-          Select a primary image in <strong>Generate &amp; select image</strong> first.
+          {t("template.needPrimaryImage", {
+            step: stepLabel({ key: "image_generation", label: "Generate & select image" }),
+          })}
         </div>
       </div>
     );
@@ -359,6 +364,7 @@ function TemplatePreviewCard({
   onSave,
   onDeselect,
 }) {
+  const { t } = useLocale();
   const { mediaReady, onMediaLoad } = useMediaReady(url);
   const sizeLabel = formatDimensionsLabel(width, height);
 
@@ -391,7 +397,7 @@ function TemplatePreviewCard({
             }}
           />
           {editMode && overlays.length > 0 ? (
-            <div className="template-text-overlay-layer" aria-label="Editable design text">
+            <div className="template-text-overlay-layer" aria-label={t("template.editableAria")}>
               {overlays.map((overlay) => (
                 <CanvasTextBox
                   key={overlay.id}
@@ -418,7 +424,7 @@ function TemplatePreviewCard({
                   onClick={onDownload}
                   disabled={downloading}
                 >
-                  {downloading ? "Downloading…" : "Download PNG"}
+                  {downloading ? t("template.downloading") : t("template.downloadPng")}
                 </button>
                 <span className="template-card-specs">{sizeLabel}</span>
               </div>
@@ -429,10 +435,10 @@ function TemplatePreviewCard({
                       type="button"
                       className="template-canvas-chip"
                       disabled={saving}
-                      title="Edit headline and subline on the design"
+                      title={t("template.editTextTitle")}
                       onClick={() => onEnterEditMode?.()}
                     >
-                      Edit text
+                      {t("template.editText")}
                     </button>
                   ) : null}
                   {removedBadges.map((badge) => (
@@ -443,7 +449,7 @@ function TemplatePreviewCard({
                       disabled={saving}
                       onClick={() => onRestoreBadge?.(badge.id)}
                     >
-                      Restore {badge.label}
+                      {t("template.restoreBadge", { label: badge.label })}
                     </button>
                   ))}
                   {activeOverlay?.removable ? (
@@ -453,7 +459,7 @@ function TemplatePreviewCard({
                       disabled={saving}
                       onClick={() => onRemoveBadge?.(activeOverlay.id)}
                     >
-                      Remove {activeOverlay.label}
+                      {t("template.removeBadge", { label: activeOverlay.label })}
                     </button>
                   ) : null}
                   <button
@@ -462,7 +468,7 @@ function TemplatePreviewCard({
                     disabled={!textDirty || saving}
                     onClick={onSave}
                   >
-                    {saving ? "Updating…" : "Save & update"}
+                    {saving ? t("common.updating") : t("template.saveAndUpdate")}
                   </button>
                   {editMode ? (
                     <button
@@ -471,7 +477,7 @@ function TemplatePreviewCard({
                       disabled={saving || textDirty}
                       onClick={() => onDeselect?.()}
                     >
-                      Done
+                      {t("common.done")}
                     </button>
                   ) : null}
                 </div>

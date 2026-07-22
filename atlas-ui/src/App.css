@@ -33,7 +33,8 @@
   height: 100vh;
 }
 
-.layout-main:has(.run-shell) > .run-shell {
+.layout-main:has(.run-shell) > .run-shell,
+.layout-main:has(.run-shell) > *:last-child {
   flex: 1;
   min-height: 0;
   height: auto;
@@ -78,6 +79,13 @@
   gap: 12px;
   cursor: pointer;
   user-select: none;
+}
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
 }
 
 .btn-logout {
@@ -1974,7 +1982,7 @@ body.sb-resizing .sb {
   justify-content: space-between;
   gap: 16px;
   flex-wrap: wrap;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
 
 .page-head-main {
@@ -2005,28 +2013,57 @@ body.sb-resizing .sb {
 .page-head-title {
   margin: 0;
   font-family: var(--font-headline);
-  font-size: 24px;
-  font-weight: 700;
-  letter-spacing: var(--tracking-headline);
+  font-size: 22px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
   color: var(--text);
-  line-height: 1.25;
+  line-height: 1.2;
 }
 
 .page-head-subtitle {
-  margin: 6px 0 0;
-  font-size: 14px;
-  font-weight: 400;
-  color: #475569;
-  line-height: 1.45;
-  letter-spacing: var(--tracking-body);
+  margin: 4px 0 0;
+  font-size: 13.5px;
+  color: var(--text-muted);
+  line-height: 1.4;
 }
 
 .page-head-actions {
   display: flex;
   align-items: center;
-  gap: 10px;
+  justify-content: flex-end;
   flex-wrap: wrap;
-  flex-shrink: 0;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.page-head-actions > .tab-bar {
+  height: 36px;
+  align-items: stretch;
+}
+
+.page-head-actions > .btn,
+.page-head-actions > .delete-workspace-btn,
+.page-head-actions .step-matrix-edit-btn {
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.page-head-lang {
+  margin-left: 4px;
+}
+
+.page-head-lang .language-toggle-pills {
+  min-width: 92px;
+  height: 36px;
+  box-sizing: border-box;
+}
+
+.page-head-lang .pill-toggle-option {
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .chrome-bc {
@@ -2504,6 +2541,18 @@ body.sb-resizing .sb {
   align-items: center;
   gap: 16px;
   flex-wrap: wrap;
+}
+
+.run-chrome-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.run-chrome-lang {
+  margin: 0;
 }
 
 .run-back-link {

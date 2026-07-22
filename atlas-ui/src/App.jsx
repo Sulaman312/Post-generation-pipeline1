@@ -5,18 +5,30 @@ import AppSidebar from "./components/shared/AppSidebar";
 import { IconLogout } from "./components/shared/sidebar/sidebarIcons";
 import ClientsGrid from "./components/workspace/ClientsGrid";
 import WorkspaceMain from "./components/workspace/WorkspaceMain";
+import LanguageToggle from "./components/shared/LanguageToggle";
+import { LocaleProvider, useLocale } from "./context/LocaleContext";
 import { ToastProvider } from "./context/ToastContext";
 import { APP_BRAND_NAME, APP_LOGO } from "./constants/brand";
-import { appProductMeta } from "./constants/appProject";
+import { APP_PROJECT_MODE } from "./constants/appProject";
 import { readStoredSidebarWidth } from "./hooks/useSidebarResize";
 import { useRunPolling } from "./hooks/useRunPolling";
 import { useWorkspaceNavigation } from "./hooks/useWorkspaceNavigation";
 import * as api from "./services/api";
 import { getAuthToken } from "./services/api/http";
 
-const PRODUCT = appProductMeta();
+function productCopy(t) {
+  if (APP_PROJECT_MODE === "article") {
+    return { name: t("product.name.article"), tagline: t("product.tagline.article") };
+  }
+  if (APP_PROJECT_MODE === "social") {
+    return { name: t("product.name.social"), tagline: t("product.tagline.social") };
+  }
+  return { name: t("product.name.default"), tagline: t("product.tagline.default") };
+}
 
 function App() {
+  const { t } = useLocale();
+  const product = productCopy(t);
   const [authUser, setAuthUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [client, setClient] = useState(null);
@@ -123,7 +135,7 @@ function App() {
     return (
       <div className="login-screen">
         <div className="empty-state">
-          <span className="spinner" /> Checking session…
+          <span className="spinner" /> {t("session.checking")}
         </div>
       </div>
     );
@@ -146,14 +158,17 @@ function App() {
               height={36}
             />
             <div className="topbar-name">
-              {PRODUCT.name}
-              <span className="topbar-meta">{PRODUCT.workspaceTagline}</span>
+              {product.name}
+              <span className="topbar-meta">{product.tagline}</span>
             </div>
           </div>
-          <button type="button" className="btn btn-sm btn-logout" onClick={handleLogout}>
-            <IconLogout />
-            <span className="btn-logout-label">Logout</span>
-          </button>
+          <div className="topbar-actions">
+            <LanguageToggle compact className="topbar-language" />
+            <button type="button" className="btn btn-sm btn-logout" onClick={handleLogout}>
+              <IconLogout />
+              <span className="btn-logout-label">{t("nav.logout")}</span>
+            </button>
+          </div>
         </header>
         <main className="layout-main">
           <ClientsGrid
@@ -232,8 +247,10 @@ function App() {
 
 export default function AppWithToast() {
   return (
-    <ToastProvider>
-      <App />
-    </ToastProvider>
+    <LocaleProvider>
+      <ToastProvider>
+        <App />
+      </ToastProvider>
+    </LocaleProvider>
   );
 }

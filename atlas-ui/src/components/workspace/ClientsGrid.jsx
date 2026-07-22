@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import * as api from "../../services/api";
+import { useLocale } from "../../context/LocaleContext";
 import PageHeader from "../shared/PageHeader";
 import { workspaceDisplayName } from "../../utils/formatWorkspaceLabel";
 import ClientCard from "./ClientCard";
@@ -11,6 +12,7 @@ export default function ClientsGrid({
   logoVersions = {},
   onClientLogoSaved,
 }) {
+  const { t } = useLocale();
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
@@ -50,15 +52,16 @@ export default function ClientsGrid({
   return (
     <div className="page">
       <PageHeader
-        title="Workspaces"
-        subtitle="Pick a client workspace to open the editorial pipeline."
+        title={t("workspaces.title")}
+        subtitle={t("workspaces.subtitle")}
+        showLanguage={false}
         actions={
           <button
             type="button"
             className="btn btn-primary"
             onClick={() => setAdding((v) => !v)}
           >
-            + New Client
+            {t("workspaces.newClient")}
           </button>
         }
       />
@@ -93,14 +96,14 @@ export default function ClientsGrid({
         >
           <span style={{ flex: "1 1 280px" }}>{error}</span>
           <button type="button" className="btn btn-sm" onClick={() => load()}>
-            Retry
+            {t("common.retry")}
           </button>
         </div>
       ) : null}
 
       {loading ? (
         <div className="empty-state">
-          <span className="spinner" /> &nbsp; loading clients…
+          <span className="spinner" /> &nbsp; {t("workspaces.loading")}
         </div>
       ) : clients.length === 0 ? (
         <div
@@ -113,9 +116,7 @@ export default function ClientsGrid({
           }}
           onClick={() => setAdding(true)}
         >
-          No clients yet. Click{" "}
-          <strong style={{ color: "var(--text)" }}>+ New Client</strong> to
-          create your first workspace.
+          {t("workspaces.empty", { action: t("workspaces.newClient") })}
         </div>
       ) : (
         <div className="clients-grid">
@@ -133,7 +134,7 @@ export default function ClientsGrid({
             />
           ))}
           <div className="card client-card-add" onClick={() => setAdding(true)}>
-            + New workspace
+            {t("workspaces.newWorkspace")}
           </div>
         </div>
       )}

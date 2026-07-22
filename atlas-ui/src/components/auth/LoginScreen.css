@@ -1,10 +1,18 @@
 .login-screen {
+  position: relative;
   min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 24px;
   background: linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%);
+}
+
+.login-language-bar {
+  position: absolute;
+  top: max(16px, env(safe-area-inset-top));
+  right: max(16px, env(safe-area-inset-right));
+  z-index: 2;
 }
 
 .login-card {
@@ -130,10 +138,15 @@
     background: var(--canvas);
   }
 
+  .login-language-bar {
+    top: max(12px, env(safe-area-inset-top));
+    right: max(12px, env(safe-area-inset-right));
+  }
+
   .login-card {
     width: 100%;
     min-height: 100dvh;
-    padding: max(28px, env(safe-area-inset-top)) 20px
+    padding: max(56px, calc(env(safe-area-inset-top) + 44px)) 20px
       max(24px, env(safe-area-inset-bottom));
     border: 0;
     border-radius: 0;

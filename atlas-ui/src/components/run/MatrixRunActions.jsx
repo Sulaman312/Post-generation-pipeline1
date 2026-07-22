@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLocale } from "../../context/LocaleContext";
 
 /**
  * Run actions — panel (edit toolbar) or compact dropdown menu items.
@@ -13,6 +14,7 @@ export default function MatrixRunActions({
   onArchive,
   onDelete,
 }) {
+  const { t } = useLocale();
   const [busy, setBusy] = useState(false);
 
   async function runAction(action) {
@@ -32,9 +34,11 @@ export default function MatrixRunActions({
   }
 
   const noun = String(itemNoun || "article").trim() || "article";
-  const topicLabel = articleTopic?.trim() || `Untitled ${noun}`;
-  const archiveLabel = showRestore ? `Restore ${noun}` : `Archive ${noun}`;
-  const deleteLabel = `Delete ${noun}`;
+  const topicLabel = articleTopic?.trim() || t("matrix.untitled", { noun });
+  const archiveLabel = showRestore
+    ? t("matrix.restore", { noun })
+    : t("matrix.archive", { noun });
+  const deleteLabel = t("matrix.delete", { noun });
 
   if (variant === "menu") {
     return (
@@ -67,14 +71,14 @@ export default function MatrixRunActions({
           {topicLabel}
         </p>
       ) : null}
-      <div className="matrix-action-buttons" role="group" aria-label={`Actions for ${topicLabel}`}>
+      <div className="matrix-action-buttons" role="group" aria-label={t("matrix.runActions")}>
         <button
           type="button"
           className="matrix-action-btn"
           disabled={disabled || busy}
           onClick={() => runAction("archive")}
         >
-          {showRestore ? `Restore ${noun}` : `Archive ${noun}`}
+          {archiveLabel}
         </button>
         <button
           type="button"
@@ -82,7 +86,7 @@ export default function MatrixRunActions({
           disabled={disabled || busy}
           onClick={() => runAction("delete")}
         >
-          Delete {noun}
+          {deleteLabel}
         </button>
       </div>
     </div>

@@ -1,4 +1,5 @@
 import FormattedFieldText from "../shared/FormattedFieldText";
+import { useLocale } from "../../context/LocaleContext";
 import { parseContentAngleIntent } from "../../utils/parseContentAngleIntent";
 
 function renderAngleItem(text) {
@@ -16,13 +17,14 @@ function renderAngleItem(text) {
 }
 
 export default function ContentAngleStructured({ text }) {
+  const { t } = useLocale();
   const data = parseContentAngleIntent(text);
   if (!data) return null;
 
   const rows = [
-    { label: "Primary intent", value: data.primaryIntent },
-    { label: "Post format", value: data.postFormat },
-    { label: "Short angle statement", value: data.shortAngle },
+    { label: t("angle.primaryIntent"), value: data.primaryIntent },
+    { label: t("angle.postFormat"), value: data.postFormat },
+    { label: t("angle.shortStatement"), value: data.shortAngle },
   ].filter((r) => r.value?.trim());
 
   return (
@@ -38,7 +40,7 @@ export default function ContentAngleStructured({ text }) {
         ))}
         {data.alternatives.length > 0 ? (
           <div className="topic-card-field">
-            <div className="topic-card-field-label">Alternative angles</div>
+            <div className="topic-card-field-label">{t("angle.alternatives")}</div>
             <div className="topic-card-field-value">
               <ul className="content-angle-list">
                 {data.alternatives.map((item, i) => (

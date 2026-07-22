@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { SOCIAL_PIPELINE_STEPS as STEPS } from "../../constants/socialPipeline";
+import { useLocale, useStepLabel } from "../../context/LocaleContext";
 import {
   formatRunDate,
   formatRunDateTime,
@@ -19,32 +20,33 @@ function MatrixDoneGlyph() {
 }
 
 function MatrixCell({ status }) {
+  const { t } = useLocale();
   const s = status || "pending";
   if (s === "done") {
     return (
-      <td className="matrix-cell matrix-cell--done" title="Done">
+      <td className="matrix-cell matrix-cell--done" title={t("status.done")}>
         <MatrixDoneGlyph />
       </td>
     );
   }
   if (s === "running") {
     return (
-      <td className="matrix-cell matrix-cell--run" title="Running">
-        <span className="spinner matrix-spinner" aria-label="Running" />
+      <td className="matrix-cell matrix-cell--run" title={t("status.running")}>
+        <span className="spinner matrix-spinner" aria-label={t("status.running")} />
       </td>
     );
   }
   if (s === "error") {
     return (
-      <td className="matrix-cell matrix-cell--err" title="Error">
-        <span className="matrix-err" aria-label="Error">
+      <td className="matrix-cell matrix-cell--err" title={t("status.error")}>
+        <span className="matrix-err" aria-label={t("status.error")}>
           !
         </span>
       </td>
     );
   }
   return (
-    <td className="matrix-cell matrix-cell--pending" title="Pending">
+    <td className="matrix-cell matrix-cell--pending" title={t("status.pending")}>
       <span className="matrix-dash" aria-hidden>
         —
       </span>
@@ -81,6 +83,7 @@ function MatrixInputCard({
   onArchiveRun,
   onDeleteRun,
 }) {
+  const { t } = useLocale();
   const [menuOpen, setMenuOpen] = useState(false);
   const [showFullTitle, setShowFullTitle] = useState(false);
   const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
@@ -169,7 +172,7 @@ function MatrixInputCard({
           <span className="matrix-input-meta">
             <span
               className="matrix-input-meta-item"
-              title={createdTitle || "Created"}
+              title={createdTitle || t("matrix.created")}
             >
               <IconClock />
               {createdLabel}
@@ -186,7 +189,7 @@ function MatrixInputCard({
           ref={menuBtnRef}
           type="button"
           className={`matrix-input-menu-btn${menuOpen ? " matrix-input-menu-btn--open" : ""}`}
-          aria-label="Run actions"
+          aria-label={t("matrix.runActions")}
           aria-expanded={menuOpen}
           aria-haspopup="menu"
           onClick={() => {
@@ -216,7 +219,7 @@ function MatrixInputCard({
                   onOpen?.(run.run_id);
                 }}
               >
-                Open pipeline
+                {t("matrix.openPipeline")}
               </button>
               <button
                 type="button"
@@ -227,7 +230,7 @@ function MatrixInputCard({
                   setMenuOpen(false);
                 }}
               >
-                {showFullTitle ? "Hide full title" : "Show full title"}
+                {showFullTitle ? t("run.hideFullTitle") : t("run.showFullTitle")}
               </button>
               <MatrixRunActions
                 variant="menu"
@@ -261,8 +264,12 @@ export default function SocialStepMatrix({
   onArchiveRun,
   onDeleteRun,
   showRestore = false,
-  emptyMessage = "No social runs yet. Create one from the Social board.",
+  emptyMessage,
 }) {
+  const { t } = useLocale();
+  const stepLabel = useStepLabel();
+  const emptyText = emptyMessage || t("matrix.empty");
+
   return (
     <div
       className={`matrix-scroll${selectionMode ? " matrix-scroll--edit-mode" : ""}`}
@@ -270,23 +277,26 @@ export default function SocialStepMatrix({
       <table className="article-matrix">
         <thead>
           <tr>
-            <th className="matrix-th matrix-th--input">Input</th>
-            {STEPS.map((s) => (
-              <th
-                key={s.key}
-                className="matrix-th matrix-th--step"
-                title={s.label}
-              >
-                {s.matrixLabel || s.label}
-              </th>
-            ))}
+            <th className="matrix-th matrix-th--input">{t("matrix.input")}</th>
+            {STEPS.map((s) => {
+              const label = stepLabel(s);
+              return (
+                <th
+                  key={s.key}
+                  className="matrix-th matrix-th--step"
+                  title={label}
+                >
+                  {label}
+                </th>
+              );
+            })}
           </tr>
         </thead>
         <tbody>
           {runs.length === 0 && !loading ? (
             <tr>
               <td colSpan={STEPS.length + 1} className="matrix-empty">
-                {emptyMessage}
+                {emptyText}
               </td>
             </tr>
           ) : null}

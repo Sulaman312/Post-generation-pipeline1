@@ -2,13 +2,14 @@
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  padding: 7px 12px;
+  padding: 0 12px;
+  min-height: 36px;
   border: 1px solid #fecaca;
-  border-radius: 8px;
+  border-radius: 9px;
   background: #fff;
   color: var(--error-text);
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
   line-height: 1;
   cursor: pointer;
   flex-shrink: 0;

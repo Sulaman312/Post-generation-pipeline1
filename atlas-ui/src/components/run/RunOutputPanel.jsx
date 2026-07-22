@@ -1,5 +1,6 @@
 import { useState } from "react";
 import * as api from "../../services/api";
+import { useLocale } from "../../context/LocaleContext";
 import { executeRunStep } from "../../utils/runStepAction";
 import PublishPlatformControls from "./PublishPlatformControls";
 import ArtifactView from "./RunArtifactView";
@@ -44,6 +45,7 @@ export default function RunOutputPanel({
   onShowOutput,
   onGoToNextStep,
 }) {
+  const { t } = useLocale();
   const [publishActionsLocked, setPublishActionsLocked] = useState(false);
   const showInlineRun = (pipelineId || "social_media") === "social_media";
   const isPublishStep = showInlineRun && step.key === "publish";
@@ -96,7 +98,10 @@ export default function RunOutputPanel({
       );
       await onRunComplete?.();
       onShowOutput?.();
-      toast?.(`Ran ${step.label}.`, { variant: "success", duration: 3500 });
+      toast?.(t("run.toastRan", { label: step.label }), {
+        variant: "success",
+        duration: 3500,
+      });
     } catch (e) {
       const msg = e?.message || String(e);
       onStepError?.(msg);
@@ -145,7 +150,10 @@ export default function RunOutputPanel({
           client={client}
           runId={runId}
           toast={toast}
-          label={`Step ${step.index} · Generating ${step.label.toLowerCase()}…`}
+          label={t("run.generatingStep", {
+            index: step.index,
+            label: step.label.toLowerCase(),
+          })}
         />
       </>
     );
@@ -158,10 +166,7 @@ export default function RunOutputPanel({
           <div className="run-artifact-card">
             <div className="run-artifact-body">
               <div className="empty-state empty-state-inline">
-                No output yet. Use{" "}
-                <strong style={{ color: "var(--text)" }}>Run</strong> or{" "}
-                <strong style={{ color: "var(--text)" }}>Re-run</strong> beside this
-                step in the sidebar.
+                {t("run.noOutputYet")}
                 {showInlineRun ? (
                   <div style={{ marginTop: 12 }}>
                     <button
@@ -170,12 +175,12 @@ export default function RunOutputPanel({
                       disabled={inlineRunLocked}
                       title={
                         inlineRunLocked
-                          ? "Change the schedule to publish immediately"
+                          ? t("publish.lockImmediate")
                           : undefined
                       }
                       onClick={handleInlineRun}
                     >
-                      ▶ Run this step
+                      ▶ {t("run.runThisStep")}
                     </button>
                   </div>
                 ) : null}
