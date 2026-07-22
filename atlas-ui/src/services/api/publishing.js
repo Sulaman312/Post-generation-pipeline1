@@ -1,4 +1,4 @@
-import { request } from "./http";
+import { request, STEP_REQUEST_TIMEOUT_MS } from "./http";
 
 export async function publishRunPlatforms(clientId, runId, platforms = null) {
   const body = platforms ? { platforms } : {};
@@ -8,6 +8,8 @@ export async function publishRunPlatforms(clientId, runId, platforms = null) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
+      // Publish to Meta/LinkedIn often exceeds the default 30s client timeout.
+      timeoutMs: STEP_REQUEST_TIMEOUT_MS,
     }
   );
 }
